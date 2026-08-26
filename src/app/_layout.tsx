@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 
 import { useAppFonts } from "@/lib/fonts";
+import { PreferencesProvider } from "@/providers/PreferencesProvider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,5 +22,9 @@ export default function RootLayout() {
     return null;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <PreferencesProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </PreferencesProvider>
+  );
 }

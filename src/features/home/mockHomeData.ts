@@ -1,5 +1,5 @@
 export const MOCK_HOME_DATA = {
-  displayName: "Mia",
+  displayName: "Jocie",
   streakDays: 3,
   personalBests: {
     addition: 18,

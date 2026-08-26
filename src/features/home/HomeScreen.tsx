@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,6 +15,8 @@ import { HOME_MODE_CARDS } from "./homeModeCards";
 import { MOCK_HOME_DATA } from "./mockHomeData";
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -37,6 +39,12 @@ export default function HomeScreen() {
               key={mode.id}
               best={MOCK_HOME_DATA.personalBests[mode.id]}
               color={mode.color}
+              onPress={() =>
+                router.push({
+                  pathname: "/sprint/setup",
+                  params: { mode: mode.id },
+                })
+              }
               symbol={mode.symbol}
               title={mode.title}
             />

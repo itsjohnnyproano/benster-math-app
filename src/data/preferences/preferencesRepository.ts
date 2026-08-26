@@ -1,0 +1,65 @@
+import Storage from "expo-sqlite/kv-store";
+
+import {
+  isCardLayout,
+  isInputStyle,
+  isSprintDuration,
+  type UserPreferences,
+} from "@/domain/sprint";
+
+import { DEFAULT_PREFERENCES } from "./preferenceDefaults";
+
+const PREFERENCES_KEY = "math-sprint:user-preferences:v1";
+
+let writeQueue = Promise.resolve();
+
+function sanitizePreferences(value: unknown): UserPreferences {
+  if (!value || typeof value !== "object") {
+    return DEFAULT_PREFERENCES;
+  }
+
+  const candidate = value as Partial<UserPreferences>;
+
+  return {
+    durationSeconds: isSprintDuration(candidate.durationSeconds)
+      ? candidate.durationSeconds
+      : DEFAULT_PREFERENCES.durationSeconds,
+    inputStyle: isInputStyle(candidate.inputStyle)
+      ? candidate.inputStyle
+      : DEFAULT_PREFERENCES.inputStyle,
+    cardLayout: isCardLayout(candidate.cardLayout)
+      ? candidate.cardLayout
+      : DEFAULT_PREFERENCES.cardLayout,
+    levelUpEnabled:
+      typeof candidate.levelUpEnabled === "boolean"
+        ? candidate.levelUpEnabled
+        : DEFAULT_PREFERENCES.levelUpEnabled,
+    darkModeEnabled:
+      typeof candidate.darkModeEnabled === "boolean"
+        ? candidate.darkModeEnabled
+        : DEFAULT_PREFERENCES.darkModeEnabled,
+  };
+}
+
+export async function loadPreferences(): Promise<UserPreferences> {
+  try {
+    const savedValue = await Storage.getItem(PREFERENCES_KEY);
+
+    if (!savedValue) {
+      return DEFAULT_PREFERENCES;
+    }
+
+    return sanitizePreferences(JSON.parse(savedValue));
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+}
+
+export function savePreferences(preferences: UserPreferences): Promise<void> {
+  const nextWrite = writeQueue.then(() =>
+    Storage.setItem(PREFERENCES_KEY, JSON.stringify(preferences)),
+  );
+
+  writeQueue = nextWrite.catch(() => undefined);
+  return nextWrite;
+}

@@ -1,9 +1,8 @@
 import { COLORS } from "@/theme/tokens";
-
-import type { MockHomePersonalBestKey } from "./mockHomeData";
+import type { SprintMode } from "@/domain/sprint";
 
 export type HomeModeCardConfig = {
-  id: MockHomePersonalBestKey;
+  id: SprintMode;
   title: string;
   symbol: string;
   color: string;

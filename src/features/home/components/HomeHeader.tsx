@@ -50,12 +50,12 @@ const styles = StyleSheet.create({
   greeting: {
     color: COLORS.ink,
     fontFamily: "NunitoSans_700Bold",
-    fontSize: 34,
+    fontSize: 32,
     lineHeight: 41,
     letterSpacing: -1,
   },
   subtitle: {
-    marginTop: 3,
+    marginTop: 1,
     color: COLORS.secondary,
     fontFamily: "NunitoSans_600SemiBold",
     fontSize: 17,
