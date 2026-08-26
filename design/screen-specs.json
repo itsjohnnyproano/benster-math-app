@@ -1,0 +1,139 @@
+{
+  "frame": {
+    "width": 390,
+    "height": 844,
+    "background": "#F6F3FF",
+    "fontFamily": "Inter"
+  },
+  "screens": {
+    "01-home": {
+      "modeCards": {
+        "x": 24,
+        "width": 342,
+        "height": 88,
+        "radius": 18
+      },
+      "bottomNavHeight": 62
+    },
+    "02-sprint-setup": {
+      "settingsRows": {
+        "x": 24,
+        "width": 342,
+        "height": 64,
+        "radius": 15
+      },
+      "primaryButton": {
+        "x": 30,
+        "y": 702,
+        "width": 330,
+        "height": 58,
+        "radius": 14
+      }
+    },
+    "03-sprint-multiple-choice": {
+      "questionCard": {
+        "x": 50,
+        "y": 116,
+        "width": 272,
+        "height": 146,
+        "radius": 18
+      },
+      "answerButton": {
+        "width": 156,
+        "height": 58,
+        "radius": 14
+      }
+    },
+    "04-sprint-typed-answer": {
+      "answerField": {
+        "x": 24,
+        "y": 352,
+        "width": 342,
+        "height": 50,
+        "radius": 14
+      },
+      "key": {
+        "width": 92,
+        "height": 46,
+        "radius": 11
+      }
+    },
+    "05-sprint-vertical-layout": {
+      "questionCard": {
+        "x": 55,
+        "y": 105,
+        "width": 260,
+        "height": 220,
+        "radius": 18
+      }
+    },
+    "06-sprint-vertical-typed": {
+      "questionCard": {
+        "x": 55,
+        "y": 105,
+        "width": 260,
+        "height": 220,
+        "radius": 18
+      },
+      "key": {
+        "width": 92,
+        "height": 46,
+        "radius": 11
+      }
+    },
+    "07-results": {
+      "topHeroHeight": 215,
+      "resultsCard": {
+        "x": 24,
+        "y": 190,
+        "width": 342,
+        "height": 178,
+        "radius": 22
+      }
+    },
+    "08-history": {
+      "historyCard": {
+        "x": 24,
+        "width": 342,
+        "height": 74,
+        "radius": 14
+      }
+    },
+    "09-streak": {
+      "streakRing": {
+        "cx": 195,
+        "cy": 217,
+        "radius": 86,
+        "stroke": 4
+      },
+      "mountainArea": {
+        "x": 0,
+        "y": 575,
+        "width": 390,
+        "height": 156
+      }
+    },
+    "10-settings": {
+      "settingsRow": {
+        "x": 24,
+        "width": 342,
+        "height": 64,
+        "radius": 14
+      }
+    },
+    "11-select-tables": {
+      "tableCell": {
+        "width": 72,
+        "height": 52,
+        "radius": 13
+      },
+      "primaryButton": {
+        "x": 24,
+        "y": 721,
+        "width": 342,
+        "height": 58,
+        "radius": 14
+      }
+    }
+  }
+}

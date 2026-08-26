@@ -1,0 +1,54 @@
+{
+  "canvas": {
+    "width": 390,
+    "height": 844
+  },
+  "colors": {
+    "background": "#F6F3FF",
+    "card": "#FFFFFF",
+    "cardWarm": "#FFFDF9",
+    "primary": "#6D45E8",
+    "primaryDark": "#5632C7",
+    "primarySoft": "#EAE3FF",
+    "primarySoft2": "#F0ECFF",
+    "orange": "#FF8A1F",
+    "yellow": "#FFC436",
+    "green": "#35C66A",
+    "blue": "#2F8DF4",
+    "red": "#FF5C5C",
+    "text": "#111827",
+    "textSecondary": "#6B7280",
+    "border": "#E7E2F0",
+    "mutedFill": "#F4F1FA",
+    "lockedFill": "#EFECEF"
+  },
+  "radius": {
+    "screen": 28,
+    "card": 16,
+    "button": 14,
+    "small": 10,
+    "pill": 999
+  },
+  "shadow": {
+    "y": 4,
+    "blur": 14,
+    "opacity": 0.1
+  },
+  "spacing": {
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "xxl": 32
+  },
+  "type": {
+    "family": "Inter",
+    "display": 34,
+    "h1": 24,
+    "h2": 20,
+    "body": 15,
+    "small": 12,
+    "caption": 10
+  }
+}
