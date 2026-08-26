@@ -1,19 +1,12 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 export default function Index() {
   return (
-    <View style={styles.container}>
-      <Text>Home Screen</Text>
-      <Text>This is the New Math App</Text>
+    <View className="flex-1 items-center justify-center bg-background px-xl font-sans">
+      <Text className="text-h1 font-sans-bold text-text">Home Screen</Text>
+      <Text className="mt-sm text-body text-text-secondary">
+        Math Sprint with NativeWind
+      </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 20,
-  },
-});

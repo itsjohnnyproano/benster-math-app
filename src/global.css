@@ -1,0 +1,69 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+
+@import "nativewind/theme";
+
+@theme {
+  --color-background: #f6f3ff;
+  --color-card: #ffffff;
+  --color-card-warm: #fffdf9;
+  --color-primary: #6d45e8;
+  --color-primary-dark: #5632c7;
+  --color-primary-soft: #eae3ff;
+  --color-primary-soft-2: #f0ecff;
+  --color-orange: #ff8a1f;
+  --color-yellow: #ffc436;
+  --color-green: #35c66a;
+  --color-blue: #2f8df4;
+  --color-red: #ff5c5c;
+  --color-text: #111827;
+  --color-text-secondary: #6b7280;
+  --color-border: #e7e2f0;
+  --color-muted-fill: #f4f1fa;
+  --color-locked-fill: #efecef;
+
+  --radius-screen: 28px;
+  --radius-card: 16px;
+  --radius-button: 14px;
+  --radius-small: 10px;
+  --radius-pill: 999px;
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-xxl: 32px;
+
+  --font-sans: NunitoSans_400Regular;
+  --font-sans-semibold: NunitoSans_600SemiBold;
+  --font-sans-bold: NunitoSans_700Bold;
+
+  --text-display: 34px;
+  --text-h1: 24px;
+  --text-h2: 20px;
+  --text-body: 15px;
+  --text-small: 12px;
+  --text-caption: 10px;
+}
+
+:root {
+  --color-background: #f6f3ff;
+  --color-card: #ffffff;
+  --color-card-warm: #fffdf9;
+  --color-primary: #6d45e8;
+  --color-primary-dark: #5632c7;
+  --color-primary-soft: #eae3ff;
+  --color-primary-soft-2: #f0ecff;
+  --color-orange: #ff8a1f;
+  --color-yellow: #ffc436;
+  --color-green: #35c66a;
+  --color-blue: #2f8df4;
+  --color-red: #ff5c5c;
+  --color-text: #111827;
+  --color-text-secondary: #6b7280;
+  --color-border: #e7e2f0;
+  --color-muted-fill: #f4f1fa;
+  --color-locked-fill: #efecef;
+}
