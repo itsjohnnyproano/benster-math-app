@@ -10,19 +10,26 @@ type ModeCardProps = {
   onPress?: () => void;
 };
 
+const SYMBOL_OFFSETS: Record<string, { x: number; y: number }> = {
+  "+": { x: 0, y: 7 },
+  "−": { x: 0, y: 7 },
+  "×": { x: 0, y: 7 },
+};
+
+function getSymbolOffset(symbol: string) {
+  return SYMBOL_OFFSETS[symbol] ?? { x: 0, y: 7 };
+}
+
 export function ModeCard({ title, best, symbol, color, onPress }: ModeCardProps) {
+  const symbolOffset = getSymbolOffset(symbol);
+
   return (
     <Pressable
       accessibilityHint={`Starts a ${title.toLowerCase()} sprint`}
       accessibilityLabel={`${title}, personal best ${best}`}
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.modeCard,
-        { backgroundColor: color },
-        CARD_SHADOW,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.modeCard, { backgroundColor: color }, CARD_SHADOW, pressed && styles.pressed]}
     >
       <View style={styles.modeDecorationOne} />
       <View style={styles.modeDecorationTwo} />
@@ -35,7 +42,18 @@ export function ModeCard({ title, best, symbol, color, onPress }: ModeCardProps)
         </View>
       </View>
       <View style={styles.symbolTile}>
-        <Text style={[styles.symbol, { color }]}>{symbol}</Text>
+        <Text
+          allowFontScaling={false}
+          style={[
+            styles.symbol,
+            { color },
+            {
+              transform: [{ translateX: symbolOffset.x }, { translateY: symbolOffset.y }],
+            },
+          ]}
+        >
+          {symbol}
+        </Text>
       </View>
     </Pressable>
   );
@@ -81,6 +99,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     ...Platform.select({
       ios: {
         shadowColor: "#16233A",
@@ -95,7 +114,13 @@ const styles = StyleSheet.create({
   symbol: {
     fontFamily: "NunitoSans_700Bold",
     fontSize: 52,
-    lineHeight: 58,
+    lineHeight: 52,
+    width: 52,
+    textAlign: "center",
+    includeFontPadding: false,
+    ...Platform.select({
+      android: { textAlignVertical: "center" },
+    }),
   },
   modeDecorationOne: {
     position: "absolute",

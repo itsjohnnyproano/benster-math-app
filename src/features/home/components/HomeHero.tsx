@@ -37,16 +37,16 @@ const styles = StyleSheet.create({
   heroLine: {
     color: COLORS.ink,
     fontFamily: "NunitoSans_700Bold",
-    fontSize: 29,
-    lineHeight: 34,
+    fontSize: 35,
+    // lineHeight: 34,
     letterSpacing: -0.7,
   },
   heroAccent: {
-    marginTop: -2,
+    marginTop: -8,
     color: COLORS.primary,
     fontFamily: "NunitoSans_700Bold",
-    fontSize: 42,
-    lineHeight: 49,
+    fontSize: 35,
+    // lineHeight: 49,
     letterSpacing: -1,
   },
   mascot: {
