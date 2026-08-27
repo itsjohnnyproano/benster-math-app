@@ -32,7 +32,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <HomeHeader
-          displayName={MOCK_HOME_DATA.displayName}
+          displayName={preferences.nickname}
           streakDays={MOCK_HOME_DATA.streakDays}
         />
         <HomeHero />

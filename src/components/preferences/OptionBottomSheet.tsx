@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "@/theme/tokens";
 
-import type { SetupOption } from "../sprintSetupOptions";
+import type { PreferenceOption } from "./practiceOptions";
 
 type OptionValue = string | number;
 
@@ -18,7 +18,7 @@ type OptionBottomSheetProps = {
   visible: boolean;
   title: string;
   selectedValue: OptionValue;
-  options: readonly SetupOption[];
+  options: readonly PreferenceOption[];
   onClose: () => void;
   onSelect: (value: OptionValue) => void;
 };

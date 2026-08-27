@@ -15,6 +15,7 @@ export type InputStyle = (typeof INPUT_STYLES)[number];
 export type CardLayout = (typeof CARD_LAYOUTS)[number];
 
 export type UserPreferences = {
+  nickname: string;
   durationSeconds: SprintDurationSeconds;
   inputStyle: InputStyle;
   cardLayout: CardLayout;
