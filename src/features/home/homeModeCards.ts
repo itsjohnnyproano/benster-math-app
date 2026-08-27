@@ -6,6 +6,14 @@ export type HomeModeCardConfig = {
   title: string;
   symbol: string;
   color: string;
+  description: string;
+};
+
+const DESCRIPTIONS: Record<SprintMode, string> = {
+  addition: "Add with confidence!",
+  subtraction: "Subtract like a pro!",
+  multiplication: "Multiply and succeed!",
+  mixed: "A little of everything!",
 };
 
 export const HOME_MODE_CARDS: HomeModeCardConfig[] = SPRINT_MODES.map((id) => {
@@ -16,5 +24,6 @@ export const HOME_MODE_CARDS: HomeModeCardConfig[] = SPRINT_MODES.map((id) => {
     title: details.homeTitle,
     symbol: details.symbol,
     color: details.color,
+    description: DESCRIPTIONS[id],
   };
 });

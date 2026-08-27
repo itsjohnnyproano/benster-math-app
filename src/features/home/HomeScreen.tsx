@@ -1,9 +1,9 @@
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { BottomNavigation } from "@/components/navigation/BottomNavigation";
+import { useTabBarLayout } from "@/components/navigation/tabBarLayout";
 
 import { COLORS } from "@/theme/tokens";
 
@@ -18,18 +18,18 @@ import { usePersonalBests } from "./usePersonalBests";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { contentInset } = useTabBarLayout();
   const streak = usePracticeStreak();
   const { preferences, isReady } = usePreferences();
   const personalBests = usePersonalBests(preferences.durationSeconds, isReady);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
-      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="dark" />
 
       <ScrollView
         bounces={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentInset }]}
         showsVerticalScrollIndicator={false}
       >
         <HomeHeader
@@ -62,12 +62,12 @@ export default function HomeScreen() {
               }
               symbol={mode.symbol}
               title={mode.title}
+              description={mode.description}
             />
           ))}
         </View>
       </ScrollView>
 
-      <BottomNavigation />
     </SafeAreaView>
   );
 }
@@ -77,7 +77,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 24,
     paddingTop: 18,
-    paddingBottom: 22,
     gap: 18,
   },
   modeList: { gap: 13 },

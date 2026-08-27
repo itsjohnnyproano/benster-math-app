@@ -1,11 +1,10 @@
 import Constants from "expo-constants";
-import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { BottomNavigation } from "@/components/navigation/BottomNavigation";
+import { useTabBarLayout } from "@/components/navigation/tabBarLayout";
 import { PracticePreferences } from "@/components/preferences/PracticePreferences";
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
 import { MAX_NICKNAME_LENGTH, normalizeNickname } from "@/domain/nickname";
@@ -14,16 +13,16 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { formatResetPracticeMessage } from "./settingsPresentation";
 
 export default function SettingsScreen() {
+  const { contentInset } = useTabBarLayout();
   const { preferences, isReady, updatePreference, resetPracticePreferences } = usePreferences();
   const [resetOpen, setResetOpen] = useState(false);
   // Keep the shared save/retry feedback beside the most recently edited section.
   const [saveSection, setSaveSection] = useState<"nickname" | "practice">("practice");
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
-      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="dark" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: contentInset }]} showsVerticalScrollIndicator={false}>
           <Text accessibilityRole="header" style={styles.title}>Settings</Text>
           <Text style={styles.subtitle}>Make practice feel like you.</Text>
 
@@ -56,7 +55,6 @@ export default function SettingsScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-      <BottomNavigation active="settings" />
       <Modal transparent visible={resetOpen} animationType="fade" onRequestClose={() => setResetOpen(false)}>
         <View style={styles.backdrop}>
           <View accessibilityViewIsModal style={styles.dialog}>
@@ -112,7 +110,7 @@ function NicknameEditor({ nickname, disabled, onSave }: { nickname: string; disa
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   flex: { flex: 1 },
-  content: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 28 },
+  content: { paddingHorizontal: 24, paddingTop: 24 },
   title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 34 },
   subtitle: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 16, marginTop: 6 },
   section: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 19, marginTop: 28, marginBottom: 12 },
