@@ -2,6 +2,7 @@ export const SPRINT_MODES = [
   "addition",
   "subtraction",
   "multiplication",
+  "mixed",
 ] as const;
 
 export const SPRINT_DURATIONS = [30, 60, 90, 120] as const;

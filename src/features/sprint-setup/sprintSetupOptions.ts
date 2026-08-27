@@ -3,9 +3,7 @@ import {
   type CardLayout,
   type InputStyle,
   type SprintDurationSeconds,
-  type SprintMode,
 } from "@/domain/sprint";
-import { COLORS } from "@/theme/tokens";
 
 import { formatDurationLabel } from "./formatSprintDuration";
 
@@ -57,16 +55,3 @@ export const CARD_LAYOUT_OPTIONS: readonly SetupOption<CardLayout>[] = [
     preview: "vertical",
   },
 ];
-
-export const MODE_DETAILS: Record<
-  SprintMode,
-  { title: string; symbol: string; color: string }
-> = {
-  addition: { title: "Addition", symbol: "+", color: COLORS.orange },
-  subtraction: { title: "Subtraction", symbol: "−", color: COLORS.blue },
-  multiplication: {
-    title: "Multiplication",
-    symbol: "×",
-    color: COLORS.green,
-  },
-};

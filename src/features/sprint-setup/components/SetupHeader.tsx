@@ -1,10 +1,9 @@
 import { SymbolView } from "expo-symbols";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
 import type { SprintMode } from "@/domain/sprint";
 import { COLORS } from "@/theme/tokens";
-
-import { MODE_DETAILS } from "../sprintSetupOptions";
 
 type SetupHeaderProps = {
   mode: SprintMode;
@@ -13,7 +12,7 @@ type SetupHeaderProps = {
 };
 
 export function SetupHeader({ mode, subtitle, onBack }: SetupHeaderProps) {
-  const modeDetails = MODE_DETAILS[mode];
+  const modeDetails = SPRINT_MODE_DETAILS[mode];
 
   return (
     <View style={styles.header}>

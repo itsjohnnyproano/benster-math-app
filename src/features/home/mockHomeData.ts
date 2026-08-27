@@ -5,6 +5,7 @@ export const MOCK_HOME_DATA = {
     addition: 18,
     subtraction: 15,
     multiplication: 12,
+    mixed: 0,
   },
 } as const;
 

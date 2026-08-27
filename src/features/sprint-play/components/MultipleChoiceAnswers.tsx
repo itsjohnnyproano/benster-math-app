@@ -1,0 +1,89 @@
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { CARD_SHADOW, COLORS } from "@/theme/tokens";
+
+import type { AnswerFeedback } from "../types";
+
+type MultipleChoiceAnswersProps = {
+  choices: readonly number[];
+  feedback: AnswerFeedback | null;
+  onSelect: (answer: number) => void;
+};
+
+export function MultipleChoiceAnswers({
+  choices,
+  feedback,
+  onSelect,
+}: MultipleChoiceAnswersProps) {
+  return (
+    <View style={styles.grid}>
+      {choices.map((choice) => {
+        const isSubmitted = feedback?.submittedAnswer === choice;
+        const isCorrect = feedback?.correctAnswer === choice;
+        const isWrongSelection = Boolean(feedback && isSubmitted && !isCorrect);
+
+        return (
+          <Pressable
+            accessibilityLabel={`Answer ${choice}`}
+            accessibilityRole="button"
+            disabled={Boolean(feedback)}
+            key={choice}
+            onPress={() => onSelect(choice)}
+            style={({ pressed }) => [
+              styles.answer,
+              CARD_SHADOW,
+              feedback && isCorrect && styles.correctAnswer,
+              isWrongSelection && styles.wrongAnswer,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.answerText,
+                feedback && isCorrect && styles.feedbackText,
+                isWrongSelection && styles.feedbackText,
+              ]}
+            >
+              {choice}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  grid: {
+    width: "100%",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 13,
+  },
+  answer: {
+    width: "47.7%",
+    height: 60,
+    borderRadius: 17,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  answerText: {
+    color: COLORS.ink,
+    fontFamily: "NunitoSans_700Bold",
+    fontSize: 23,
+  },
+  correctAnswer: {
+    borderColor: COLORS.green,
+    backgroundColor: COLORS.green,
+  },
+  wrongAnswer: {
+    borderColor: COLORS.red,
+    backgroundColor: COLORS.red,
+  },
+  feedbackText: { color: COLORS.card },
+  pressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },
+});
