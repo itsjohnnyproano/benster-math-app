@@ -22,6 +22,10 @@ function createResult(state: ActiveSprintState, completedAtMs: number): SprintRe
       state.attemptedCount === 0
         ? 0
         : state.correctCount / state.attemptedCount,
+    averageResponseMs: state.attemptedCount === 0
+      ? null
+      : state.answeredQuestions.reduce((total, answer) => total + answer.elapsedMs, 0)
+        / state.attemptedCount,
     bestStreak: state.bestStreak,
     finalLevel: state.difficultyLevel,
     answeredQuestions: state.answeredQuestions,
@@ -86,6 +90,7 @@ export function submitAnswer(
   submittedAnswer: number,
   answeredAtMs: number,
   random: RandomSource = Math.random,
+  nextQuestionPresentedAtMs: number = answeredAtMs,
 ): SprintState {
   if (state.status === "completed") return state;
   if (answeredAtMs >= state.endsAtMs) {
@@ -117,16 +122,8 @@ export function submitAnswer(
     answeredQuestion,
   ]);
 
-  return Object.freeze({
+  const updatedState = {
     ...state,
-    currentQuestion: generateQuestion({
-      mode: state.configuration.mode,
-      levelUpEnabled: state.configuration.levelUpEnabled,
-      difficultyLevel,
-      questionId: state.nextQuestionId,
-      presentedAtMs: answeredAtMs,
-      random,
-    }),
     answeredQuestions,
     attemptedCount: state.attemptedCount + 1,
     correctCount: state.correctCount + (isCorrect ? 1 : 0),
@@ -134,5 +131,23 @@ export function submitAnswer(
     bestStreak,
     difficultyLevel,
     nextQuestionId: state.nextQuestionId + 1,
+  };
+
+  // An answer accepted before the deadline still counts when its feedback
+  // finishes after expiry. Do not create an unseen next question.
+  if (nextQuestionPresentedAtMs >= state.endsAtMs) {
+    return completeSprint(updatedState, state.endsAtMs);
+  }
+
+  return Object.freeze({
+    ...updatedState,
+    currentQuestion: generateQuestion({
+      mode: state.configuration.mode,
+      levelUpEnabled: state.configuration.levelUpEnabled,
+      difficultyLevel,
+      questionId: state.nextQuestionId,
+      presentedAtMs: Math.max(answeredAtMs, nextQuestionPresentedAtMs),
+      random,
+    }),
   });
 }

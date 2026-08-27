@@ -1,5 +1,7 @@
+import { Image } from "expo-image";
 import { SymbolView } from "expo-symbols";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "@/theme/tokens";
 
@@ -14,6 +16,10 @@ export function CountdownView({
   modeTitle,
   onClose,
 }: CountdownViewProps) {
+  const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const mascotSize = Math.max(48, Math.min(112, height - insets.top - insets.bottom - 480));
+
   return (
     <View style={styles.screen}>
       <Pressable
@@ -33,12 +39,18 @@ export function CountdownView({
         />
       </Pressable>
       <View style={styles.container}>
-        <Text style={styles.eyebrow}>{modeTitle} sprint</Text>
-        <Text style={styles.ready}>Ready?</Text>
+        <Text maxFontSizeMultiplier={1.2} style={styles.eyebrow}>{modeTitle} sprint</Text>
+        <Text maxFontSizeMultiplier={1.2} style={styles.ready}>Ready?</Text>
         <View style={styles.countCircle}>
           <Text maxFontSizeMultiplier={1.2} style={styles.count}>{count}</Text>
         </View>
-        <Text style={styles.note}>Your timer starts after the countdown</Text>
+        <Image
+          source={require("../../../../assets/mascot/penguin-sprint-start-crouch-exact.png")}
+          contentFit="contain"
+          accessible={false}
+          style={[styles.mascot, { width: mascotSize, height: mascotSize }]}
+        />
+        <Text maxFontSizeMultiplier={1.2} style={styles.note}>Your timer starts after the countdown</Text>
       </View>
     </View>
   );
@@ -62,7 +74,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingVertical: 60,
+    paddingVertical: 52,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -105,8 +117,9 @@ const styles = StyleSheet.create({
     // Optically center Nunito's numeral ink, not just its line box.
     transform: [{ translateY: 6 }],
   },
+  mascot: { marginTop: 12 },
   note: {
-    marginTop: 20,
+    marginTop: 12,
     maxWidth: 280,
     color: COLORS.secondary,
     fontFamily: "NunitoSans_600SemiBold",

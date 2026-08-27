@@ -86,6 +86,28 @@ describe("question generation", () => {
 });
 
 describe("sprint state", () => {
+  it("excludes feedback from subsequent response times", () => {
+    const initial = createSprint(CONFIGURATION, 1000, () => 0.2);
+    const second = submitAnswer(initial, initial.currentQuestion.correctAnswer, 2000, () => 0.2, 2650);
+    if (second.status !== "active") throw new Error("Expected active sprint");
+    expect(second.currentQuestion.presentedAtMs).toBe(2650);
+    const third = submitAnswer(second, second.currentQuestion.correctAnswer + 1, 3650, () => 0.2, 4300);
+    const completed = tickSprint(third, initial.endsAtMs);
+    if (completed.status !== "completed") throw new Error("Expected completion");
+    expect(completed.result.answeredQuestions.map((answer) => answer.elapsedMs)).toEqual([1000, 1000]);
+    expect(completed.result.averageResponseMs).toBe(1000);
+  });
+
+  it("counts a pre-deadline answer when feedback finishes after expiry", () => {
+    const initial = createSprint(CONFIGURATION, 1000, () => 0.2);
+    const completed = submitAnswer(initial, initial.currentQuestion.correctAnswer,
+      initial.endsAtMs - 1, () => 0.2, initial.endsAtMs + 649);
+    if (completed.status !== "completed") throw new Error("Expected completion");
+    expect(completed.result.correctCount).toBe(1);
+    expect(completed.result.attemptedCount).toBe(1);
+    expect(completed.result.completedAtMs).toBe(initial.endsAtMs);
+    expect(completed.result.answeredQuestions).toHaveLength(1);
+  });
   it.each(["multiplication", "mixed"] as const)(
     "uses all twelve tables without progression in %s when Level Up is off",
     (mode) => {

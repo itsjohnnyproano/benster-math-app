@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { MathQuestion } from "@/domain/math-engine";
@@ -12,19 +13,25 @@ type QuestionCardProps = {
 
 export function QuestionCard({ layout, question, height }: QuestionCardProps) {
   const isVertical = layout === "vertical";
+  const [cardWidth, setCardWidth] = useState(272);
   // Equation sizing belongs to the card's height budget rather than OS text
   // scaling; the complete equation remains available to screen readers.
-  const fontSize = Math.min(48, Math.max(24, (height - 20) / 2.6));
+  const leftDigits = String(question.leftOperand).length;
+  const rightDigits = String(question.rightOperand).length;
+  const digitCount = isVertical ? Math.max(leftDigits, rightDigits) : leftDigits + rightDigits;
+  // Reserve padding, operator width, and gaps even for equations like 100 + 100.
+  const widthLimit = (cardWidth - 64) / (digitCount * 0.65 + 0.8);
+  const fontSize = Math.min(60, widthLimit, Math.max(24, (height - 20) / 2.6));
   const numberStyle = { fontSize, lineHeight: fontSize * 1.15 };
   const operatorStyle = { fontSize: fontSize * 0.8, lineHeight: fontSize * 1.15 };
 
   return (
     <View
+      onLayout={({ nativeEvent }) => setCardWidth(nativeEvent.layout.width)}
       accessibilityLabel={`${question.leftOperand} ${question.operator} ${question.rightOperand}`}
       style={[
         styles.card,
         CARD_SHADOW,
-        isVertical ? styles.verticalCard : styles.horizontalCard,
         { height },
       ]}
     >
@@ -40,7 +47,17 @@ export function QuestionCard({ layout, question, height }: QuestionCardProps) {
       ) : (
         <View style={styles.horizontalProblem}>
           <Text maxFontSizeMultiplier={1} style={[styles.horizontalNumber, numberStyle]}>{question.leftOperand}</Text>
-          <Text maxFontSizeMultiplier={1} style={[styles.horizontalOperator, operatorStyle]}>{question.operator}</Text>
+          <Text
+            maxFontSizeMultiplier={1}
+            style={[
+              styles.horizontalOperator,
+              operatorStyle,
+              // Align the symbol's visible center with Nunito's numeral ink.
+              { transform: [{ translateY: -fontSize * 0.15 }] },
+            ]}
+          >
+            {question.operator}
+          </Text>
           <Text maxFontSizeMultiplier={1} style={[styles.horizontalNumber, numberStyle]}>{question.rightOperand}</Text>
         </View>
       )}
@@ -51,7 +68,8 @@ export function QuestionCard({ layout, question, height }: QuestionCardProps) {
 const styles = StyleSheet.create({
   card: {
     alignSelf: "center",
-    maxWidth: "90%",
+    width: "90%",
+    maxWidth: 340,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: "rgba(109, 69, 232, 0.08)",
@@ -59,8 +77,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  horizontalCard: { width: 272 },
-  verticalCard: { width: 260 },
   horizontalProblem: {
     flexDirection: "row",
     alignItems: "center",
