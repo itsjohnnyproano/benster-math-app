@@ -29,6 +29,19 @@ afterEach(() => {
 });
 
 describe("SQLite results repository", () => {
+  it("reads all completion timestamps beyond the history page across modes", async () => {
+    const { adapter, db } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    expect(await repo.listCompletionTimes()).toEqual([]);
+    for (let index = 0; index < 25; index++) {
+      await repo.save(`streak-${index}`, makeResult(0, 0, { mode: index % 2 ? "mixed" : "addition" }));
+    }
+    expect((await repo.list()).records).toHaveLength(20);
+    expect(await repo.listCompletionTimes()).toEqual(Array(25).fill(makeResult().completedAtMs));
+    db.exec("UPDATE sprints SET completed_at_ms = -1 WHERE id = 'streak-0'");
+    await expect(repo.listCompletionTimes()).rejects.toThrow("Invalid saved completion date");
+  });
+
   it("paginates timestamp ties without duplicates and filters before limiting", async () => {
     const { adapter } = databaseAdapter();
     const repo = createResultsRepository(async () => adapter);

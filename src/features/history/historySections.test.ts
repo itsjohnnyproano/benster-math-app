@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { groupHistory, localDayKey } from "./historySections";
+import { groupHistory } from "./historySections";
+import { localDayKey } from "@/shared/localCalendar";
 import { makeResult } from "@/test/resultFixture";
 import type { SavedSprint } from "@/domain/results";
 

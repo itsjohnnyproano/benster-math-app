@@ -1,4 +1,5 @@
 import type { SprintResult } from "@/domain/math-engine";
+import { isValidTimestamp } from "@/shared/isValidTimestamp";
 import {
   assertSprintResult, calculatePersonalBest, RESULT_SCHEMA_VERSION,
   type SavedSprint,
@@ -105,6 +106,21 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
   }
 
   return {
+    listCompletionTimes(): Promise<number[]> {
+      return serialize(async () => {
+        const db = await getDatabase();
+        const rows = await db.getAllAsync<{ completed_at_ms: number }>(
+          "SELECT completed_at_ms FROM sprints ORDER BY completed_at_ms", [],
+        );
+        return rows.map(({ completed_at_ms: timestamp }) => {
+          if (!isValidTimestamp(timestamp)) {
+            throw new Error("Invalid saved completion date");
+          }
+          return timestamp;
+        });
+      });
+    },
+
     list(options: { mode?: SprintMode; cursor?: HistoryCursor; limit?: number } = {}): Promise<HistoryPage> {
       const { mode, cursor, limit = 20 } = options;
       if ((mode !== undefined && !isSprintMode(mode))

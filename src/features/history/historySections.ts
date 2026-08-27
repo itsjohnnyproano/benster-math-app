@@ -1,8 +1,6 @@
 import type { SavedSprint } from "@/domain/results";
 
-export function localDayKey(date: Date) {
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-}
+import { localDayKey } from "@/shared/localCalendar";
 
 export function groupHistory(records: readonly SavedSprint[], now = new Date()) {
   const today = localDayKey(now);

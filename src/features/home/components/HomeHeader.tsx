@@ -5,7 +5,7 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 type HomeHeaderProps = {
   displayName: string;
-  streakDays: number;
+  streakDays: number | null;
   onPressStreak?: () => void;
 };
 
@@ -18,7 +18,7 @@ export function HomeHeader({ displayName, streakDays, onPressStreak }: HomeHeade
       </View>
 
       <Pressable
-        accessibilityLabel={`${streakDays} day practice streak`}
+        accessibilityLabel={streakDays === null ? "View practice streak" : `${streakDays} day practice streak`}
         accessibilityRole="button"
         onPress={onPressStreak}
         style={({ pressed }) => [styles.streakPill, CARD_SHADOW, pressed && styles.pressed]}
@@ -32,7 +32,7 @@ export function HomeHeader({ displayName, streakDays, onPressStreak }: HomeHeade
           size={20}
           tintColor={COLORS.orange}
         />
-        <Text style={styles.streakText}>{streakDays} day streak</Text>
+        <Text style={styles.streakText}>{streakDays === null ? "View streak" : `${streakDays} day streak`}</Text>
       </Pressable>
     </View>
   );
