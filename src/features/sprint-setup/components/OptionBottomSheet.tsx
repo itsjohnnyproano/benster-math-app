@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderWidth: 1.5,
-    borderColor: "#E7E2F0",
+    borderColor: COLORS.border,
     borderRadius: 18,
     backgroundColor: "#FCFBFF",
     flexDirection: "row",

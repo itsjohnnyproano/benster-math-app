@@ -33,7 +33,8 @@
           "image": "./assets/branding/math-sprint-app-icon.png",
           "imageWidth": 120
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

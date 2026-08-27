@@ -9,7 +9,11 @@ export const COLORS = {
   orangeSoft: "#FFF0DE",
   blue: "#2F8DF4",
   green: "#31C66A",
+  greenSoft: "#EAF9F0",
   ink: "#101827",
+  border: "#E7E2F0",
+  red: "#FF5C5C",
+  redSoft: "#FFF0F0",
   secondary: "#6D7485",
   navInactive: "#747A89",
 } as const;

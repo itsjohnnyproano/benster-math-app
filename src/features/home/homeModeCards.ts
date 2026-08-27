@@ -1,5 +1,5 @@
-import { COLORS } from "@/theme/tokens";
-import type { SprintMode } from "@/domain/sprint";
+import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
+import { SPRINT_MODES, type SprintMode } from "@/domain/sprint";
 
 export type HomeModeCardConfig = {
   id: SprintMode;
@@ -8,23 +8,13 @@ export type HomeModeCardConfig = {
   color: string;
 };
 
-export const HOME_MODE_CARDS: HomeModeCardConfig[] = [
-  {
-    id: "addition",
-    title: "Addition",
-    symbol: "+",
-    color: COLORS.orange,
-  },
-  {
-    id: "subtraction",
-    title: "Subtraction",
-    symbol: "−",
-    color: COLORS.blue,
-  },
-  {
-    id: "multiplication",
-    title: "Multiplication",
-    symbol: "×",
-    color: COLORS.green,
-  },
-];
+export const HOME_MODE_CARDS: HomeModeCardConfig[] = SPRINT_MODES.map((id) => {
+  const details = SPRINT_MODE_DETAILS[id];
+
+  return {
+    id,
+    title: details.homeTitle,
+    symbol: details.symbol,
+    color: details.color,
+  };
+});
