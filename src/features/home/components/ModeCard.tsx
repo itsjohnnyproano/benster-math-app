@@ -42,8 +42,17 @@ export function ModeCard({ title, best, symbol, color, onPress }: ModeCardProps)
         </View>
       </View>
       <View style={styles.symbolTile}>
+        {symbol === "±×" ? (
+          <View style={styles.mixedSymbol} accessible={false}>
+            {[styles.plusHorizontal, styles.plusVertical, styles.minus, styles.timesForward, styles.timesBackward].map((stroke, index) => (
+              <View key={index} style={[styles.symbolStroke, stroke, { backgroundColor: color }]} />
+            ))}
+          </View>
+        ) : (
         <Text
           allowFontScaling={false}
+          numberOfLines={1}
+          adjustsFontSizeToFit
           style={[
             styles.symbol,
             { color },
@@ -54,12 +63,21 @@ export function ModeCard({ title, best, symbol, color, onPress }: ModeCardProps)
         >
           {symbol}
         </Text>
+        )}
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // Draw the compound mark with centered geometry, independent of font baselines.
+  mixedSymbol: { width: 56, height: 44 },
+  symbolStroke: { position: "absolute", borderRadius: 1 },
+  plusHorizontal: { left: 6, top: 16, width: 18, height: 4 },
+  plusVertical: { left: 13, top: 9, width: 4, height: 18 },
+  minus: { left: 6, top: 31, width: 18, height: 4 },
+  timesForward: { left: 31, top: 20, width: 22, height: 4, transform: [{ rotate: "45deg" }] },
+  timesBackward: { left: 31, top: 20, width: 22, height: 4, transform: [{ rotate: "-45deg" }] },
   modeCard: {
     height: 112,
     borderRadius: 24,

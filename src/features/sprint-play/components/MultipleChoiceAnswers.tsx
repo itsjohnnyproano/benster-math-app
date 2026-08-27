@@ -38,6 +38,9 @@ export function MultipleChoiceAnswers({
             ]}
           >
             <Text
+              maxFontSizeMultiplier={1.2}
+              numberOfLines={1}
+              adjustsFontSizeToFit
               style={[
                 styles.answerText,
                 feedback && isCorrect && styles.feedbackText,

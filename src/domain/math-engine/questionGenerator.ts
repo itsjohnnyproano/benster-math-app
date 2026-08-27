@@ -42,10 +42,11 @@ function chooseOperation(
 function createOperands(
   operation: MathOperation,
   difficultyLevel: DifficultyLevel,
+  levelUpEnabled: boolean,
   random: RandomSource,
 ) {
   if (operation === "multiplication") {
-    const max = MULTIPLICATION_MAX[difficultyLevel];
+    const max = levelUpEnabled ? MULTIPLICATION_MAX[difficultyLevel] : MULTIPLICATION_MAX[4];
     return [randomInteger(1, max, random), randomInteger(1, max, random)] as const;
   }
 
@@ -114,6 +115,7 @@ export function generateDistractors(
 
 export function generateQuestion({
   mode,
+  levelUpEnabled,
   difficultyLevel,
   questionId,
   presentedAtMs,
@@ -123,6 +125,7 @@ export function generateQuestion({
   const [leftOperand, rightOperand] = createOperands(
     operation,
     difficultyLevel,
+    levelUpEnabled,
     random,
   );
   const correctAnswer = calculateCorrectAnswer(

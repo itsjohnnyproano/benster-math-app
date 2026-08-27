@@ -36,7 +36,7 @@ export function CountdownView({
         <Text style={styles.eyebrow}>{modeTitle} sprint</Text>
         <Text style={styles.ready}>Ready?</Text>
         <View style={styles.countCircle}>
-          <Text style={styles.count}>{count}</Text>
+          <Text maxFontSizeMultiplier={1.2} style={styles.count}>{count}</Text>
         </View>
         <Text style={styles.note}>Your timer starts after the countdown</Text>
       </View>
@@ -45,8 +45,12 @@ export function CountdownView({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, paddingHorizontal: 24, paddingTop: 8 },
+  screen: { flex: 1, paddingHorizontal: 24 },
   closeButton: {
+    position: "absolute",
+    top: 8,
+    left: 24,
+    zIndex: 1,
     width: 42,
     height: 42,
     borderRadius: 15,
@@ -58,13 +62,16 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    paddingVertical: 60,
     alignItems: "center",
     justifyContent: "center",
   },
   eyebrow: {
     color: COLORS.primary,
     fontFamily: "NunitoSans_700Bold",
-    fontSize: 15,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
     textTransform: "uppercase",
     letterSpacing: 1.2,
   },
@@ -74,12 +81,13 @@ const styles = StyleSheet.create({
     fontFamily: "NunitoSans_700Bold",
     fontSize: 34,
     lineHeight: 42,
+    textAlign: "center",
   },
   countCircle: {
-    width: 132,
-    height: 132,
-    marginTop: 30,
-    borderRadius: 66,
+    width: 184,
+    height: 184,
+    marginTop: 24,
+    borderRadius: 92,
     borderWidth: 5,
     borderColor: COLORS.primarySoft,
     backgroundColor: COLORS.card,
@@ -89,14 +97,22 @@ const styles = StyleSheet.create({
   count: {
     color: COLORS.primary,
     fontFamily: "NunitoSans_700Bold",
-    fontSize: 68,
-    lineHeight: 78,
+    fontSize: 96,
+    lineHeight: 112,
+    textAlign: "center",
+    includeFontPadding: false,
+    fontVariant: ["tabular-nums"],
+    // Optically center Nunito's numeral ink, not just its line box.
+    transform: [{ translateY: 6 }],
   },
   note: {
-    marginTop: 28,
+    marginTop: 20,
+    maxWidth: 280,
     color: COLORS.secondary,
     fontFamily: "NunitoSans_600SemiBold",
     fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
   },
   pressed: { opacity: 0.58 },
 });
