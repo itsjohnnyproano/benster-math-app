@@ -13,8 +13,8 @@ export function HomeHeader({ displayName, streakDays, onPressStreak }: HomeHeade
   return (
     <View style={styles.header}>
       <View style={styles.greetingBlock}>
-        <Text style={styles.greeting}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
-        <Text style={styles.subtitle}>Ready to practice?</Text>
+        <Text maxFontSizeMultiplier={1.3} style={styles.greeting}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
+        <Text maxFontSizeMultiplier={1.4} style={styles.subtitle}>Ready to practice?</Text>
       </View>
 
       <Pressable
@@ -32,7 +32,7 @@ export function HomeHeader({ displayName, streakDays, onPressStreak }: HomeHeade
           size={20}
           tintColor={COLORS.orange}
         />
-        <Text style={styles.streakText}>{streakDays === null ? "View streak" : `${streakDays} day streak`}</Text>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={styles.streakText}>{streakDays === null ? "View streak" : `${streakDays} day streak`}</Text>
       </Pressable>
     </View>
   );

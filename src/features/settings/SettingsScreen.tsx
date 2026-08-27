@@ -27,10 +27,10 @@ export default function SettingsScreen() {
       <StatusBar style="dark" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: contentInset }]} showsVerticalScrollIndicator={false}>
-          <Text accessibilityRole="header" style={styles.title}>Settings</Text>
-          <Text style={styles.subtitle}>Make practice feel like you.</Text>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.title}>Settings</Text>
+          <Text maxFontSizeMultiplier={1.4} style={styles.subtitle}>Make practice feel like you.</Text>
 
-          <Text accessibilityRole="header" style={styles.section}>Your nickname</Text>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.section}>Your nickname</Text>
           <NicknameEditor
             key={preferences.nickname}
             nickname={preferences.nickname}
@@ -42,17 +42,17 @@ export default function SettingsScreen() {
           />
           {saveSection === "nickname" && <PreferenceSaveStatus />}
 
-          <Text accessibilityRole="header" style={styles.section}>Practice defaults</Text>
-          <Text style={[styles.help, styles.sectionHelp]}>Changes save automatically and apply to your next sprint.</Text>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.section}>Practice defaults</Text>
+          <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.sectionHelp]}>Changes save automatically and apply to your next sprint.</Text>
           <PracticePreferences showSaveStatus={saveSection === "practice"} onChange={() => setSaveSection("practice")} />
 
           <Pressable accessibilityRole="button" disabled={!isReady} accessibilityState={{ disabled: !isReady }} onPress={() => setResetOpen(true)} style={({ pressed }) => [styles.reset, pressed && styles.pressed]}>
-            <Text style={styles.resetText}>Reset practice defaults</Text>
+            <Text maxFontSizeMultiplier={1.3} style={styles.resetText}>Reset practice defaults</Text>
           </Pressable>
-          <Text style={[styles.help, styles.centeredHelp]}>Your nickname, history, and personal bests stay yours.</Text>
+          <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.centeredHelp]}>Your nickname, history, and personal bests stay yours.</Text>
 
-          <Text accessibilityRole="header" style={styles.section}>Saved data</Text>
-          <Text style={[styles.help, styles.sectionHelp]}>Permanently remove this learner’s nickname, preferences, sprint history, streak, and personal bests from this device.</Text>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.section}>Saved data</Text>
+          <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.sectionHelp]}>Permanently remove this learner’s nickname, preferences, sprint history, streak, and personal bests from this device.</Text>
           <Pressable
             accessibilityRole="button"
             disabled={!isReady}
@@ -63,27 +63,27 @@ export default function SettingsScreen() {
             }}
             style={({ pressed }) => [styles.deleteButton, !isReady && styles.disabled, pressed && styles.pressed]}
           >
-            <Text style={styles.deleteButtonText}>Delete all saved data</Text>
+            <Text maxFontSizeMultiplier={1.3} style={styles.deleteButtonText}>Delete all saved data</Text>
           </Pressable>
 
-          <Text accessibilityRole="header" style={styles.section}>About</Text>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.section}>About</Text>
           <View style={[styles.about, CARD_SHADOW]}>
-            <Text style={styles.aboutTitle}>Math Sprint</Text>
-            <Text style={[styles.help, styles.aboutMeta]}>Version {Constants.expoConfig?.version ?? "—"}</Text>
-            <Text style={[styles.help, styles.aboutTagline]}>Little moments of practice. Lasting confidence.</Text>
+            <Text maxFontSizeMultiplier={1.3} style={styles.aboutTitle}>Math Sprint</Text>
+            <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutMeta]}>Version {Constants.expoConfig?.version ?? "—"}</Text>
+            <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutTagline]}>Little moments of practice. Lasting confidence.</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
       <Modal transparent visible={resetOpen} animationType="fade" onRequestClose={() => setResetOpen(false)}>
         <View style={styles.backdrop}>
           <View accessibilityViewIsModal style={styles.dialog}>
-            <Text accessibilityRole="header" style={styles.dialogTitle}>Reset practice defaults?</Text>
-            <Text style={styles.help}>{formatResetPracticeMessage()}</Text>
+            <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.dialogTitle}>Reset practice defaults?</Text>
+            <Text maxFontSizeMultiplier={1.5} style={styles.help}>{formatResetPracticeMessage()}</Text>
             <Pressable accessibilityRole="button" onPress={() => { setSaveSection("practice"); resetPracticePreferences(); setResetOpen(false); }} style={styles.button}>
-              <Text style={styles.buttonText}>Reset defaults</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.buttonText}>Reset defaults</Text>
             </Pressable>
             <Pressable accessibilityRole="button" onPress={() => setResetOpen(false)} style={styles.reset}>
-              <Text style={styles.resetText}>Keep my settings</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.resetText}>Keep my settings</Text>
             </Pressable>
           </View>
         </View>
@@ -98,10 +98,10 @@ export default function SettingsScreen() {
       >
         <View style={styles.backdrop}>
           <View accessibilityViewIsModal style={styles.dialog}>
-            <Text accessibilityRole="header" style={styles.dialogTitle}>Delete all saved data?</Text>
-            <Text style={styles.help}>Your nickname, preferences, sprint history, day streak, and personal bests will be permanently deleted from this device. This can’t be undone.</Text>
+            <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.dialogTitle}>Delete all saved data?</Text>
+            <Text maxFontSizeMultiplier={1.5} style={styles.help}>Your nickname, preferences, sprint history, day streak, and personal bests will be permanently deleted from this device. This can’t be undone.</Text>
             {deleteError && (
-              <Text accessibilityLiveRegion="polite" style={styles.deleteError}>We couldn’t delete everything. Your remaining data is still on this device. Please try again.</Text>
+              <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.4} style={styles.deleteError}>We couldn’t delete everything. Your remaining data is still on this device. Please try again.</Text>
             )}
             <Pressable
               accessibilityRole="button"
@@ -124,7 +124,7 @@ export default function SettingsScreen() {
               }}
               style={({ pressed }) => [styles.confirmDeleteButton, isDeleting && styles.disabled, pressed && styles.pressed]}
             >
-              <Text style={styles.confirmDeleteText}>{isDeleting ? "Deleting…" : "Delete everything"}</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.confirmDeleteText}>{isDeleting ? "Deleting…" : "Delete everything"}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -133,7 +133,7 @@ export default function SettingsScreen() {
               onPress={() => setDeleteOpen(false)}
               style={styles.keepDataButton}
             >
-              <Text style={styles.resetText}>Keep my data</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.resetText}>Keep my data</Text>
             </Pressable>
           </View>
         </View>
@@ -153,7 +153,7 @@ function NicknameEditor({ nickname, disabled, onSave }: { nickname: string; disa
   };
   return (
     <View style={[styles.profile, CARD_SHADOW]}>
-      <Text style={styles.help}>Optional—use a nickname, not your full name. Saved on this device.</Text>
+      <Text maxFontSizeMultiplier={1.5} style={styles.help}>Optional—use a nickname, not your full name. Saved on this device.</Text>
       <TextInput
         accessibilityLabel="Nickname"
         editable={!disabled}
@@ -166,12 +166,13 @@ function NicknameEditor({ nickname, disabled, onSave }: { nickname: string; disa
         autoComplete="off"
         returnKeyType="done"
         onSubmitEditing={save}
+        maxFontSizeMultiplier={1.3}
         style={styles.input}
       />
       <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || unchanged }} disabled={disabled || unchanged} onPress={save} style={[styles.button, (disabled || unchanged) && styles.disabled]}>
-        <Text style={styles.buttonText}>Save nickname</Text>
+        <Text maxFontSizeMultiplier={1.3} style={styles.buttonText}>Save nickname</Text>
       </Pressable>
-      <Text style={styles.help}>Leave it blank for a simple “Hey there!”</Text>
+      <Text maxFontSizeMultiplier={1.5} style={styles.help}>Leave it blank for a simple “Hey there!”</Text>
     </View>
   );
 }
