@@ -11,13 +11,14 @@ import { HomeHeader } from "./components/HomeHeader";
 import { HomeHero } from "./components/HomeHero";
 import { ModeCard } from "./components/ModeCard";
 import { HOME_MODE_CARDS } from "./homeModeCards";
-import { MOCK_HOME_DATA } from "./mockHomeData";
+import { usePracticeStreak } from "@/features/streak/usePracticeStreak";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { formatDurationLabel } from "@/shared/formatSprintDuration";
 import { usePersonalBests } from "./usePersonalBests";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const streak = usePracticeStreak();
   const { preferences, isReady } = usePreferences();
   const personalBests = usePersonalBests(preferences.durationSeconds, isReady);
 
@@ -33,7 +34,8 @@ export default function HomeScreen() {
       >
         <HomeHeader
           displayName={preferences.nickname}
-          streakDays={MOCK_HOME_DATA.streakDays}
+          streakDays={streak.data?.currentStreak ?? null}
+          onPressStreak={() => router.push("/streak")}
         />
         <HomeHero />
 
