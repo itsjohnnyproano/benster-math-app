@@ -4,7 +4,7 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 type ModeCardProps = {
   title: string;
-  best: number;
+  best: number | null;
   symbol: string;
   color: string;
   onPress?: () => void;
@@ -26,7 +26,7 @@ export function ModeCard({ title, best, symbol, color, onPress }: ModeCardProps)
   return (
     <Pressable
       accessibilityHint={`Starts a ${title.toLowerCase()} sprint`}
-      accessibilityLabel={`${title}, personal best ${best}`}
+      accessibilityLabel={`${title}, ${best === null ? "no personal best available" : `personal best ${best}`}`}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.modeCard, { backgroundColor: color }, CARD_SHADOW, pressed && styles.pressed]}
@@ -38,7 +38,7 @@ export function ModeCard({ title, best, symbol, color, onPress }: ModeCardProps)
           {title}
         </Text>
         <View style={styles.bestPill}>
-          <Text style={styles.bestText}>Best: {best}</Text>
+          <Text style={styles.bestText}>Best: {best ?? "—"}</Text>
         </View>
       </View>
       <View style={styles.symbolTile}>

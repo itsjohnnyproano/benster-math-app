@@ -32,7 +32,7 @@ import { SetupHeader } from "./components/SetupHeader";
 import {
   formatDurationLabel,
   formatDurationSubtitle,
-} from "./formatSprintDuration";
+} from "@/shared/formatSprintDuration";
 import {
   CARD_LAYOUT_OPTIONS,
   CARD_LAYOUT_LABELS,

@@ -14,7 +14,7 @@ export function getGameplayLayout(height: number, inputStyle: InputStyle) {
     : 133;
   // 16 outer padding + 50 header + 12 progress + 24 level label.
   const fixedHeight = 102;
-  const cardHeight = Math.max(0, Math.min(220,
+  const cardHeight = Math.max(0, Math.min(260,
     height - fixedHeight - answerHeight - gap * 2 - promptHeight));
 
   return { gap, keyHeight, keyGap, fieldHeight, submitHeight, promptHeight,

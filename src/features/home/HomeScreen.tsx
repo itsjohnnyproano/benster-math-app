@@ -1,6 +1,6 @@
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomNavigation } from "@/components/navigation/BottomNavigation";
@@ -13,9 +13,14 @@ import { HomeHero } from "./components/HomeHero";
 import { ModeCard } from "./components/ModeCard";
 import { HOME_MODE_CARDS } from "./homeModeCards";
 import { MOCK_HOME_DATA } from "./mockHomeData";
+import { usePreferences } from "@/providers/PreferencesProvider";
+import { formatDurationLabel } from "@/shared/formatSprintDuration";
+import { usePersonalBests } from "./usePersonalBests";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { preferences, isReady } = usePreferences();
+  const personalBests = usePersonalBests(preferences.durationSeconds, isReady);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -34,10 +39,19 @@ export default function HomeScreen() {
         <HomeHero />
 
         <View style={styles.modeList}>
+          <Text style={styles.bestContext}>
+            Personal bests · {formatDurationLabel(preferences.durationSeconds)}
+            {personalBests.status === "loading" ? " · Loading…" : ""}
+          </Text>
+          {personalBests.status === "error" && (
+            <Pressable accessibilityRole="button" onPress={personalBests.retry} style={styles.retry}>
+              <Text style={styles.bestContext}>Couldn’t load personal bests. Tap to retry.</Text>
+            </Pressable>
+          )}
           {HOME_MODE_CARDS.map((mode) => (
             <ModeCard
               key={mode.id}
-              best={MOCK_HOME_DATA.personalBests[mode.id]}
+              best={personalBests.bests[mode.id] ?? null}
               color={mode.color}
               onPress={() =>
                 router.push({
@@ -68,4 +82,6 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   modeList: { gap: 13 },
+  bestContext: { fontFamily: "NunitoSans_600SemiBold", fontSize: 13, color: COLORS.secondary },
+  retry: { minHeight: 44, justifyContent: "center" },
 });

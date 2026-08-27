@@ -5,7 +5,7 @@ import {
   type SprintDurationSeconds,
 } from "@/domain/sprint";
 
-import { formatDurationLabel } from "./formatSprintDuration";
+import { formatDurationLabel } from "@/shared/formatSprintDuration";
 
 export type SetupOption<Value extends string | number = string | number> = {
   value: Value;

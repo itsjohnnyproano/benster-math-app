@@ -31,6 +31,7 @@ export type SprintResult = Readonly<{
   attemptedCount: number;
   correctCount: number;
   accuracy: number;
+  averageResponseMs: number | null;
   bestStreak: number;
   finalLevel: DifficultyLevel;
   answeredQuestions: readonly AnsweredQuestion[];

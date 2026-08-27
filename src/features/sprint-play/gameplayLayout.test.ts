@@ -32,7 +32,7 @@ describe("portrait gameplay layout", () => {
 
   it("keeps the full card and tall keys when space permits", () => {
     const layout = getGameplayLayout(850, "typed");
-    expect(layout.cardHeight).toBe(220);
+    expect(layout.cardHeight).toBe(260);
     expect(layout.keyHeight).toBe(56);
   });
 

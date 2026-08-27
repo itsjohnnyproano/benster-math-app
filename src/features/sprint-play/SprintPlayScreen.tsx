@@ -20,15 +20,17 @@ import {
   type SprintConfiguration,
 } from "@/domain/sprint";
 import { COLORS } from "@/theme/tokens";
+import { createLocalSprintId } from "@/domain/results";
+import { SprintResultsScreen } from "@/features/sprint-results/SprintResultsScreen";
 
 import { CountdownView } from "./components/CountdownView";
 import { MultipleChoiceAnswers } from "./components/MultipleChoiceAnswers";
 import { NumberPad } from "./components/NumberPad";
 import { QuestionCard } from "./components/QuestionCard";
-import { SprintCompleteView } from "./components/SprintCompleteView";
 import { SprintHeader } from "./components/SprintHeader";
 import type { AnswerFeedback } from "./types";
 import { getGameplayLayout } from "./gameplayLayout";
+import { createSprintClock } from "./sprintClock";
 
 const FEEDBACK_DURATION_MS = 650;
 
@@ -38,6 +40,7 @@ function readBoolean(value: string | undefined) {
 
 export default function SprintPlayScreen() {
   const router = useRouter();
+  const [sprintId] = useState(createLocalSprintId);
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
@@ -69,6 +72,8 @@ export default function SprintPlayScreen() {
   const [typedAnswer, setTypedAnswer] = useState("");
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const submissionLockedRef = useRef(false);
+  const clockRef = useRef<ReturnType<typeof createSprintClock> | null>(null);
   const modeDetails = SPRINT_MODE_DETAILS[configuration.mode];
   const layout = getGameplayLayout(
     measuredHeight ?? window.height - insets.top - insets.bottom,
@@ -76,27 +81,30 @@ export default function SprintPlayScreen() {
   );
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown((current) => {
-        if (current > 1) return current - 1;
-        clearInterval(interval);
-        const startedAtMs = Date.now();
-        setSprintState(createSprint(configuration, startedAtMs));
+    if (countdown <= 0) return;
+    const timeout = setTimeout(() => {
+      if (countdown > 1) {
+        setCountdown(countdown - 1);
+      } else {
+        const clock = createSprintClock();
+        clockRef.current = clock;
+        setSprintState(createSprint(configuration, clock.startedAtMs));
         setRemainingMs(configuration.durationSeconds * 1000);
-        return 0;
-      });
+        setCountdown(0);
+      }
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [configuration]);
+    return () => clearTimeout(timeout);
+  }, [configuration, countdown]);
 
   useEffect(() => {
-    if (!sprintState || sprintState.status !== "active") return;
+    const clock = clockRef.current;
+    if (!sprintState || sprintState.status !== "active" || !clock) return;
 
     const interval = setInterval(() => {
-      const nowMs = Date.now();
+      const nowMs = clock.now();
       setRemainingMs(getRemainingMs(sprintState, nowMs));
-      if (!feedback) setSprintState((current) => current && tickSprint(current, nowMs));
+      if (!submissionLockedRef.current) setSprintState((current) => current && tickSprint(current, nowMs));
     }, 100);
 
     return () => clearInterval(interval);
@@ -111,14 +119,17 @@ export default function SprintPlayScreen() {
 
   const submit = useCallback(
     (submittedAnswer: number) => {
-      if (!sprintState || sprintState.status !== "active" || feedback) return;
-      const answeredAtMs = Date.now();
+      const clock = clockRef.current;
+      if (!sprintState || sprintState.status !== "active" || submissionLockedRef.current || !clock) return;
+      if (!Number.isSafeInteger(submittedAnswer) || submittedAnswer < 0) return;
+      const answeredAtMs = clock.now();
 
       if (answeredAtMs >= sprintState.endsAtMs) {
         setSprintState(tickSprint(sprintState, answeredAtMs));
         return;
       }
 
+      submissionLockedRef.current = true;
       setFeedback({
         submittedAnswer,
         correctAnswer: sprintState.currentQuestion.correctAnswer,
@@ -126,16 +137,17 @@ export default function SprintPlayScreen() {
       });
 
       feedbackTimeoutRef.current = setTimeout(() => {
-        setSprintState((current) => {
-          if (!current) return current;
-          const answered = submitAnswer(current, submittedAnswer, answeredAtMs);
-          return tickSprint(answered, Date.now());
-        });
+        const nextQuestionPresentedAtMs = clock.now();
+        setSprintState(submitAnswer(
+          sprintState, submittedAnswer, answeredAtMs, Math.random, nextQuestionPresentedAtMs,
+        ));
         setTypedAnswer("");
         setFeedback(null);
+        submissionLockedRef.current = false;
+        feedbackTimeoutRef.current = null;
       }, FEEDBACK_DURATION_MS);
     },
-    [feedback, sprintState],
+    [sprintState],
   );
 
   const closeSprint = () => {
@@ -162,10 +174,11 @@ export default function SprintPlayScreen() {
   if (sprintState.status === "completed") {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <Stack.Screen options={{ headerShown: false }} />
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
         <StatusBar style="dark" />
-        <SprintCompleteView
-          onDone={() => router.dismissAll()}
+        <SprintResultsScreen
+          sprintId={sprintId}
+          onDone={() => router.dismissTo("/")}
           result={sprintState.result}
         />
       </SafeAreaView>
