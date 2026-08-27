@@ -1,4 +1,5 @@
 import Storage from "expo-sqlite/kv-store";
+import { normalizeNickname } from "@/domain/nickname";
 
 import {
   isCardLayout,
@@ -13,7 +14,7 @@ const PREFERENCES_KEY = "math-sprint:user-preferences:v1";
 
 let writeQueue = Promise.resolve();
 
-function sanitizePreferences(value: unknown): UserPreferences {
+export function sanitizePreferences(value: unknown): UserPreferences {
   if (!value || typeof value !== "object") {
     return DEFAULT_PREFERENCES;
   }
@@ -21,6 +22,7 @@ function sanitizePreferences(value: unknown): UserPreferences {
   const candidate = value as Partial<UserPreferences>;
 
   return {
+    nickname: normalizeNickname(candidate.nickname),
     durationSeconds: isSprintDuration(candidate.durationSeconds)
       ? candidate.durationSeconds
       : DEFAULT_PREFERENCES.durationSeconds,
@@ -42,9 +44,9 @@ function sanitizePreferences(value: unknown): UserPreferences {
 }
 
 export async function loadPreferences(): Promise<UserPreferences> {
+  // An I/O failure must not masquerade as a new install and overwrite saved data.
+  const savedValue = await Storage.getItem(PREFERENCES_KEY);
   try {
-    const savedValue = await Storage.getItem(PREFERENCES_KEY);
-
     if (!savedValue) {
       return DEFAULT_PREFERENCES;
     }
@@ -56,8 +58,9 @@ export async function loadPreferences(): Promise<UserPreferences> {
 }
 
 export function savePreferences(preferences: UserPreferences): Promise<void> {
+  const snapshot = JSON.stringify(sanitizePreferences(preferences));
   const nextWrite = writeQueue.then(() =>
-    Storage.setItem(PREFERENCES_KEY, JSON.stringify(preferences)),
+    Storage.setItem(PREFERENCES_KEY, snapshot),
   );
 
   writeQueue = nextWrite.catch(() => undefined);

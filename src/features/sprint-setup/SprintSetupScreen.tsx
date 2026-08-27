@@ -16,38 +16,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-  isCardLayout,
-  isInputStyle,
-  isSprintDuration,
-  isSprintMode,
-} from "@/domain/sprint";
+import { isSprintMode } from "@/domain/sprint";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
-import { LevelUpRow } from "./components/LevelUpRow";
-import { OptionBottomSheet } from "./components/OptionBottomSheet";
-import { PreferenceRow } from "./components/PreferenceRow";
+import { PracticePreferences } from "@/components/preferences/PracticePreferences";
 import { SetupHeader } from "./components/SetupHeader";
-import {
-  formatDurationLabel,
-  formatDurationSubtitle,
-} from "@/shared/formatSprintDuration";
-import {
-  CARD_LAYOUT_OPTIONS,
-  CARD_LAYOUT_LABELS,
-  DURATION_OPTIONS,
-  INPUT_STYLE_OPTIONS,
-  INPUT_STYLE_LABELS,
-} from "./sprintSetupOptions";
-
-type ActiveSheet = "duration" | "input-style" | "card-layout" | null;
+import { formatDurationSubtitle } from "@/shared/formatSprintDuration";
 
 export default function SprintSetupScreen() {
   const router = useRouter();
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
-  const { preferences, isReady, updatePreference } = usePreferences();
-  const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
+  const { preferences, isReady } = usePreferences();
   const [isStarting, setIsStarting] = useState(false);
   const mode = isSprintMode(modeParam) ? modeParam : "addition";
 
@@ -90,31 +70,7 @@ export default function SprintSetupScreen() {
         />
 
         <View style={styles.preferenceList}>
-          <PreferenceRow
-            disabled={!isReady}
-            label="Sprint length"
-            onPress={() => setActiveSheet("duration")}
-            value={formatDurationLabel(preferences.durationSeconds)}
-          />
-          <PreferenceRow
-            disabled={!isReady}
-            label="Input style"
-            onPress={() => setActiveSheet("input-style")}
-            value={INPUT_STYLE_LABELS[preferences.inputStyle]}
-          />
-          <PreferenceRow
-            disabled={!isReady}
-            label="Card layout"
-            onPress={() => setActiveSheet("card-layout")}
-            value={CARD_LAYOUT_LABELS[preferences.cardLayout]}
-          />
-          <LevelUpRow
-            disabled={!isReady}
-            enabled={preferences.levelUpEnabled}
-            onChange={(enabled) =>
-              updatePreference("levelUpEnabled", enabled)
-            }
-          />
+          <PracticePreferences />
         </View>
 
         <View style={styles.mascotArea}>
@@ -145,42 +101,6 @@ export default function SprintSetupScreen() {
         </Pressable>
       </ScrollView>
 
-      <OptionBottomSheet
-        onClose={() => setActiveSheet(null)}
-        onSelect={(value) => {
-          if (!isSprintDuration(value)) return;
-          updatePreference("durationSeconds", value);
-          setActiveSheet(null);
-        }}
-        options={DURATION_OPTIONS}
-        selectedValue={preferences.durationSeconds}
-        title="Choose sprint length"
-        visible={activeSheet === "duration"}
-      />
-      <OptionBottomSheet
-        onClose={() => setActiveSheet(null)}
-        onSelect={(value) => {
-          if (!isInputStyle(value)) return;
-          updatePreference("inputStyle", value);
-          setActiveSheet(null);
-        }}
-        options={INPUT_STYLE_OPTIONS}
-        selectedValue={preferences.inputStyle}
-        title="Choose input style"
-        visible={activeSheet === "input-style"}
-      />
-      <OptionBottomSheet
-        onClose={() => setActiveSheet(null)}
-        onSelect={(value) => {
-          if (!isCardLayout(value)) return;
-          updatePreference("cardLayout", value);
-          setActiveSheet(null);
-        }}
-        options={CARD_LAYOUT_OPTIONS}
-        selectedValue={preferences.cardLayout}
-        title="Choose card layout"
-        visible={activeSheet === "card-layout"}
-      />
     </SafeAreaView>
   );
 }

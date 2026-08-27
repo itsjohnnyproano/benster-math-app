@@ -13,7 +13,7 @@ export function HomeHeader({ displayName, streakDays, onPressStreak }: HomeHeade
   return (
     <View style={styles.header}>
       <View style={styles.greetingBlock}>
-        <Text style={styles.greeting}>Hey, {displayName}!</Text>
+        <Text style={styles.greeting}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
         <Text style={styles.subtitle}>Ready to practice?</Text>
       </View>
 

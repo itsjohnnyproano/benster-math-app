@@ -7,14 +7,14 @@ import {
 
 import { formatDurationLabel } from "@/shared/formatSprintDuration";
 
-export type SetupOption<Value extends string | number = string | number> = {
+export type PreferenceOption<Value extends string | number = string | number> = {
   value: Value;
   label: string;
   description?: string;
   preview?: CardLayout;
 };
 
-export const DURATION_OPTIONS: readonly SetupOption<SprintDurationSeconds>[] =
+export const DURATION_OPTIONS: readonly PreferenceOption<SprintDurationSeconds>[] =
   SPRINT_DURATIONS.map((duration) => ({
     value: duration,
     label: formatDurationLabel(duration),
@@ -30,7 +30,7 @@ export const CARD_LAYOUT_LABELS: Record<CardLayout, string> = {
   vertical: "Vertical",
 };
 
-export const INPUT_STYLE_OPTIONS: readonly SetupOption<InputStyle>[] = [
+export const INPUT_STYLE_OPTIONS: readonly PreferenceOption<InputStyle>[] = [
   {
     value: "multiple-choice",
     label: INPUT_STYLE_LABELS["multiple-choice"],
@@ -43,7 +43,7 @@ export const INPUT_STYLE_OPTIONS: readonly SetupOption<InputStyle>[] = [
   },
 ];
 
-export const CARD_LAYOUT_OPTIONS: readonly SetupOption<CardLayout>[] = [
+export const CARD_LAYOUT_OPTIONS: readonly PreferenceOption<CardLayout>[] = [
   {
     value: "horizontal",
     label: CARD_LAYOUT_LABELS.horizontal,

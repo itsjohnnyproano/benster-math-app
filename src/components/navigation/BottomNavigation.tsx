@@ -32,7 +32,7 @@ function NavItem({ label, icon, active = false, onPress }: NavItemProps) {
   );
 }
 
-export function BottomNavigation({ active = "home" }: { active?: "home" | "history" }) {
+export function BottomNavigation({ active = "home" }: { active?: "home" | "history" | "settings" }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -55,6 +55,8 @@ export function BottomNavigation({ active = "home" }: { active?: "home" | "histo
         label="History"
       />
       <NavItem
+        active={active === "settings"}
+        onPress={() => { if (active !== "settings") router.navigate("/settings"); }}
         icon={{ ios: "gearshape.fill", android: "settings", web: "settings" }}
         label="Settings"
       />
