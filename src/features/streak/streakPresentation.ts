@@ -6,3 +6,7 @@ export function streakEncouragement(streak: PracticeStreak) {
   if (streak.currentStreak > 0) return "A little practice today keeps it going.";
   return "A fresh start begins with one sprint.";
 }
+
+export function streakMascotState(streak: PracticeStreak) {
+  return streak.practicedToday ? "celebrating" : "sleeping";
+}

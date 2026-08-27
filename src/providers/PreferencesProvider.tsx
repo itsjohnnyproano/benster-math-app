@@ -10,6 +10,7 @@ import {
 
 import { DEFAULT_PREFERENCES, resetPracticeDefaults } from "@/data/preferences/preferenceDefaults";
 import {
+  deletePreferences,
   loadPreferences,
   savePreferences,
   sanitizePreferences,
@@ -23,6 +24,7 @@ type PreferencesContextValue = {
   loadError: boolean;
   retryLoad: () => void;
   retrySave: () => void;
+  deleteAllPreferences: () => Promise<void>;
   resetPracticePreferences: () => void;
   updatePreference: <Key extends keyof UserPreferences>(
     key: Key,
@@ -46,7 +48,6 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let isMounted = true;
     mounted.current = true;
-    setLoadError(false);
 
     loadPreferences().then((savedPreferences) => {
       if (!isMounted) return;
@@ -88,8 +89,29 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         isReady,
         saveStatus,
         loadError,
-        retryLoad: () => setLoadAttempt((attempt) => attempt + 1),
+        retryLoad: () => {
+          setLoadError(false);
+          setLoadAttempt((attempt) => attempt + 1);
+        },
         retrySave: () => { if (isReady) persist(preferencesRef.current); },
+        deleteAllPreferences: async () => {
+          if (!isReady) throw new Error("Preferences are not ready");
+          const revision = ++saveRevision.current;
+          setSaveStatus("saving");
+          try {
+            await deletePreferences();
+            if (mounted.current && revision === saveRevision.current) {
+              preferencesRef.current = DEFAULT_PREFERENCES;
+              setPreferences(DEFAULT_PREFERENCES);
+              setSaveStatus("saved");
+            }
+          } catch (error) {
+            if (mounted.current && revision === saveRevision.current) {
+              setSaveStatus("error");
+            }
+            throw error;
+          }
+        },
         resetPracticePreferences: () => apply(resetPracticeDefaults(preferencesRef.current)),
         updatePreference: (key, nextValue) => {
           apply({

@@ -70,7 +70,7 @@ export default function SprintSetupScreen() {
         />
 
         <View style={styles.preferenceList}>
-          <PracticePreferences />
+          <PracticePreferences showSaveStatus={false} />
         </View>
 
         <View style={styles.mascotArea}>

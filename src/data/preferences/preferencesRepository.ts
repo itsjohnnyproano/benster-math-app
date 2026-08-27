@@ -66,3 +66,10 @@ export function savePreferences(preferences: UserPreferences): Promise<void> {
   writeQueue = nextWrite.catch(() => undefined);
   return nextWrite;
 }
+
+export function deletePreferences(): Promise<void> {
+  const nextWrite = writeQueue.then(() => Storage.removeItem(PREFERENCES_KEY));
+
+  writeQueue = nextWrite.catch(() => undefined);
+  return nextWrite;
+}

@@ -71,7 +71,11 @@ export default function HistoryScreen() {
               <>
                 <Text style={styles.stateTitle}>{mode ? "No sprints here yet" : "Your story starts with a sprint."}</Text>
                 <Text style={styles.stateBody}>{mode ? `Finish your first ${SPRINT_MODE_DETAILS[mode].title.toLowerCase()} sprint and it’ll appear here.` : "Pick a mode, give it a go, and watch your practice add up."}</Text>
-                <Action label={mode ? "Show all sprints" : "Pick a sprint"} onPress={() => mode ? setMode(undefined) : router.dismissTo("/")} />
+                <Action
+                  label={mode ? "Show all sprints" : "Pick a sprint"}
+                  onPress={() => mode ? setMode(undefined) : router.navigate("/")}
+                  separated
+                />
               </>
             )}
           </View>
@@ -89,8 +93,8 @@ export default function HistoryScreen() {
   );
 }
 
-function Action({ label, onPress }: { label: string; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.action, pressed && styles.pressed]}><Text style={styles.actionText}>{label}</Text></Pressable>;
+function Action({ label, onPress, separated = false }: { label: string; onPress: () => void; separated?: boolean }) {
+  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.action, separated && styles.separatedAction, pressed && styles.pressed]}><Text style={styles.actionText}>{label}</Text></Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -101,7 +105,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", minHeight: 132, gap: 8, marginBottom: 18 },
   headerText: { flex: 1 },
   title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 34 },
-  subtitle: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 15, lineHeight: 22, marginTop: 6 },
+  subtitle: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 15, lineHeight: 20, marginTop: 2 },
   mascot: { width: 112, height: 132 },
   filters: { gap: 8, paddingBottom: 10 },
   filter: { minHeight: 44, justifyContent: "center", paddingHorizontal: 16, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card },
@@ -109,10 +113,11 @@ const styles = StyleSheet.create({
   filterText: { color: COLORS.secondary, fontFamily: "NunitoSans_700Bold", fontSize: 14 },
   selectedText: { color: COLORS.card },
   day: { color: COLORS.secondary, fontFamily: "NunitoSans_700Bold", fontSize: 14, marginTop: 16, marginBottom: 12 },
-  state: { alignItems: "center", paddingVertical: 28, gap: 14 },
+  state: { alignItems: "center", paddingVertical: 28, gap: 8 },
   stateTitle: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 23, textAlign: "center" },
   stateBody: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 14, lineHeight: 21, textAlign: "center" },
   action: { minHeight: 48, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
+  separatedAction: { marginTop: 6 },
   actionText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
   footer: { alignItems: "center", gap: 12, paddingVertical: 18 },
   pressed: { opacity: 0.75 },

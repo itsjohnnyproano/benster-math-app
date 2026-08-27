@@ -193,4 +193,17 @@ describe("SQLite results repository", () => {
     expect((await repo.save("lower", makeResult(2))).personalBest.status).toBe("unchanged");
     expect(await repo.getPersonalBests(30)).toEqual({ addition: 4 });
   });
+
+  it("clears history and personal bests and remains usable", async () => {
+    const { adapter } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save("before-delete", makeResult(4));
+
+    await repo.clearAll();
+
+    expect((await repo.list()).records).toEqual([]);
+    expect(await repo.listCompletionTimes()).toEqual([]);
+    expect(await repo.getPersonalBests(30)).toEqual({});
+    expect((await repo.save("after-delete", makeResult(2))).personalBest.status).toBe("first");
+  });
 });

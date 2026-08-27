@@ -48,7 +48,11 @@ export function PracticePreferences({ showSaveStatus = true, onChange }: { showS
             }
           />
       </View>
-      {showSaveStatus && <PreferenceSaveStatus />}
+      {showSaveStatus && (
+        <View style={styles.saveStatusSlot}>
+          <PreferenceSaveStatus compact />
+        </View>
+      )}
       <OptionBottomSheet
         onClose={() => setActiveSheet(null)}
         onSelect={(value) => {
@@ -89,4 +93,13 @@ export function PracticePreferences({ showSaveStatus = true, onChange }: { showS
   );
 }
 
-const styles = StyleSheet.create({ list: { gap: 12 } });
+const styles = StyleSheet.create({
+  list: { gap: 12 },
+  saveStatusSlot: {
+    height: 20,
+    marginTop: 4,
+    paddingRight: 20,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+});

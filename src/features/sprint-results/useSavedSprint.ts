@@ -13,7 +13,6 @@ export function useSavedSprint(id: string, result: SprintResult) {
   const [state, setState] = useState<SaveState>({ status: "saving", saved: null });
   useEffect(() => {
     let active = true;
-    setState({ status: "saving", saved: null });
     resultsRepository.save(id, result).then(
       (saved) => { if (active) setState({ status: "saved", saved }); },
       () => { if (active) setState({ status: "error", saved: null }); },

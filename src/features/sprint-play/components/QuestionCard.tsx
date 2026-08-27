@@ -2,12 +2,12 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { MathQuestion } from "@/domain/math-engine";
-import type { CardLayout } from "@/domain/sprint";
+import type { ConcreteCardLayout } from "@/domain/sprint";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 type QuestionCardProps = {
   height: number;
-  layout: CardLayout;
+  layout: ConcreteCardLayout;
   question: MathQuestion;
 };
 

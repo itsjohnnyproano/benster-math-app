@@ -11,7 +11,8 @@ export function usePracticeStreak() {
   const [attempt, setAttempt] = useState(0);
   useFocusEffect(useCallback(() => {
     let active = true;
-    let generation = 0;
+    // Seed each retry with its own generation so older requests stay stale.
+    let generation = attempt;
     let timer: ReturnType<typeof setTimeout>;
     const refresh = async () => {
       const request = ++generation;

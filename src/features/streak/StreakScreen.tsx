@@ -6,9 +6,10 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { usePracticeStreak } from "./usePracticeStreak";
-import { streakEncouragement } from "./streakPresentation";
+import { streakEncouragement, streakMascotState } from "./streakPresentation";
 
-const PENGUIN = require("../../../assets/mascot/penguin-cheering.png");
+const CELEBRATING_PENGUIN = require("../../../assets/mascot/penguin-jumping-celebration-confetti.png");
+const SLEEPING_PENGUIN = require("../../../assets/mascot/penguin-sleeping-z-running-shoes.png");
 
 export default function StreakScreen() {
   const router = useRouter();
@@ -66,7 +67,12 @@ export default function StreakScreen() {
               <Stat value={streak.data.totalPracticeDays} label="Total practice days" />
             </View>
             <View style={styles.encouragement}>
-              <Image accessible={false} source={PENGUIN} contentFit="contain" style={styles.mascot} />
+              <Image
+                accessible={false}
+                source={streakMascotState(streak.data) === "celebrating" ? CELEBRATING_PENGUIN : SLEEPING_PENGUIN}
+                contentFit="contain"
+                style={[styles.mascot, !streak.data.practicedToday && styles.sleepingMascot]}
+              />
               <View style={styles.message}><Text style={styles.messageText}>{streakEncouragement(streak.data)}</Text></View>
             </View>
             <Text style={styles.caption}>Finish a sprint each day to build your streak. A missed day starts a fresh one.</Text>
@@ -114,6 +120,7 @@ const styles = StyleSheet.create({
   statValue: { fontFamily: "NunitoSans_700Bold", fontSize: 28, color: COLORS.primary, textAlign: "center" },
   encouragement: { flexDirection: "row", alignItems: "center", gap: 12 },
   mascot: { width: 108, height: 138 },
+  sleepingMascot: { width: 120, height: 108 },
   message: { flex: 1, borderRadius: 22, backgroundColor: COLORS.card, padding: 16 },
   messageText: { fontFamily: "NunitoSans_700Bold", fontSize: 15, lineHeight: 22, color: COLORS.ink, textAlign: "center" },
   button: { backgroundColor: COLORS.primary, minHeight: 54, paddingHorizontal: 22, paddingVertical: 14, borderRadius: 18, alignItems: "center", justifyContent: "center" },

@@ -11,6 +11,7 @@ import { AnswerReview } from "./components/AnswerReview";
 import { useSavedSprint } from "./useSavedSprint";
 import { RESULT_PRESENTATION } from "./resultPresentation";
 import { formatResponseTime } from "@/shared/formatResponseTime";
+import { CARD_LAYOUT_LABELS } from "@/components/preferences/practiceOptions";
 
 type Props = { sprintId: string; result: SprintResult; onDone: () => void };
 
@@ -90,7 +91,7 @@ export function SprintResultsScreen({ sprintId, result, onDone }: Props) {
         <AnswerReview answers={result.answeredQuestions} />
         <View style={styles.details}>
           <Text style={styles.detailsText}>
-            {configuration.inputStyle === "typed" ? "Typed answers" : "Multiple choice"} · {configuration.cardLayout === "horizontal" ? "Horizontal cards" : "Vertical cards"}
+            {configuration.inputStyle === "typed" ? "Typed answers" : "Multiple choice"} · {CARD_LAYOUT_LABELS[configuration.cardLayout]} cards
           </Text>
           <Text style={styles.detailsText}>Level Up {configuration.levelUpEnabled ? "on" : "off"}</Text>
           <Text style={styles.detailsText}>{new Date(result.completedAtMs).toLocaleString()}</Text>

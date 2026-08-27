@@ -8,22 +8,25 @@ export function usePersonalBests(duration: SprintDurationSeconds, preferencesRea
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<{
     duration: SprintDurationSeconds;
+    attempt: number;
     status: "loading" | "loaded" | "error";
     bests: PersonalBests;
-  }>({ duration, status: "loading", bests: {} });
+  }>({ duration, attempt, status: "loading", bests: {} });
 
   useFocusEffect(useCallback(() => {
     if (!preferencesReady) return;
     let active = true;
-    setState({ duration, status: "loading", bests: {} });
+    setState({ duration, attempt, status: "loading", bests: {} });
     resultsRepository.getPersonalBests(duration).then(
-      (bests) => { if (active) setState({ duration, status: "loaded", bests }); },
-      () => { if (active) setState({ duration, status: "error", bests: {} }); },
+      (bests) => { if (active) setState({ duration, attempt, status: "loaded", bests }); },
+      () => { if (active) setState({ duration, attempt, status: "error", bests: {} }); },
     );
     return () => { active = false; };
   }, [duration, preferencesReady, attempt]));
 
-  const isCurrent = state.duration === duration && preferencesReady;
+  const isCurrent = state.duration === duration
+    && state.attempt === attempt
+    && preferencesReady;
   return {
     bests: isCurrent ? state.bests : {},
     status: isCurrent ? state.status : "loading",

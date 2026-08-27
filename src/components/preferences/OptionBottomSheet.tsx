@@ -1,18 +1,27 @@
 import { SymbolView } from "expo-symbols";
 import {
+  Animated,
+  Easing,
   Modal,
   Pressable,
   StyleSheet,
   Text,
+  useAnimatedValue,
   View,
 } from "react-native";
+import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "@/theme/tokens";
+import type { CardLayout } from "@/domain/sprint";
 
 import type { PreferenceOption } from "./practiceOptions";
 
 type OptionValue = string | number;
+
+const SHEET_HIDDEN_OFFSET = 520;
+const OPEN_DURATION_MS = 220;
+const CLOSE_DURATION_MS = 160;
 
 type OptionBottomSheetProps = {
   visible: boolean;
@@ -23,11 +32,27 @@ type OptionBottomSheetProps = {
   onSelect: (value: OptionValue) => void;
 };
 
-function LayoutPreview({ layout }: { layout: "horizontal" | "vertical" }) {
+function LayoutPreview({ layout }: { layout: CardLayout }) {
   if (layout === "horizontal") {
     return (
       <View style={styles.previewCard}>
         <Text style={styles.horizontalProblem}>9 × 6</Text>
+      </View>
+    );
+  }
+
+  if (layout === "both") {
+    return (
+      <View style={styles.previewCard}>
+        <View style={styles.combinedPreviewContent}>
+          <Text style={styles.combinedHorizontalProblem}>9 × 6</Text>
+          <View style={styles.combinedDivider} />
+          <View style={styles.combinedVerticalProblem}>
+            <Text style={styles.combinedVerticalNumber}>9</Text>
+            <Text style={styles.combinedVerticalNumber}>× 6</Text>
+            <View style={styles.combinedAnswerLine} />
+          </View>
+        </View>
       </View>
     );
   }
@@ -53,12 +78,61 @@ export function OptionBottomSheet({
 }: OptionBottomSheetProps) {
   const insets = useSafeAreaInsets();
   const hasPreviews = options.some((option) => option.preview);
+  const [isClosing, setIsClosing] = useState(false);
+  const backdropOpacity = useAnimatedValue(0);
+  const sheetTranslateY = useAnimatedValue(SHEET_HIDDEN_OFFSET);
+
+  const animateIn = () => {
+    setIsClosing(false);
+    backdropOpacity.setValue(0);
+    sheetTranslateY.setValue(SHEET_HIDDEN_OFFSET);
+    const animation = Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        duration: OPEN_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetTranslateY, {
+        duration: OPEN_DURATION_MS,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]);
+    animation.start();
+  };
+
+  const animateOut = (complete: () => void) => {
+    if (isClosing) return;
+    setIsClosing(true);
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        duration: CLOSE_DURATION_MS,
+        easing: Easing.in(Easing.cubic),
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sheetTranslateY, {
+        duration: CLOSE_DURATION_MS,
+        easing: Easing.in(Easing.cubic),
+        toValue: SHEET_HIDDEN_OFFSET,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      setIsClosing(false);
+      if (finished) complete();
+    });
+  };
+
+  const requestClose = () => animateOut(onClose);
 
   return (
     <Modal
-      animationType="fade"
+      animationType="none"
       navigationBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={requestClose}
+      onShow={animateIn}
       presentationStyle="overFullScreen"
       statusBarTranslucent
       transparent
@@ -67,75 +141,84 @@ export function OptionBottomSheet({
       <Pressable
         accessibilityLabel="Close options"
         accessibilityRole="button"
-        onPress={onClose}
+        onPress={requestClose}
         style={styles.backdrop}
       >
-        <Pressable
-          accessibilityViewIsModal
-          onPress={(event) => event.stopPropagation()}
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 18) }]}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.backdropTint, { opacity: backdropOpacity }]}
+        />
+        <Animated.View
+          style={{ transform: [{ translateY: sheetTranslateY }] }}
         >
-          <View style={styles.handle} />
-          <Text style={styles.title}>{title}</Text>
+          <Pressable
+            accessibilityViewIsModal
+            onPress={(event) => event.stopPropagation()}
+            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 18) }]}
+          >
+            <View style={styles.handle} />
+            <Text style={styles.title}>{title}</Text>
 
-          <View style={[styles.optionList, hasPreviews && styles.previewList]}>
-            {options.map((option) => {
-              const isSelected = selectedValue === option.value;
+            <View style={[styles.optionList, hasPreviews && styles.previewList]}>
+              {options.map((option) => {
+                const isSelected = selectedValue === option.value;
 
-              return (
-                <Pressable
-                  accessibilityLabel={`${option.label}${isSelected ? ", selected" : ""}`}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: isSelected }}
-                  key={option.value}
-                  onPress={() => onSelect(option.value)}
-                  style={({ pressed }) => [
-                    styles.option,
-                    hasPreviews && styles.previewOption,
-                    isSelected && styles.selectedOption,
-                    pressed && styles.pressedOption,
-                  ]}
-                >
-                  {option.preview && <LayoutPreview layout={option.preview} />}
-                  <View
-                    style={[
-                      styles.optionCopy,
-                      hasPreviews && styles.previewOptionCopy,
+                return (
+                  <Pressable
+                    accessibilityLabel={`${option.label}${isSelected ? ", selected" : ""}`}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isSelected }}
+                    key={option.value}
+                    disabled={isClosing}
+                    onPress={() => animateOut(() => onSelect(option.value))}
+                    style={({ pressed }) => [
+                      styles.option,
+                      hasPreviews && styles.previewOption,
+                      isSelected && styles.selectedOption,
+                      pressed && styles.pressedOption,
                     ]}
                   >
-                    <Text
+                    {option.preview && <LayoutPreview layout={option.preview} />}
+                    <View
                       style={[
-                        styles.optionLabel,
-                        isSelected && styles.selectedLabel,
+                        styles.optionCopy,
+                        hasPreviews && styles.previewOptionCopy,
                       ]}
                     >
-                      {option.label}
-                    </Text>
-                    {option.description && (
-                      <Text style={styles.optionDescription}>
-                        {option.description}
+                      <Text
+                        style={[
+                          styles.optionLabel,
+                          isSelected && styles.selectedLabel,
+                        ]}
+                      >
+                        {option.label}
                       </Text>
-                    )}
-                  </View>
-                  <View
-                    style={[
-                      styles.selectionCircle,
-                      isSelected && styles.selectedCircle,
-                    ]}
-                  >
-                    {isSelected && (
-                      <SymbolView
-                        name={{ ios: "checkmark", android: "check", web: "check" }}
-                        size={15}
-                        tintColor={COLORS.card}
-                      />
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Pressable>
+                      {option.description && (
+                        <Text style={styles.optionDescription}>
+                          {option.description}
+                        </Text>
+                      )}
+                    </View>
+                    <View
+                      style={[
+                        styles.selectionCircle,
+                        isSelected && styles.selectedCircle,
+                      ]}
+                    >
+                      {isSelected && (
+                        <SymbolView
+                          name={{ ios: "checkmark", android: "check", web: "check" }}
+                          size={15}
+                          tintColor={COLORS.card}
+                        />
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -145,6 +228,13 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: "flex-end",
+  },
+  backdropTint: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: "rgba(16, 24, 39, 0.42)",
   },
   sheet: {
@@ -177,6 +267,12 @@ const styles = StyleSheet.create({
   },
   optionList: { gap: 9 },
   previewList: { flexDirection: "row" },
+  combinedPreviewContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  combinedHorizontalProblem: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 13 },
+  combinedDivider: { width: 1, height: 38, backgroundColor: COLORS.border },
+  combinedVerticalProblem: { alignItems: "flex-end" },
+  combinedVerticalNumber: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 10, lineHeight: 11 },
+  combinedAnswerLine: { width: 21, height: 1.5, marginTop: 2, backgroundColor: COLORS.ink },
   option: {
     minHeight: 62,
     paddingHorizontal: 16,

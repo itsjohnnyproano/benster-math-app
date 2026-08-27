@@ -10,10 +10,10 @@ export type HomeModeCardConfig = {
 };
 
 const DESCRIPTIONS: Record<SprintMode, string> = {
-  addition: "Add with confidence!",
-  subtraction: "Subtract like a pro!",
-  multiplication: "Multiply and succeed!",
-  mixed: "A little of everything!",
+  addition: "Build addition confidence",
+  subtraction: "Make subtraction click",
+  multiplication: "Strengthen times tables",
+  mixed: "Mix all three skills",
 };
 
 export const HOME_MODE_CARDS: HomeModeCardConfig[] = SPRINT_MODES.map((id) => {

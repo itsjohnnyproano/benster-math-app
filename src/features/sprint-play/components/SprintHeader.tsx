@@ -5,7 +5,7 @@ import { COLORS } from "@/theme/tokens";
 
 type SprintHeaderProps = {
   remainingSeconds: number;
-  streak: number;
+  answerStreak: number;
   onClose: () => void;
 };
 
@@ -17,7 +17,7 @@ function formatTime(totalSeconds: number) {
 
 export function SprintHeader({
   remainingSeconds,
-  streak,
+  answerStreak,
   onClose,
 }: SprintHeaderProps) {
   return (
@@ -48,9 +48,17 @@ export function SprintHeader({
         <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.timerText}>{formatTime(remainingSeconds)}</Text>
       </View>
 
-      <View style={styles.streakPill}>
-        <Text maxFontSizeMultiplier={1.2} style={styles.streakIcon}>🔥</Text>
-        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.streakText}>{streak}</Text>
+      <View
+        accessible
+        accessibilityLabel={`${answerStreak} correct answers in a row`}
+        style={styles.comboPill}
+      >
+        <SymbolView
+          name={{ ios: "bolt.fill", android: "bolt", web: "bolt" }}
+          size={15}
+          tintColor={COLORS.orange}
+        />
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.comboText}>Combo {answerStreak}</Text>
       </View>
     </View>
   );
@@ -62,6 +70,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    position: "relative",
   },
   closeButton: {
     width: 44,
@@ -74,12 +83,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   timerPill: {
+    position: "absolute",
+    left: "50%",
+    width: 104,
+    transform: [{ translateX: -52 }],
     height: 42,
     paddingHorizontal: 15,
     borderRadius: 15,
     backgroundColor: COLORS.primarySoft,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 7,
   },
   timerText: {
@@ -89,8 +103,8 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontVariant: ["tabular-nums"],
   },
-  streakPill: {
-    minWidth: 56,
+  comboPill: {
+    minWidth: 86,
     height: 42,
     paddingHorizontal: 10,
     borderRadius: 15,
@@ -100,11 +114,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 4,
   },
-  streakIcon: { fontSize: 15 },
-  streakText: {
+  comboText: {
     color: COLORS.orange,
     fontFamily: "NunitoSans_700Bold",
-    fontSize: 16,
+    fontSize: 14,
+    fontVariant: ["tabular-nums"],
   },
   pressed: { opacity: 0.58 },
 });
