@@ -63,6 +63,7 @@ export type SprintState = ActiveSprintState | CompletedSprintState;
 
 export type QuestionGenerationInput = Readonly<{
   mode: SprintMode;
+  levelUpEnabled: boolean;
   difficultyLevel: DifficultyLevel;
   questionId: number;
   presentedAtMs: number;

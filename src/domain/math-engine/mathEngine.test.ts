@@ -28,6 +28,7 @@ describe("question generation", () => {
     for (let index = 0; index < 200; index += 1) {
       const question = generateQuestion({
         mode: "subtraction",
+        levelUpEnabled: true,
         difficultyLevel: 4,
         questionId: index,
         presentedAtMs: 0,
@@ -40,6 +41,7 @@ describe("question generation", () => {
   it("supports multiplication operands through 12", () => {
     const question = generateQuestion({
       mode: "multiplication",
+      levelUpEnabled: true,
       difficultyLevel: 4,
       questionId: 1,
       presentedAtMs: 0,
@@ -55,6 +57,7 @@ describe("question generation", () => {
       (operationChoice, index) =>
         generateQuestion({
           mode: "mixed",
+          levelUpEnabled: true,
           difficultyLevel: 1,
           questionId: index,
           presentedAtMs: 0,
@@ -68,6 +71,7 @@ describe("question generation", () => {
     for (let index = 0; index < 100; index += 1) {
       const question = generateQuestion({
         mode: "mixed",
+        levelUpEnabled: true,
         difficultyLevel: 4,
         questionId: index,
         presentedAtMs: 0,
@@ -82,6 +86,70 @@ describe("question generation", () => {
 });
 
 describe("sprint state", () => {
+  it.each(["multiplication", "mixed"] as const)(
+    "uses all twelve tables without progression in %s when Level Up is off",
+    (mode) => {
+      // High RNG also selects multiplication in Mixed mode.
+      let state = createSprint({ ...CONFIGURATION, mode, levelUpEnabled: false }, 0, () => 0.999999);
+      for (let index = 0; index < 16; index += 1) {
+        expect(state.currentQuestion.operation).toBe("multiplication");
+        expect(state.currentQuestion.leftOperand).toBe(12);
+        expect(state.currentQuestion.rightOperand).toBe(12);
+        expect(state.currentQuestion.correctAnswer).toBe(144);
+        expect(new Set(state.currentQuestion.choices).size).toBe(4);
+        expect(state.difficultyLevel).toBe(1);
+        const next = submitAnswer(state, 144, index + 1, () => 0.999999);
+        if (next.status !== "active") throw new Error("Sprint ended early");
+        state = next;
+      }
+    },
+  );
+
+  it.each(["multiplication", "mixed"] as const)(
+    "preserves five-answer range progression in %s when Level Up is on",
+    (mode) => {
+      let state = createSprint({ ...CONFIGURATION, mode }, 0, () => 0.999999);
+      for (let index = 0; index <= 20; index += 1) {
+        const level = Math.min(4, 1 + Math.floor(index / 5));
+        const max = [5, 8, 10, 12][level - 1];
+        expect(state.difficultyLevel).toBe(level);
+        expect(state.currentQuestion.leftOperand).toBe(max);
+        expect(state.currentQuestion.rightOperand).toBe(max);
+        const next = submitAnswer(state, state.currentQuestion.correctAnswer, index + 1, () => 0.999999);
+        if (next.status !== "active") throw new Error("Sprint ended early");
+        state = next;
+      }
+    },
+  );
+
+  it.each(["addition", "subtraction"] as const)(
+    "keeps %s at 0–10 when Level Up is off, including Mixed mode",
+    (operation) => {
+      for (const mode of [operation, "mixed"] as const) {
+        const random = () => sequenceRandom([
+          ...(mode === "mixed" ? [operation === "addition" ? 0 : 0.4] : []),
+          0.999999, 0,
+        ]);
+        let state = createSprint({ ...CONFIGURATION, mode, levelUpEnabled: false }, 0, random());
+        for (let index = 0; index < 6; index += 1) {
+          expect(state.currentQuestion.operation).toBe(operation);
+          expect(state.currentQuestion.leftOperand).toBe(10);
+          expect(state.currentQuestion.rightOperand).toBe(0);
+          expect(state.currentQuestion.correctAnswer).toBe(10);
+          const next = submitAnswer(state, 10, index + 1, random());
+          if (next.status !== "active") throw new Error("Sprint ended early");
+          state = next;
+        }
+      }
+    },
+  );
+
+  it("still includes the one-times table with Level Up off", () => {
+    const state = createSprint({ ...CONFIGURATION, mode: "multiplication", levelUpEnabled: false }, 0, () => 0);
+    expect(state.currentQuestion.leftOperand).toBe(1);
+    expect(state.currentQuestion.rightOperand).toBe(1);
+  });
+
   it("tracks correct answers, attempts, streaks, and elapsed time", () => {
     const initial = createSprint(CONFIGURATION, 1_000, () => 0.2);
     const answered = submitAnswer(

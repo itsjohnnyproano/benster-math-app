@@ -53,6 +53,7 @@ export function createSprint(
     configuration: frozenConfiguration,
     currentQuestion: generateQuestion({
       mode: frozenConfiguration.mode,
+      levelUpEnabled: frozenConfiguration.levelUpEnabled,
       difficultyLevel: 1,
       questionId: 1,
       presentedAtMs: startedAtMs,
@@ -120,6 +121,7 @@ export function submitAnswer(
     ...state,
     currentQuestion: generateQuestion({
       mode: state.configuration.mode,
+      levelUpEnabled: state.configuration.levelUpEnabled,
       difficultyLevel,
       questionId: state.nextQuestionId,
       presentedAtMs: answeredAtMs,

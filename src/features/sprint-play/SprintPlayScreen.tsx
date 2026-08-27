@@ -1,8 +1,8 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
 import {
@@ -28,6 +28,7 @@ import { QuestionCard } from "./components/QuestionCard";
 import { SprintCompleteView } from "./components/SprintCompleteView";
 import { SprintHeader } from "./components/SprintHeader";
 import type { AnswerFeedback } from "./types";
+import { getGameplayLayout } from "./gameplayLayout";
 
 const FEEDBACK_DURATION_MS = 650;
 
@@ -37,6 +38,9 @@ function readBoolean(value: string | undefined) {
 
 export default function SprintPlayScreen() {
   const router = useRouter();
+  const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const params = useLocalSearchParams<{
     mode?: string;
     durationSeconds?: string;
@@ -66,6 +70,10 @@ export default function SprintPlayScreen() {
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modeDetails = SPRINT_MODE_DETAILS[configuration.mode];
+  const layout = getGameplayLayout(
+    measuredHeight ?? window.height - insets.top - insets.bottom,
+    configuration.inputStyle,
+  );
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -168,7 +176,7 @@ export default function SprintPlayScreen() {
     <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="dark" />
-      <View style={styles.content}>
+      <View style={styles.content} onLayout={({ nativeEvent }) => setMeasuredHeight(nativeEvent.layout.height)}>
         <SprintHeader
           onClose={closeSprint}
           remainingSeconds={Math.ceil(remainingMs / 1000)}
@@ -189,35 +197,55 @@ export default function SprintPlayScreen() {
           />
         </View>
 
-        <View style={styles.questionArea}>
-          <Text style={styles.prompt}>Solve it!</Text>
-          <QuestionCard
-            layout={configuration.cardLayout}
-            question={sprintState.currentQuestion}
-          />
-        </View>
-
-        <View style={styles.answerArea}>
-          {configuration.inputStyle === "multiple-choice" ? (
-            <MultipleChoiceAnswers
-              choices={sprintState.currentQuestion.choices}
-              feedback={feedback}
-              onSelect={submit}
+        <View style={styles.playArea}>
+          <View
+            style={[
+              styles.questionArea,
+              { paddingVertical: layout.gap },
+              configuration.inputStyle === "multiple-choice" && [
+                styles.choiceQuestionArea,
+                { paddingTop: 0, paddingBottom: layout.gap * 2 },
+              ],
+            ]}
+          >
+            {layout.promptHeight > 0 && (
+              <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={[styles.prompt, { height: layout.promptHeight }]}>Solve it!</Text>
+            )}
+            <QuestionCard
+              height={layout.cardHeight}
+              layout={configuration.cardLayout}
+              question={sprintState.currentQuestion}
             />
-          ) : (
-            <NumberPad
-              feedback={feedback}
-              onChange={setTypedAnswer}
-              onSubmit={() => submit(Number(typedAnswer))}
-              value={typedAnswer}
-            />
-          )}
-        </View>
+          </View>
 
-        <Text style={styles.levelLabel}>
-          Level {sprintState.difficultyLevel}
-          {configuration.levelUpEnabled ? " · Level Up on" : ""}
-        </Text>
+          <View
+            style={[
+              styles.answerArea,
+              configuration.inputStyle === "multiple-choice" && styles.insetAnswers,
+            ]}
+          >
+            {configuration.inputStyle === "multiple-choice" ? (
+              <MultipleChoiceAnswers
+                choices={sprintState.currentQuestion.choices}
+                feedback={feedback}
+                onSelect={submit}
+              />
+            ) : (
+              <NumberPad
+                layout={layout}
+                feedback={feedback}
+                onChange={setTypedAnswer}
+                onSubmit={() => submit(Number(typedAnswer))}
+                value={typedAnswer}
+              />
+            )}
+          </View>
+
+          <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.levelLabel}>
+            Level {sprintState.difficultyLevel}
+            {configuration.levelUpEnabled ? " · Level Up on" : ""}
+          </Text>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -229,11 +257,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 8,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   progressTrack: {
     height: 6,
-    marginTop: 12,
+    marginTop: 6,
     borderRadius: 3,
     backgroundColor: COLORS.border,
     overflow: "hidden",
@@ -243,21 +271,28 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: COLORS.primary,
   },
-  questionArea: { marginTop: 17, alignItems: "center" },
+  // Let the keypad reach the safe-area edges without widening the header.
+  playArea: { flex: 1, marginHorizontal: -24 },
+  questionArea: { flex: 1, minHeight: 0, alignItems: "center", justifyContent: "center" },
   prompt: {
-    marginBottom: 12,
     color: COLORS.secondary,
     fontFamily: "NunitoSans_700Bold",
     fontSize: 14,
+    lineHeight: 18,
     textTransform: "uppercase",
     letterSpacing: 1.1,
   },
   answerArea: {
-    flex: 1,
-    marginTop: 24,
-    justifyContent: "center",
+    flexShrink: 0,
   },
+  // Center the question and choices as one group instead of pinning choices
+  // to the bottom like the typed keypad. Keep the existing height budget.
+  choiceQuestionArea: { flex: 0, marginTop: "auto" },
+  insetAnswers: { paddingHorizontal: 24, marginBottom: "auto" },
   levelLabel: {
+    marginTop: 4,
+    height: 20,
+    lineHeight: 20,
     color: COLORS.secondary,
     fontFamily: "NunitoSans_600SemiBold",
     fontSize: 12,

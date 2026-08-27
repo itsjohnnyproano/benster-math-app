@@ -45,12 +45,12 @@ export function SprintHeader({
           size={17}
           tintColor={COLORS.primary}
         />
-        <Text style={styles.timerText}>{formatTime(remainingSeconds)}</Text>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.timerText}>{formatTime(remainingSeconds)}</Text>
       </View>
 
       <View style={styles.streakPill}>
-        <Text style={styles.streakIcon}>🔥</Text>
-        <Text style={styles.streakText}>{streak}</Text>
+        <Text maxFontSizeMultiplier={1.2} style={styles.streakIcon}>🔥</Text>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.streakText}>{streak}</Text>
       </View>
     </View>
   );
@@ -58,14 +58,14 @@ export function SprintHeader({
 
 const styles = StyleSheet.create({
   header: {
-    minHeight: 50,
+    height: 50,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   closeButton: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 15,
     borderWidth: 1,
     borderColor: COLORS.border,

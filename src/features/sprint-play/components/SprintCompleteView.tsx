@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { SprintResult } from "@/domain/math-engine";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
@@ -10,7 +11,16 @@ type SprintCompleteViewProps = {
 
 export function SprintCompleteView({ result, onDone }: SprintCompleteViewProps) {
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      <Image
+        accessibilityLabel="Math Sprint penguin giving a thumbs-up"
+        contentFit="contain"
+        source={require("../../../../assets/mascot/penguin-thumbs-up.png")}
+        style={styles.mascot}
+      />
       <Text style={styles.eyebrow}>Time’s up!</Text>
       <Text style={styles.title}>Sprint complete</Text>
       <View style={[styles.scoreCard, CARD_SHADOW]}>
@@ -36,7 +46,7 @@ export function SprintCompleteView({ result, onDone }: SprintCompleteViewProps) 
       >
         <Text style={styles.buttonText}>Done</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -51,10 +61,16 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingVertical: 24,
     alignItems: "center",
     justifyContent: "center",
+  },
+  mascot: {
+    width: 140,
+    height: 162,
+    marginBottom: 14,
   },
   eyebrow: {
     color: COLORS.primary,
@@ -66,6 +82,7 @@ const styles = StyleSheet.create({
     color: COLORS.ink,
     fontFamily: "NunitoSans_700Bold",
     fontSize: 31,
+    textAlign: "center",
   },
   scoreCard: {
     alignSelf: "stretch",
