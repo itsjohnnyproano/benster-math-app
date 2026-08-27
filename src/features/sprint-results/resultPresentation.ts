@@ -18,7 +18,3 @@ export const RESULT_PRESENTATION = {
     message: "Great practice. Keep it up!",
   },
 } as const satisfies Record<ResultOutcome, { useEncouragementMascot: boolean; message: string }>;
-
-export function formatResponseTime(milliseconds: number | null) {
-  return milliseconds === null ? "—" : `${(milliseconds / 1000).toFixed(1)} sec`;
-}

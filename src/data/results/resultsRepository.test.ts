@@ -29,6 +29,59 @@ afterEach(() => {
 });
 
 describe("SQLite results repository", () => {
+  it("paginates timestamp ties without duplicates and filters before limiting", async () => {
+    const { adapter } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    for (const id of ["a", "b", "c", "d"]) await repo.save(id, makeResult());
+    await repo.save("z", makeResult(2, 5, { mode: "mixed" }));
+    const first = await repo.list({ mode: "addition", limit: 2 });
+    expect(first.records.map((record) => record.id)).toEqual(["d", "c"]);
+    expect(first.nextCursor).not.toBeNull();
+    // An insertion ahead of the cursor must not shift subsequent pages.
+    await repo.save("y", makeResult());
+    const second = await repo.list({ mode: "addition", limit: 2, cursor: first.nextCursor! });
+    expect(second.records.map((record) => record.id)).toEqual(["b", "a"]);
+    expect(second.nextCursor).toBeNull();
+    expect((await repo.list({ mode: "mixed", limit: 1 })).records.map((record) => record.id)).toEqual(["z"]);
+    expect((await repo.list({ mode: "subtraction" })).records).toEqual([]);
+    await expect(repo.list({ limit: 0 })).rejects.toThrow("Invalid history query");
+  });
+
+  it("lists persisted history after reopening the database", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "math-history-"));
+    directories.push(directory);
+    const path = join(directory, "results.db");
+    const first = databaseAdapter(path);
+    await createResultsRepository(async () => first.adapter).save("saved", makeResult(0, 0));
+    await first.adapter.closeAsync();
+    const reopened = createResultsRepository(async () => databaseAdapter(path).adapter);
+    const page = await reopened.list();
+    expect(page.records[0].result.attemptedCount).toBe(0);
+    expect(page.records[0].id).toBe("saved");
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it("orders different completion times newest first", async () => {
+    const { adapter } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save("z-old", makeResult());
+    await repo.save("a-new", makeResult(3, 5, { durationSeconds: 120 }));
+    expect((await repo.list()).records.map((record) => record.id)).toEqual(["a-new", "z-old"]);
+    await expect(repo.list({ cursor: { completedAtMs: NaN, id: "a" } })).rejects.toThrow("Invalid history query");
+  });
+
+  it("allows history retry after a read error without modifying records", async () => {
+    const { adapter } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save("saved", makeResult());
+    const read = adapter.getAllAsync;
+    adapter.getAllAsync = async () => { throw new Error("Read failed"); };
+    await expect(repo.list()).rejects.toThrow("Read failed");
+    adapter.getAllAsync = read;
+    expect((await repo.list()).records.map((record) => record.id)).toEqual(["saved"]);
+    expect(await repo.getPersonalBests(30)).toEqual({ addition: 3 });
+  });
+
   it("saves timing and the best receipt and reloads them", async () => {
     const { adapter } = databaseAdapter();
     const repo = createResultsRepository(async () => adapter);

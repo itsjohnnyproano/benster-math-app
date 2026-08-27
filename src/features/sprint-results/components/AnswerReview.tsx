@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { AnsweredQuestion } from "@/domain/math-engine";
-import { formatResponseTime } from "../resultPresentation";
+import { formatResponseTime } from "@/shared/formatResponseTime";
 import { COLORS } from "@/theme/tokens";
 
 export function AnswerReview({ answers }: { answers: readonly AnsweredQuestion[] }) {
