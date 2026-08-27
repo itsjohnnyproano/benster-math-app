@@ -1,4 +1,12 @@
-import type { InputStyle } from "@/domain/sprint";
+import type { CardLayout, ConcreteCardLayout, InputStyle } from "@/domain/sprint";
+
+export function resolveQuestionCardLayout(
+  preference: CardLayout,
+  questionId: number,
+): ConcreteCardLayout {
+  if (preference !== "both") return preference;
+  return questionId % 2 === 1 ? "horizontal" : "vertical";
+}
 
 // Heights are measured inside SafeAreaView, never from a device/model name.
 export function getGameplayLayout(height: number, inputStyle: InputStyle) {

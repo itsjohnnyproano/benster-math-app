@@ -29,7 +29,7 @@ import { NumberPad } from "./components/NumberPad";
 import { QuestionCard } from "./components/QuestionCard";
 import { SprintHeader } from "./components/SprintHeader";
 import type { AnswerFeedback } from "./types";
-import { getGameplayLayout } from "./gameplayLayout";
+import { getGameplayLayout, resolveQuestionCardLayout } from "./gameplayLayout";
 import { createSprintClock } from "./sprintClock";
 
 const FEEDBACK_DURATION_MS = 650;
@@ -191,9 +191,9 @@ export default function SprintPlayScreen() {
       <StatusBar style="dark" />
       <View style={styles.content} onLayout={({ nativeEvent }) => setMeasuredHeight(nativeEvent.layout.height)}>
         <SprintHeader
+          answerStreak={sprintState.currentStreak}
           onClose={closeSprint}
           remainingSeconds={Math.ceil(remainingMs / 1000)}
-          streak={sprintState.currentStreak}
         />
 
         <View style={styles.progressTrack}>
@@ -226,7 +226,10 @@ export default function SprintPlayScreen() {
             )}
             <QuestionCard
               height={layout.cardHeight}
-              layout={configuration.cardLayout}
+              layout={resolveQuestionCardLayout(
+                configuration.cardLayout,
+                sprintState.currentQuestion.id,
+              )}
               question={sprintState.currentQuestion}
             />
           </View>

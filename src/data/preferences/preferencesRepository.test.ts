@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const storage = vi.hoisted(() => ({ getItem: vi.fn(), setItem: vi.fn() }));
+const storage = vi.hoisted(() => ({ getItem: vi.fn(), setItem: vi.fn(), removeItem: vi.fn() }));
 vi.mock("expo-sqlite/kv-store", () => ({ default: storage }));
 
 import { DEFAULT_PREFERENCES, resetPracticeDefaults } from "./preferenceDefaults";
-import { loadPreferences, sanitizePreferences, savePreferences } from "./preferencesRepository";
+import { deletePreferences, loadPreferences, sanitizePreferences, savePreferences } from "./preferencesRepository";
 
 beforeEach(() => {
   storage.getItem.mockReset().mockResolvedValue(null);
   storage.setItem.mockReset().mockResolvedValue(undefined);
+  storage.removeItem.mockReset().mockResolvedValue(undefined);
 });
 
 describe("preferences storage", () => {
@@ -18,7 +19,7 @@ describe("preferences storage", () => {
   });
 
   it("persists and reloads the nickname and all practice preferences", async () => {
-    const preferences = { ...DEFAULT_PREFERENCES, nickname: "Jo", durationSeconds: 120 as const };
+    const preferences = { ...DEFAULT_PREFERENCES, nickname: "Jo", durationSeconds: 120 as const, cardLayout: "both" as const };
     await savePreferences(preferences);
     storage.getItem.mockResolvedValue(storage.setItem.mock.calls[0][1]);
     expect(await loadPreferences()).toEqual(preferences);
@@ -53,5 +54,14 @@ describe("preferences storage", () => {
     await retry;
     expect(JSON.parse(storage.setItem.mock.calls[0][1]).nickname).toBe("First");
     expect(JSON.parse(storage.setItem.mock.calls[1][1]).nickname).toBe("Second");
+  });
+
+  it("deletes preferences after any queued write", async () => {
+    await savePreferences({ ...DEFAULT_PREFERENCES, nickname: "Jo" });
+    await deletePreferences();
+
+    expect(storage.removeItem).toHaveBeenCalledWith("math-sprint:user-preferences:v1");
+    expect(storage.setItem.mock.invocationCallOrder[0])
+      .toBeLessThan(storage.removeItem.mock.invocationCallOrder[0]);
   });
 });

@@ -18,6 +18,11 @@ describe("results", () => {
     expect(calculatePersonalBest(result, 10).updated).toBe(10);
   });
 
+  it("accepts results from a sprint using both card layouts", () => {
+    const result = makeResult(1, 1, { cardLayout: "both" });
+    expect(() => assertSprintResult(result)).not.toThrow();
+  });
+
   it("handles first, improved, tied and lower personal bests", () => {
     const result = makeResult(3);
     expect(calculatePersonalBest(result, null).status).toBe("first");

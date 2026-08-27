@@ -233,5 +233,25 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
         return bests;
       });
     },
+
+    clearAll(): Promise<void> {
+      return serialize(async () => {
+        const db = await getDatabase();
+        await db.execAsync("BEGIN IMMEDIATE");
+        try {
+          // Delete dependents first because foreign keys are enforced.
+          await db.execAsync("DELETE FROM personal_bests; DELETE FROM sprints;");
+          await db.execAsync("COMMIT");
+        } catch (error) {
+          try {
+            await db.execAsync("ROLLBACK");
+          } catch {
+            database = null;
+            await db.closeAsync().catch(() => undefined);
+          }
+          throw error;
+        }
+      });
+    },
   };
 }

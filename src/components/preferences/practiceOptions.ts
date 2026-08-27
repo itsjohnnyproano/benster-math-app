@@ -28,6 +28,7 @@ export const INPUT_STYLE_LABELS: Record<InputStyle, string> = {
 export const CARD_LAYOUT_LABELS: Record<CardLayout, string> = {
   horizontal: "Horizontal",
   vertical: "Vertical",
+  both: "Both",
 };
 
 export const INPUT_STYLE_OPTIONS: readonly PreferenceOption<InputStyle>[] = [
@@ -53,5 +54,10 @@ export const CARD_LAYOUT_OPTIONS: readonly PreferenceOption<CardLayout>[] = [
     value: "vertical",
     label: CARD_LAYOUT_LABELS.vertical,
     preview: "vertical",
+  },
+  {
+    value: "both",
+    label: CARD_LAYOUT_LABELS.both,
+    preview: "both",
   },
 ];

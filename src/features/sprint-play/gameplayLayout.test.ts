@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { getGameplayLayout } from "./gameplayLayout";
+import { getGameplayLayout, resolveQuestionCardLayout } from "./gameplayLayout";
+
+describe("question card layout preference", () => {
+  it("preserves a selected concrete layout", () => {
+    expect(resolveQuestionCardLayout("horizontal", 2)).toBe("horizontal");
+    expect(resolveQuestionCardLayout("vertical", 1)).toBe("vertical");
+  });
+
+  it("alternates layouts when both is selected", () => {
+    expect(resolveQuestionCardLayout("both", 1)).toBe("horizontal");
+    expect(resolveQuestionCardLayout("both", 2)).toBe("vertical");
+    expect(resolveQuestionCardLayout("both", 3)).toBe("horizontal");
+  });
+});
 
 describe("portrait gameplay layout", () => {
   const phones = [

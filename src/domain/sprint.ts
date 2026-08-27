@@ -7,12 +7,13 @@ export const SPRINT_MODES = [
 
 export const SPRINT_DURATIONS = [30, 60, 90, 120] as const;
 export const INPUT_STYLES = ["multiple-choice", "typed"] as const;
-export const CARD_LAYOUTS = ["horizontal", "vertical"] as const;
+export const CARD_LAYOUTS = ["horizontal", "vertical", "both"] as const;
 
 export type SprintMode = (typeof SPRINT_MODES)[number];
 export type SprintDurationSeconds = (typeof SPRINT_DURATIONS)[number];
 export type InputStyle = (typeof INPUT_STYLES)[number];
 export type CardLayout = (typeof CARD_LAYOUTS)[number];
+export type ConcreteCardLayout = Exclude<CardLayout, "both">;
 
 export type UserPreferences = {
   nickname: string;
