@@ -1,4 +1,5 @@
 import { SymbolView } from "expo-symbols";
+import { useRouter } from "expo-router";
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +20,8 @@ function NavItem({ label, icon, active = false, onPress }: NavItemProps) {
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ selected: active, disabled: !onPress }}
+      disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => [styles.navItem, pressed && styles.navPressed]}
     >
@@ -29,17 +32,21 @@ function NavItem({ label, icon, active = false, onPress }: NavItemProps) {
   );
 }
 
-export function BottomNavigation() {
+export function BottomNavigation({ active = "home" }: { active?: "home" | "history" }) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 6) }]}>
       <NavItem
-        active
+        active={active === "home"}
+        onPress={() => { if (active !== "home") router.dismissTo("/"); }}
         icon={{ ios: "house.fill", android: "home", web: "home" }}
         label="Home"
       />
       <NavItem
+        active={active === "history"}
+        onPress={() => { if (active !== "history") router.navigate("/history"); }}
         icon={{
           ios: "clock.arrow.circlepath",
           android: "history",

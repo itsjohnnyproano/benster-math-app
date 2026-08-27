@@ -7,7 +7,6 @@ import { BottomNavigation } from "@/components/navigation/BottomNavigation";
 
 import { COLORS } from "@/theme/tokens";
 
-import { HistoryButton } from "./components/HistoryButton";
 import { HomeHeader } from "./components/HomeHeader";
 import { HomeHero } from "./components/HomeHero";
 import { ModeCard } from "./components/ModeCard";
@@ -64,8 +63,6 @@ export default function HomeScreen() {
             />
           ))}
         </View>
-
-        <HistoryButton />
       </ScrollView>
 
       <BottomNavigation />

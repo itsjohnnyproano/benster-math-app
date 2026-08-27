@@ -23,6 +23,8 @@ type ResultRow = {
   best_status: string;
 };
 export type PersonalBests = Partial<Record<SprintMode, number>>;
+export type HistoryCursor = Readonly<{ completedAtMs: number; id: string }>;
+export type HistoryPage = Readonly<{ records: SavedSprint[]; nextCursor: HistoryCursor | null }>;
 
 const SCHEMA = `
   CREATE TABLE sprints (
@@ -103,6 +105,40 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
   }
 
   return {
+    list(options: { mode?: SprintMode; cursor?: HistoryCursor; limit?: number } = {}): Promise<HistoryPage> {
+      const { mode, cursor, limit = 20 } = options;
+      if ((mode !== undefined && !isSprintMode(mode))
+        || !Number.isSafeInteger(limit) || limit < 1 || limit > 100
+        || (cursor && (!Number.isSafeInteger(cursor.completedAtMs) || cursor.completedAtMs < 0
+          || !/^[a-zA-Z0-9-]{1,128}$/.test(cursor.id)))) {
+        return Promise.reject(new Error("Invalid history query"));
+      }
+      // Keyset pagination stays stable when newer sprints are inserted. The ID
+      // breaks timestamp ties; filtering happens in SQLite before the limit.
+      const conditions: string[] = [];
+      const params: SqlValue[] = [];
+      if (mode) { conditions.push("mode = ?"); params.push(mode); }
+      if (cursor) {
+        conditions.push("(completed_at_ms < ? OR (completed_at_ms = ? AND id < ?))");
+        params.push(cursor.completedAtMs, cursor.completedAtMs, cursor.id);
+      }
+      params.push(limit + 1);
+      return serialize(async () => {
+        const db = await getDatabase();
+        const rows = await db.getAllAsync<ResultRow>(
+          `SELECT * FROM sprints ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
+            ORDER BY completed_at_ms DESC, id DESC LIMIT ?`, params,
+        );
+        const records = rows.slice(0, limit).map(readResult);
+        const last = records.at(-1);
+        return {
+          records,
+          nextCursor: rows.length > limit && last
+            ? { completedAtMs: last.result.completedAtMs, id: last.id } : null,
+        };
+      });
+    },
+
     save(id: string, result: SprintResult): Promise<SavedSprint> {
       // timestamp/random IDs are identities only; never interpolate them into SQL.
       if (!/^[a-zA-Z0-9-]{1,128}$/.test(id)) return Promise.reject(new Error("Invalid sprint ID"));

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { formatResponseTime, RESULT_PRESENTATION } from "./resultPresentation";
+import { RESULT_PRESENTATION } from "./resultPresentation";
+import { formatResponseTime } from "@/shared/formatResponseTime";
 
 describe("result presentation", () => {
   it("preserves wording and mascot choices for every outcome", () => {

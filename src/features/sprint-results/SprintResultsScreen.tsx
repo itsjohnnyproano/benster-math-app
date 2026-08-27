@@ -9,7 +9,8 @@ import { formatDurationLabel } from "@/shared/formatSprintDuration";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { AnswerReview } from "./components/AnswerReview";
 import { useSavedSprint } from "./useSavedSprint";
-import { formatResponseTime, RESULT_PRESENTATION } from "./resultPresentation";
+import { RESULT_PRESENTATION } from "./resultPresentation";
+import { formatResponseTime } from "@/shared/formatResponseTime";
 
 type Props = { sprintId: string; result: SprintResult; onDone: () => void };
 
