@@ -44,7 +44,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
             style={({ pressed }) => [styles.item, focused && styles.selected, pressed && styles.pressed]}>
             {options.tabBarIcon?.({ focused, color, size: 24 })}
-            <Text style={[styles.label, { color }]}>{options.title ?? route.name}</Text>
+            <Text maxFontSizeMultiplier={1.15} numberOfLines={1} adjustsFontSizeToFit style={[styles.label, { color }]}>{options.title ?? route.name}</Text>
           </Pressable>
         );
       })}

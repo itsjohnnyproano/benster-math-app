@@ -28,8 +28,8 @@ export function LevelUpRow({
       ]}
     >
       <View style={styles.copy}>
-        <Text style={styles.label}>Level Up mode</Text>
-        <Text style={styles.description}>Questions get harder as you go</Text>
+        <Text maxFontSizeMultiplier={1.3} numberOfLines={1} adjustsFontSizeToFit style={styles.label}>Level Up mode</Text>
+        <Text maxFontSizeMultiplier={1.3} numberOfLines={2} style={styles.description}>Questions get harder as you go</Text>
       </View>
       <View pointerEvents="none" style={styles.switchContainer}>
         <Switch
@@ -47,6 +47,7 @@ const styles = StyleSheet.create({
   row: {
     minHeight: 76,
     paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: "rgba(109, 69, 232, 0.06)",

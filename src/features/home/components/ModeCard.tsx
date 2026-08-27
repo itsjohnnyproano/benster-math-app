@@ -40,9 +40,9 @@ export function ModeCard({ title, description, best, symbol, color, onPress }: M
       </View>
       <View style={[styles.content, compact && styles.compactContent]}>
         <View style={styles.copy}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
-          <Text style={styles.best}>Best: <Text style={{ color }}>{best ?? "—"}</Text></Text>
+          <Text maxFontSizeMultiplier={1.25} numberOfLines={1} adjustsFontSizeToFit style={styles.title}>{title}</Text>
+          <Text maxFontSizeMultiplier={1.3} numberOfLines={2} style={styles.description}>{description}</Text>
+          <Text maxFontSizeMultiplier={1.25} numberOfLines={1} style={styles.best}>Best: <Text style={{ color }}>{best ?? "—"}</Text></Text>
         </View>
         <View accessible={false} style={[styles.tile, { backgroundColor: `${color}12`, borderColor: `${color}30` }, compact && styles.compactTile]}>
           <View style={[styles.mark, compact && styles.compactMark]}>

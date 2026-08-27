@@ -9,8 +9,8 @@ export function HomeHero() {
       <View style={styles.heroOrbLarge} />
       <View style={styles.heroOrbSmall} />
       <View style={styles.heroCopy}>
-        <Text style={styles.heroLine}>Pick your</Text>
-        <Text style={styles.heroAccent}>sprint</Text>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.heroLine}>Pick your</Text>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.heroAccent}>sprint</Text>
       </View>
       <Image
         accessibilityLabel="Math Sprint penguin mascot peeking around a yellow panel"

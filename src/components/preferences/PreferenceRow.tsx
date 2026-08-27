@@ -31,8 +31,8 @@ export function PreferenceRow({
       ]}
     >
       <View style={styles.copy}>
-        <Text style={styles.label}>{label}</Text>
-        <Text style={styles.value}>{value}</Text>
+        <Text maxFontSizeMultiplier={1.3} numberOfLines={1} adjustsFontSizeToFit style={styles.label}>{label}</Text>
+        <Text maxFontSizeMultiplier={1.3} numberOfLines={1} style={styles.value}>{value}</Text>
       </View>
       <SymbolView
         name={{
@@ -51,6 +51,7 @@ const styles = StyleSheet.create({
   row: {
     minHeight: 72,
     paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: "rgba(109, 69, 232, 0.06)",

@@ -40,13 +40,13 @@ export default function HomeScreen() {
         <HomeHero />
 
         <View style={styles.modeList}>
-          <Text style={styles.bestContext}>
+          <Text maxFontSizeMultiplier={1.35} style={styles.bestContext}>
             Personal bests · {formatDurationLabel(preferences.durationSeconds)}
             {personalBests.status === "loading" ? " · Loading…" : ""}
           </Text>
           {personalBests.status === "error" && (
             <Pressable accessibilityRole="button" onPress={personalBests.retry} style={styles.retry}>
-              <Text style={styles.bestContext}>Couldn’t load personal bests. Tap to retry.</Text>
+              <Text maxFontSizeMultiplier={1.35} style={styles.bestContext}>Couldn’t load personal bests. Tap to retry.</Text>
             </Pressable>
           )}
           {HOME_MODE_CARDS.map((mode) => (
