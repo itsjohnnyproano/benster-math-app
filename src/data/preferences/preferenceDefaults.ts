@@ -1,6 +1,7 @@
 import type { UserPreferences } from "@/domain/sprint";
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
+  onboardingCompleted: false,
   nickname: "",
   durationSeconds: 60,
   inputStyle: "multiple-choice",

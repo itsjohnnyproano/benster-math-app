@@ -25,6 +25,7 @@ type PreferencesContextValue = {
   retryLoad: () => void;
   retrySave: () => void;
   deleteAllPreferences: () => Promise<void>;
+  completeOnboarding: (nickname: string) => Promise<void>;
   resetPracticePreferences: () => void;
   updatePreference: <Key extends keyof UserPreferences>(
     key: Key,
@@ -94,6 +95,28 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
           setLoadAttempt((attempt) => attempt + 1);
         },
         retrySave: () => { if (isReady) persist(preferencesRef.current); },
+        completeOnboarding: async (nickname) => {
+          if (!isReady) throw new Error("Preferences are not ready");
+          const next = sanitizePreferences({
+            ...preferencesRef.current,
+            nickname,
+            onboardingCompleted: true,
+          });
+          const revision = ++saveRevision.current;
+          setSaveStatus("saving");
+          try {
+            // Commit nickname and completion together before opening Home.
+            await savePreferences(next);
+            if (mounted.current && revision === saveRevision.current) {
+              preferencesRef.current = next;
+              setPreferences(next);
+              setSaveStatus("saved");
+            }
+          } catch (error) {
+            if (mounted.current && revision === saveRevision.current) setSaveStatus("error");
+            throw error;
+          }
+        },
         deleteAllPreferences: async () => {
           if (!isReady) throw new Error("Preferences are not ready");
           const revision = ++saveRevision.current;

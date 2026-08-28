@@ -13,9 +13,24 @@ beforeEach(() => {
 });
 
 describe("preferences storage", () => {
+  it("defaults old installs to onboarding without removing an existing nickname", () => {
+    expect(sanitizePreferences({ nickname: "Jo", durationSeconds: 30 })).toEqual({
+      ...DEFAULT_PREFERENCES, nickname: "Jo", durationSeconds: 30,
+    });
+    expect(sanitizePreferences({ onboardingCompleted: "true" }).onboardingCompleted).toBe(false);
+  });
+
+  it("persists onboarding completion and preserves it when resetting practice defaults", async () => {
+    const completed = { ...DEFAULT_PREFERENCES, onboardingCompleted: true, nickname: "Jo" };
+    await savePreferences(completed);
+    storage.getItem.mockResolvedValue(storage.setItem.mock.calls[0][1]);
+    expect(await loadPreferences()).toEqual(completed);
+    expect(resetPracticeDefaults(completed).onboardingCompleted).toBe(true);
+  });
+
   it("loads old preferences without losing choices when nickname is absent", async () => {
     storage.getItem.mockResolvedValue(JSON.stringify({ durationSeconds: 90, inputStyle: "typed", cardLayout: "vertical", levelUpEnabled: false, darkModeEnabled: false }));
-    expect(await loadPreferences()).toEqual({ nickname: "", durationSeconds: 90, inputStyle: "typed", cardLayout: "vertical", levelUpEnabled: false, darkModeEnabled: false });
+    expect(await loadPreferences()).toEqual({ ...DEFAULT_PREFERENCES, nickname: "", durationSeconds: 90, inputStyle: "typed", cardLayout: "vertical", levelUpEnabled: false, darkModeEnabled: false });
   });
 
   it("persists and reloads the nickname and all practice preferences", async () => {

@@ -16,6 +16,7 @@ export type CardLayout = (typeof CARD_LAYOUTS)[number];
 export type ConcreteCardLayout = Exclude<CardLayout, "both">;
 
 export type UserPreferences = {
+  onboardingCompleted: boolean;
   nickname: string;
   durationSeconds: SprintDurationSeconds;
   inputStyle: InputStyle;

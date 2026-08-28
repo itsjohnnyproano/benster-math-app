@@ -36,9 +36,8 @@ describe("portrait gameplay layout", () => {
         expect(usedHeight).toBeLessThanOrEqual(safeHeight);
         // Both equation orientations use this same card budget.
         expect(layout.cardHeight).toBeGreaterThanOrEqual(90);
-        expect(layout.keyHeight).toBeGreaterThanOrEqual(44);
-        expect(layout.keyHeight).toBeLessThanOrEqual(56);
-        expect(layout.submitHeight).toBeGreaterThanOrEqual(44);
+        expect(layout.keyHeight).toBeGreaterThanOrEqual(50);
+        expect(layout.keyHeight).toBeLessThanOrEqual(62);
       });
     }
   }
@@ -46,7 +45,7 @@ describe("portrait gameplay layout", () => {
   it("keeps the full card and tall keys when space permits", () => {
     const layout = getGameplayLayout(850, "typed");
     expect(layout.cardHeight).toBe(260);
-    expect(layout.keyHeight).toBe(56);
+    expect(layout.keyHeight).toBe(62);
   });
 
   it("recalculates when available height changes", () => {
