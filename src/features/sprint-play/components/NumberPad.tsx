@@ -1,4 +1,3 @@
-import { SymbolView } from "expo-symbols";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { COLORS } from "@/theme/tokens";
@@ -49,18 +48,7 @@ export function NumberPad({ value, feedback, onChange, onSubmit, layout }: Numbe
         </Text>
       </View>
 
-      <View style={[styles.keyboardPanel, { marginTop: layout.gap, gap: layout.gap }]}>
-        <Pressable
-          accessibilityLabel="Check answer"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !canSubmit }}
-          disabled={!canSubmit}
-          onPress={onSubmit}
-          style={({ pressed }) => [styles.submitButton, { height: layout.submitHeight }, !canSubmit && styles.disabled, pressed && styles.pressed]}
-        >
-          <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.submitText}>Check answer</Text>
-        </Pressable>
-
+      <View style={[styles.keyboardPanel, { marginTop: layout.gap }]}>
         <View style={[styles.keypad, { gap: layout.keyGap }]}>
           {KEY_ROWS.map((row) => (
             <View key={row[0]} style={[styles.keyRow, { height: layout.keyHeight }]}>
@@ -70,13 +58,20 @@ export function NumberPad({ value, feedback, onChange, onSubmit, layout }: Numbe
             </View>
           ))}
           <View style={[styles.keyRow, { height: layout.keyHeight }]}>
-            <View style={styles.emptyKey} />
+            <NumberKey
+              accessibilityLabel="Clear answer"
+              disabled={isShowingFeedback || !value}
+              label="Clear"
+              onPress={() => onChange("")}
+              variant="action"
+            />
             <NumberKey disabled={isShowingFeedback} label="0" onPress={() => appendDigit("0")} />
             <NumberKey
-              accessibilityLabel="Delete last digit"
-              disabled={isShowingFeedback || !value}
-              onPress={() => onChange(value.slice(0, -1))}
-              symbol="delete.left"
+              accessibilityLabel="Check answer"
+              disabled={!canSubmit}
+              label="Check"
+              onPress={onSubmit}
+              variant="primary"
             />
           </View>
         </View>
@@ -95,13 +90,13 @@ export function NumberPad({ value, feedback, onChange, onSubmit, layout }: Numbe
 
 function NumberKey({
   label,
-  symbol,
+  variant = "number",
   onPress,
   disabled = false,
   accessibilityLabel,
 }: {
-  label?: string;
-  symbol?: "delete.left";
+  label: string;
+  variant?: "number" | "action" | "primary";
   onPress: () => void;
   disabled?: boolean;
   accessibilityLabel?: string;
@@ -113,13 +108,16 @@ function NumberKey({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.key, disabled && styles.disabled, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.key, variant === "primary" && styles.primaryKey, disabled && styles.disabled, pressed && styles.pressed]}
     >
-      {symbol ? (
-        <SymbolView name={{ ios: symbol, android: "backspace", web: "backspace" }} size={23} tintColor={COLORS.ink} />
-      ) : (
-        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.keyText}>{label}</Text>
-      )}
+      <Text
+        maxFontSizeMultiplier={1.2}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        style={[styles.keyText, variant !== "number" && styles.actionText, variant === "primary" && styles.primaryText]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -163,11 +161,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primarySoft,
   },
   keyRow: { flexDirection: "row", gap: 6 },
-  emptyKey: { flex: 1 },
   key: {
     flex: 1,
     minWidth: 0,
     minHeight: 44,
+    paddingHorizontal: 8,
     borderRadius: 9,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -175,20 +173,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  submitButton: {
-    marginHorizontal: 24,
-    paddingHorizontal: 8,
-    borderRadius: 13,
+  primaryKey: {
     backgroundColor: COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
+    borderColor: COLORS.primary,
   },
-  submitText: {
-    color: COLORS.card,
-    fontFamily: "NunitoSans_700Bold",
-    fontSize: 17,
+  actionText: {
+    fontSize: 18,
     lineHeight: 24,
   },
+  primaryText: { color: COLORS.card },
   keyText: {
     color: COLORS.ink,
     fontFamily: "NunitoSans_700Bold",

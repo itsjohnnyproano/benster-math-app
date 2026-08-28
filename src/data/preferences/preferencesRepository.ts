@@ -22,6 +22,7 @@ export function sanitizePreferences(value: unknown): UserPreferences {
   const candidate = value as Partial<UserPreferences>;
 
   return {
+    onboardingCompleted: candidate.onboardingCompleted === true,
     nickname: normalizeNickname(candidate.nickname),
     durationSeconds: isSprintDuration(candidate.durationSeconds)
       ? candidate.durationSeconds
