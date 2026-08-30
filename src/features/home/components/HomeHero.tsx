@@ -9,13 +9,17 @@ export function HomeHero() {
       <View style={styles.heroOrbLarge} />
       <View style={styles.heroOrbSmall} />
       <View style={styles.heroCopy}>
-        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.heroLine}>Pick your</Text>
-        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.heroAccent}>sprint</Text>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.heroLine}>
+          Pick your
+        </Text>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.heroAccent}>
+          sprint
+        </Text>
       </View>
       <Image
         accessibilityLabel="Math Sprint penguin mascot peeking around a yellow panel"
         contentFit="contain"
-        source={require("../../../../assets/mascot/penguin-peeking.png")}
+        source={require("../../../../assets/mascot/penguin-peeking-double-width-wall.png")}
         style={styles.mascot}
       />
     </View>
@@ -51,10 +55,10 @@ const styles = StyleSheet.create({
   },
   mascot: {
     position: "absolute",
-    right: -3,
-    bottom: -7,
-    width: 190,
-    height: 171,
+    right: -28,
+    bottom: -28,
+    width: 240,
+    height: 225,
   },
   heroOrbLarge: {
     position: "absolute",

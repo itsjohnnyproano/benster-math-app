@@ -75,14 +75,13 @@ export default function OnboardingScreen() {
         <StatusBar style="light" />
         <View style={styles.intro}>
           <Image
-            accessibilityLabel="Benster, your penguin math buddy"
-            source={require("../../../assets/mascot/penguin-waving.png")}
+            accessibilityLabel="Benster"
+            source={require("../../../assets/brand/Benster_stacked_white-text_1300px.png")}
             contentFit="contain"
             onDisplay={() => setIntroImageReady(true)}
             onError={() => setIntroImageReady(true)}
-            style={[styles.introMascot, compact && styles.compactIntroMascot]}
+            style={[styles.introBrand, compact && styles.compactIntroBrand]}
           />
-          <Text accessibilityRole="header" style={styles.introName}>Benster</Text>
         </View>
       </SafeAreaView>
     );
@@ -230,10 +229,9 @@ function StepIndicator({ step }: { step: 0 | 1 }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   darkScreen: { backgroundColor: WELCOME.background },
-  intro: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 18 },
-  introMascot: { width: "100%", maxWidth: 300, height: 300 },
-  compactIntroMascot: { maxWidth: 230, height: 230 },
-  introName: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 48, letterSpacing: -1.5, textAlign: "center" },
+  intro: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+  introBrand: { width: "100%", maxWidth: 380, aspectRatio: 1 },
+  compactIntroBrand: { maxWidth: 300 },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 12 },
   page: { flexGrow: 1, width: "100%", maxWidth: 480, alignSelf: "center" },
