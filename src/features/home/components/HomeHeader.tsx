@@ -5,23 +5,24 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 type HomeHeaderProps = {
   displayName: string;
+  isTablet?: boolean;
   streakDays: number | null;
   onPressStreak?: () => void;
 };
 
-export function HomeHeader({ displayName, streakDays, onPressStreak }: HomeHeaderProps) {
+export function HomeHeader({ displayName, isTablet = false, streakDays, onPressStreak }: HomeHeaderProps) {
   return (
     <View style={styles.header}>
       <View style={styles.greetingBlock}>
-        <Text maxFontSizeMultiplier={1.3} style={styles.greeting}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
-        <Text maxFontSizeMultiplier={1.4} style={styles.subtitle}>Ready to practice?</Text>
+        <Text maxFontSizeMultiplier={1.3} style={[styles.greeting, isTablet && styles.tabletGreeting]}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
+        <Text maxFontSizeMultiplier={1.4} style={[styles.subtitle, isTablet && styles.tabletSubtitle]}>Ready to practice?</Text>
       </View>
 
       <Pressable
         accessibilityLabel={streakDays === null ? "View practice streak" : `${streakDays} day practice streak`}
         accessibilityRole="button"
         onPress={onPressStreak}
-        style={({ pressed }) => [styles.streakPill, CARD_SHADOW, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.streakPill, isTablet && styles.tabletStreakPill, CARD_SHADOW, pressed && styles.pressed]}
       >
         <SymbolView
           name={{
@@ -54,6 +55,7 @@ const styles = StyleSheet.create({
     lineHeight: 41,
     letterSpacing: -1,
   },
+  tabletGreeting: { fontSize: 38, lineHeight: 47 },
   subtitle: {
     marginTop: 1,
     color: COLORS.secondary,
@@ -61,6 +63,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 23,
   },
+  tabletSubtitle: { fontSize: 19, lineHeight: 26 },
   streakPill: {
     minHeight: 48,
     paddingHorizontal: 14,
@@ -71,6 +74,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 7,
   },
+  tabletStreakPill: { minHeight: 52, paddingHorizontal: 18, borderRadius: 26 },
   streakText: {
     color: COLORS.orange,
     fontFamily: "NunitoSans_700Bold",

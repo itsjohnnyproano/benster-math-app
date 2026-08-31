@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { SymbolView } from "expo-symbols";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 type ModeCardProps = {
@@ -9,6 +9,7 @@ type ModeCardProps = {
   best: number | null;
   symbol: string;
   color: string;
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
 };
 
@@ -24,7 +25,7 @@ function accentSource(color: string) {
   return { uri: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}` };
 }
 
-export function ModeCard({ title, description, best, symbol, color, onPress }: ModeCardProps) {
+export function ModeCard({ title, description, best, symbol, color, onPress, style }: ModeCardProps) {
   const { width } = useWindowDimensions();
   const compact = width < 375;
   return (
@@ -33,7 +34,7 @@ export function ModeCard({ title, description, best, symbol, color, onPress }: M
       accessibilityLabel={`${title}, ${best === null ? "no personal best available" : `personal best ${best}`}`}
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.card, CARD_SHADOW, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, style, CARD_SHADOW, pressed && styles.pressed]}
     >
       <View pointerEvents="none" accessible={false} style={[styles.accent, compact && styles.compactAccent]}>
         <Image accessible={false} source={accentSource(color)} contentFit="fill" style={StyleSheet.absoluteFill} />

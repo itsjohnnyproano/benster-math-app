@@ -1,14 +1,27 @@
 import { Image } from "expo-image";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { AdaptiveLayout } from "@/shared/responsiveLayout";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
-export function HomeHero() {
+type HomeHeroProps = { layout?: AdaptiveLayout };
+
+export function HomeHero({ layout = "phone" }: HomeHeroProps) {
+  const isTablet = layout !== "phone";
+  const isLandscapeTablet = layout === "tablet-landscape";
+
   return (
-    <View style={[styles.heroCard, CARD_SHADOW]}>
+    <View
+      style={[
+        styles.heroCard,
+        isTablet && styles.tabletHeroCard,
+        isLandscapeTablet && styles.landscapeHeroCard,
+        CARD_SHADOW,
+      ]}
+    >
       <View style={styles.heroOrbLarge} />
       <View style={styles.heroOrbSmall} />
-      <View style={styles.heroCopy}>
+      <View style={[styles.heroCopy, isTablet && styles.tabletHeroCopy, isLandscapeTablet && styles.landscapeHeroCopy]}>
         <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.heroLine}>
           Pick your
         </Text>
@@ -17,10 +30,10 @@ export function HomeHero() {
         </Text>
       </View>
       <Image
-        accessibilityLabel="Math Sprint penguin mascot peeking around a yellow panel"
+        accessibilityLabel="Benster mascot peeking around a yellow panel"
         contentFit="contain"
         source={require("../../../../assets/mascot/penguin-peeking-double-width-wall.png")}
-        style={styles.mascot}
+        style={[styles.mascot, isTablet && styles.tabletMascot, isLandscapeTablet && styles.landscapeMascot]}
       />
     </View>
   );
@@ -37,7 +50,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  tabletHeroCard: { height: 200 },
+  landscapeHeroCard: { height: 292 },
   heroCopy: { zIndex: 2, width: "51%", paddingLeft: 24 },
+  tabletHeroCopy: { paddingLeft: 32 },
+  landscapeHeroCopy: { alignSelf: "flex-start", marginTop: 100, width: "70%", paddingLeft: 20 },
   heroLine: {
     color: COLORS.ink,
     fontFamily: "NunitoSans_700Bold",
@@ -60,6 +77,8 @@ const styles = StyleSheet.create({
     width: 240,
     height: 225,
   },
+  tabletMascot: { right: -18, bottom: -38, width: 300, height: 280 },
+  landscapeMascot: { right: -200, bottom: -35, width: 420, height: 365 },
   heroOrbLarge: {
     position: "absolute",
     right: -42,

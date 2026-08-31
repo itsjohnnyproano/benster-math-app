@@ -8,6 +8,7 @@
     "scheme": "mathsprint",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "supportsTablet": true,
       "bundleIdentifier": "com.itsjohnnyproano.math-sprint",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -34,7 +35,8 @@
           "imageWidth": 120
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "./plugins/with-ipad-orientations"
     ],
     "experiments": {
       "typedRoutes": true,

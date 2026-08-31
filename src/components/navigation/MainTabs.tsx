@@ -29,31 +29,34 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   }, []);
   if (keyboardVisible) return null;
   return (
-    <View accessibilityRole="tablist" style={[styles.bar, CARD_SHADOW, { bottom }]}>
-      {state.routes.map((route, index) => {
-        const focused = state.index === index;
-        const options = descriptors[route.key].options;
-        const color = focused ? COLORS.primary : COLORS.navInactive;
-        return (
-          <Pressable key={route.key} accessibilityRole="tab" accessibilityLabel={options.title ?? route.name}
-            accessibilityState={{ selected: focused }}
-            onPress={() => {
-              const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-              if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
-            }}
-            onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
-            style={({ pressed }) => [styles.item, focused && styles.selected, pressed && styles.pressed]}>
-            {options.tabBarIcon?.({ focused, color, size: 24 })}
-            <Text maxFontSizeMultiplier={1.15} numberOfLines={1} adjustsFontSizeToFit style={[styles.label, { color }]}>{options.title ?? route.name}</Text>
-          </Pressable>
-        );
-      })}
+    <View pointerEvents="box-none" style={[styles.barFrame, { bottom }]}>
+      <View accessibilityRole="tablist" style={[styles.bar, CARD_SHADOW]}>
+        {state.routes.map((route, index) => {
+          const focused = state.index === index;
+          const options = descriptors[route.key].options;
+          const color = focused ? COLORS.primary : COLORS.navInactive;
+          return (
+            <Pressable key={route.key} accessibilityRole="tab" accessibilityLabel={options.title ?? route.name}
+              accessibilityState={{ selected: focused }}
+              onPress={() => {
+                const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+                if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+              }}
+              onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
+              style={({ pressed }) => [styles.item, focused && styles.selected, pressed && styles.pressed]}>
+              {options.tabBarIcon?.({ focused, color, size: 24 })}
+              <Text maxFontSizeMultiplier={1.15} numberOfLines={1} adjustsFontSizeToFit style={[styles.label, { color }]}>{options.title ?? route.name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: { position: "absolute", left: 20, right: 20, minHeight: TAB_BAR_HEIGHT, padding: 6, flexDirection: "row", gap: 6, borderRadius: 36, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card },
+  barFrame: { position: "absolute", left: 20, right: 20, alignItems: "center" },
+  bar: { width: "100%", maxWidth: 720, minHeight: TAB_BAR_HEIGHT, padding: 6, flexDirection: "row", gap: 6, borderRadius: 36, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card },
   item: { flex: 1, minHeight: TAB_BAR_HEIGHT - 14, borderRadius: 28, paddingVertical: 6, alignItems: "center", justifyContent: "center" },
   selected: { backgroundColor: COLORS.primarySoft },
   pressed: { opacity: 0.7 },
