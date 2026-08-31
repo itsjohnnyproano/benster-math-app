@@ -52,8 +52,23 @@ describe("question generation", () => {
     expect(question.correctAnswer).toBe(144);
   });
 
+  it("generates exact division facts through the twelve-times tables", () => {
+    const question = generateQuestion({
+      mode: "division",
+      levelUpEnabled: true,
+      difficultyLevel: 4,
+      questionId: 1,
+      presentedAtMs: 0,
+      random: () => 0.999999,
+    });
+    expect(question.leftOperand).toBe(144);
+    expect(question.rightOperand).toBe(12);
+    expect(question.correctAnswer).toBe(12);
+    expect(Number.isInteger(question.correctAnswer)).toBe(true);
+  });
+
   it("selects every operation in mixed mode", () => {
-    const operations = [0, 0.4, 0.8].map(
+    const operations = [0, 0.3, 0.6, 0.9].map(
       (operationChoice, index) =>
         generateQuestion({
           mode: "mixed",
@@ -64,7 +79,7 @@ describe("question generation", () => {
           random: sequenceRandom([operationChoice, 0.2, 0.4, 0.6]),
         }).operation,
     );
-    expect(operations).toEqual(["addition", "subtraction", "multiplication"]);
+    expect(operations).toEqual(["addition", "subtraction", "multiplication", "division"]);
   });
 
   it("creates four unique choices containing the answer exactly once", () => {
@@ -108,41 +123,64 @@ describe("sprint state", () => {
     expect(completed.result.completedAtMs).toBe(initial.endsAtMs);
     expect(completed.result.answeredQuestions).toHaveLength(1);
   });
-  it.each(["multiplication", "mixed"] as const)(
-    "uses all twelve tables without progression in %s when Level Up is off",
+  it("uses all twelve multiplication tables without progression when Level Up is off", () => {
+    let state = createSprint({ ...CONFIGURATION, mode: "multiplication", levelUpEnabled: false }, 0, () => 0.999999);
+    for (let index = 0; index < 16; index += 1) {
+      expect(state.currentQuestion.operation).toBe("multiplication");
+      expect(state.currentQuestion.leftOperand).toBe(12);
+      expect(state.currentQuestion.rightOperand).toBe(12);
+      expect(state.currentQuestion.correctAnswer).toBe(144);
+      expect(new Set(state.currentQuestion.choices).size).toBe(4);
+      expect(state.difficultyLevel).toBe(1);
+      const next = submitAnswer(state, 144, index + 1, () => 0.999999);
+      if (next.status !== "active") throw new Error("Sprint ended early");
+      state = next;
+    }
+  });
+
+  it("preserves five-answer multiplication progression when Level Up is on", () => {
+    let state = createSprint({ ...CONFIGURATION, mode: "multiplication" }, 0, () => 0.999999);
+    for (let index = 0; index <= 20; index += 1) {
+      const level = Math.min(4, 1 + Math.floor(index / 5));
+      const max = [5, 8, 10, 12][level - 1];
+      expect(state.difficultyLevel).toBe(level);
+      expect(state.currentQuestion.leftOperand).toBe(max);
+      expect(state.currentQuestion.rightOperand).toBe(max);
+      const next = submitAnswer(state, state.currentQuestion.correctAnswer, index + 1, () => 0.999999);
+      if (next.status !== "active") throw new Error("Sprint ended early");
+      state = next;
+    }
+  });
+
+  it.each(["division", "mixed"] as const)(
+    "uses exact division facts through twelve without progression in %s when Level Up is off",
     (mode) => {
-      // High RNG also selects multiplication in Mixed mode.
       let state = createSprint({ ...CONFIGURATION, mode, levelUpEnabled: false }, 0, () => 0.999999);
-      for (let index = 0; index < 16; index += 1) {
-        expect(state.currentQuestion.operation).toBe("multiplication");
-        expect(state.currentQuestion.leftOperand).toBe(12);
+      for (let index = 0; index < 8; index += 1) {
+        expect(state.currentQuestion.operation).toBe("division");
+        expect(state.currentQuestion.leftOperand).toBe(144);
         expect(state.currentQuestion.rightOperand).toBe(12);
-        expect(state.currentQuestion.correctAnswer).toBe(144);
-        expect(new Set(state.currentQuestion.choices).size).toBe(4);
-        expect(state.difficultyLevel).toBe(1);
-        const next = submitAnswer(state, 144, index + 1, () => 0.999999);
+        expect(state.currentQuestion.correctAnswer).toBe(12);
+        const next = submitAnswer(state, 12, index + 1, () => 0.999999);
         if (next.status !== "active") throw new Error("Sprint ended early");
         state = next;
       }
     },
   );
 
-  it.each(["multiplication", "mixed"] as const)(
-    "preserves five-answer range progression in %s when Level Up is on",
-    (mode) => {
-      let state = createSprint({ ...CONFIGURATION, mode }, 0, () => 0.999999);
-      for (let index = 0; index <= 20; index += 1) {
-        const level = Math.min(4, 1 + Math.floor(index / 5));
-        const max = [5, 8, 10, 12][level - 1];
-        expect(state.difficultyLevel).toBe(level);
-        expect(state.currentQuestion.leftOperand).toBe(max);
-        expect(state.currentQuestion.rightOperand).toBe(max);
-        const next = submitAnswer(state, state.currentQuestion.correctAnswer, index + 1, () => 0.999999);
-        if (next.status !== "active") throw new Error("Sprint ended early");
-        state = next;
-      }
-    },
-  );
+  it("applies the table progression to division when Level Up is on", () => {
+    let state = createSprint({ ...CONFIGURATION, mode: "division" }, 0, () => 0.999999);
+    for (let index = 0; index <= 20; index += 1) {
+      const level = Math.min(4, 1 + Math.floor(index / 5));
+      const max = [5, 8, 10, 12][level - 1];
+      expect(state.currentQuestion.leftOperand).toBe(max * max);
+      expect(state.currentQuestion.rightOperand).toBe(max);
+      expect(state.currentQuestion.correctAnswer).toBe(max);
+      const next = submitAnswer(state, max, index + 1, () => 0.999999);
+      if (next.status !== "active") throw new Error("Sprint ended early");
+      state = next;
+    }
+  });
 
   it.each(["addition", "subtraction"] as const)(
     "keeps %s at 0–10 when Level Up is off, including Mixed mode",

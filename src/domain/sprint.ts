@@ -2,6 +2,7 @@ export const SPRINT_MODES = [
   "addition",
   "subtraction",
   "multiplication",
+  "division",
   "mixed",
 ] as const;
 

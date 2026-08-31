@@ -46,13 +46,22 @@ export function ModeCard({ title, description, best, symbol, color, onPress }: M
         </View>
         <View accessible={false} style={[styles.tile, { backgroundColor: `${color}12`, borderColor: `${color}30` }, compact && styles.compactTile]}>
           <View style={[styles.mark, compact && styles.compactMark]}>
-            {symbol === "±×" ? (
+            {symbol === "±×÷" ? (
               <>
                 <View style={[styles.stroke, styles.mixedPlusHorizontal, { backgroundColor: color }]} />
                 <View style={[styles.stroke, styles.mixedPlusVertical, { backgroundColor: color }]} />
                 <View style={[styles.stroke, styles.mixedMinus, { backgroundColor: color }]} />
                 <View style={[styles.stroke, styles.mixedTimes, styles.rotateForward, { backgroundColor: color }]} />
                 <View style={[styles.stroke, styles.mixedTimes, styles.rotateBackward, { backgroundColor: color }]} />
+                <View style={[styles.stroke, styles.mixedDivide, { backgroundColor: color }]} />
+                <View style={[styles.divideDot, styles.mixedDivideDotTop, { backgroundColor: color }]} />
+                <View style={[styles.divideDot, styles.mixedDivideDotBottom, { backgroundColor: color }]} />
+              </>
+            ) : symbol === "÷" ? (
+              <>
+                <View style={[styles.stroke, styles.horizontal, { backgroundColor: color }]} />
+                <View style={[styles.divideDot, styles.divideDotTop, { backgroundColor: color }]} />
+                <View style={[styles.divideDot, styles.divideDotBottom, { backgroundColor: color }]} />
               </>
             ) : (
               <>
@@ -87,9 +96,15 @@ const styles = StyleSheet.create({
   rotateVertical: { transform: [{ rotate: "90deg" }] },
   rotateForward: { transform: [{ rotate: "45deg" }] },
   rotateBackward: { transform: [{ rotate: "-45deg" }] },
-  mixedPlusHorizontal: { left: 1, top: 12, width: 16, height: 4 },
-  mixedPlusVertical: { left: 7, top: 6, width: 4, height: 16 },
-  mixedMinus: { left: 1, top: 29, width: 16, height: 4 },
-  mixedTimes: { left: 22, top: 18, width: 18, height: 4 },
+  mixedPlusHorizontal: { left: 2, top: 8, width: 16, height: 4 },
+  mixedPlusVertical: { left: 8, top: 2, width: 4, height: 16 },
+  mixedMinus: { left: 2, top: 28, width: 16, height: 4 },
+  mixedTimes: { left: 22, top: 8, width: 16, height: 4 },
+  mixedDivide: { left: 23, top: 29, width: 14, height: 3 },
+  divideDot: { position: "absolute", width: 6, height: 6, borderRadius: 3 },
+  divideDotTop: { left: 17, top: 6 },
+  divideDotBottom: { left: 17, top: 28 },
+  mixedDivideDotTop: { left: 28, top: 22, width: 4, height: 4, borderRadius: 2 },
+  mixedDivideDotBottom: { left: 28, top: 36, width: 4, height: 4, borderRadius: 2 },
   pressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
 });

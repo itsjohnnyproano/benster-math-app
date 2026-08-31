@@ -1,8 +1,19 @@
 import type { SprintConfiguration, SprintMode } from "@/domain/sprint";
 
-export const OPERATIONS = ["addition", "subtraction", "multiplication"] as const;
+export const OPERATIONS = ["addition", "subtraction", "multiplication", "division"] as const;
 export type MathOperation = (typeof OPERATIONS)[number];
 export type DifficultyLevel = 1 | 2 | 3 | 4;
+
+export function isMathOperation(value: unknown): value is MathOperation {
+  return OPERATIONS.includes(value as MathOperation);
+}
+
+export const MATH_OPERATORS = {
+  addition: "+",
+  subtraction: "−",
+  multiplication: "×",
+  division: "÷",
+} as const satisfies Record<MathOperation, string>;
 
 export type RandomSource = () => number;
 
@@ -11,7 +22,7 @@ export type MathQuestion = Readonly<{
   operation: MathOperation;
   leftOperand: number;
   rightOperand: number;
-  operator: "+" | "−" | "×";
+  operator: (typeof MATH_OPERATORS)[MathOperation];
   correctAnswer: number;
   choices: readonly number[];
   difficultyLevel: DifficultyLevel;
