@@ -4,7 +4,12 @@ import {
   assertSprintResult, calculatePersonalBest, RESULT_SCHEMA_VERSION,
   type SavedSprint,
 } from "@/domain/results";
-import { isSprintMode, type SprintDurationSeconds, type SprintMode } from "@/domain/sprint";
+import {
+  isSprintMode,
+  SPRINT_MODES,
+  type SprintDurationSeconds,
+  type SprintMode,
+} from "@/domain/sprint";
 
 type SqlValue = string | number | null;
 export interface ResultsDatabase {
@@ -27,11 +32,14 @@ export type PersonalBests = Partial<Record<SprintMode, number>>;
 export type HistoryCursor = Readonly<{ completedAtMs: number; id: string }>;
 export type HistoryPage = Readonly<{ records: SavedSprint[]; nextCursor: HistoryCursor | null }>;
 
-const SCHEMA = `
+const DATABASE_SCHEMA_VERSION = 2;
+const SPRINT_MODE_SQL_LIST = SPRINT_MODES.map((mode) => `'${mode}'`).join(",");
+
+const CREATE_TABLES = `
   CREATE TABLE sprints (
     id TEXT PRIMARY KEY NOT NULL,
     schema_version INTEGER NOT NULL,
-    mode TEXT NOT NULL CHECK (mode IN ('addition','subtraction','multiplication','mixed')),
+    mode TEXT NOT NULL CHECK (mode IN (${SPRINT_MODE_SQL_LIST})),
     duration_seconds INTEGER NOT NULL CHECK (duration_seconds IN (30,60,90,120)),
     completed_at_ms INTEGER NOT NULL,
     result_json TEXT NOT NULL,
@@ -39,7 +47,6 @@ const SCHEMA = `
     updated_best INTEGER,
     best_status TEXT NOT NULL
   );
-  CREATE INDEX sprints_completed ON sprints(completed_at_ms DESC);
   CREATE TABLE personal_bests (
     mode TEXT NOT NULL,
     duration_seconds INTEGER NOT NULL,
@@ -47,8 +54,33 @@ const SCHEMA = `
     sprint_id TEXT NOT NULL REFERENCES sprints(id),
     PRIMARY KEY (mode, duration_seconds)
   );
-  PRAGMA user_version = 1;
 `;
+const CREATE_INDEX = "CREATE INDEX sprints_completed ON sprints(completed_at_ms DESC);";
+const SCHEMA = `${CREATE_TABLES}${CREATE_INDEX}
+  PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};`;
+
+const MIGRATE_V1_TO_V2 = `
+  ALTER TABLE sprints RENAME TO sprints_v1;
+  ALTER TABLE personal_bests RENAME TO personal_bests_v1;
+  ${CREATE_TABLES}
+  INSERT INTO sprints SELECT * FROM sprints_v1;
+  INSERT INTO personal_bests SELECT * FROM personal_bests_v1;
+  DROP TABLE personal_bests_v1;
+  DROP TABLE sprints_v1;
+  ${CREATE_INDEX}
+  PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};
+`;
+
+async function applySchemaUpdate(database: ResultsDatabase, sql: string) {
+  await database.execAsync("BEGIN IMMEDIATE");
+  try {
+    await database.execAsync(sql);
+    await database.execAsync("COMMIT");
+  } catch (error) {
+    await database.execAsync("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
+}
 
 function checkBest(value: unknown): asserts value is number | null {
   if (value !== null && (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)) {
@@ -86,16 +118,11 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
     try {
       await candidate.execAsync("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");
       const version = await candidate.getFirstAsync<{ user_version: number }>("PRAGMA user_version", []);
-      if (!version || version.user_version > RESULT_SCHEMA_VERSION) throw new Error("Unsupported results database");
+      if (!version || version.user_version > DATABASE_SCHEMA_VERSION) throw new Error("Unsupported results database");
       if (version.user_version === 0) {
-        await candidate.execAsync("BEGIN IMMEDIATE");
-        try {
-          await candidate.execAsync(SCHEMA);
-          await candidate.execAsync("COMMIT");
-        } catch (error) {
-          await candidate.execAsync("ROLLBACK");
-          throw error;
-        }
+        await applySchemaUpdate(candidate, SCHEMA);
+      } else if (version.user_version === 1) {
+        await applySchemaUpdate(candidate, MIGRATE_V1_TO_V2);
       }
       database = candidate;
       return candidate;

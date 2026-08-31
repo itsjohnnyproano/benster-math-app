@@ -10,6 +10,7 @@ export const COLORS = {
   blue: "#2F8DF4",
   green: "#31C66A",
   greenSoft: "#EAF9F0",
+  teal: "#00A6A6",
   ink: "#101827",
   border: "#E7E2F0",
   red: "#FF5C5C",

@@ -23,6 +23,17 @@ describe("results", () => {
     expect(() => assertSprintResult(result)).not.toThrow();
   });
 
+  it("accepts exact division results and rejects inconsistent division data", () => {
+    const result = makeResult(3, 3, { mode: "division" });
+    expect(result.answeredQuestions.every(({ question }) =>
+      question.leftOperand % question.rightOperand === 0)).toBe(true);
+    expect(() => assertSprintResult(result)).not.toThrow();
+
+    const invalid = JSON.parse(JSON.stringify(result));
+    invalid.answeredQuestions[0].question.leftOperand += 1;
+    expect(() => assertSprintResult(invalid)).toThrow();
+  });
+
   it("handles first, improved, tied and lower personal bests", () => {
     const result = makeResult(3);
     expect(calculatePersonalBest(result, null).status).toBe("first");

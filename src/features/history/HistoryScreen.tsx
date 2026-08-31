@@ -7,14 +7,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTabBarLayout } from "@/components/navigation/tabBarLayout";
 import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
-import type { SprintMode } from "@/domain/sprint";
+import { SPRINT_MODES, type SprintMode } from "@/domain/sprint";
 import { COLORS } from "@/theme/tokens";
 import { HistoryCard } from "./components/HistoryCard";
 import { groupHistory } from "./historySections";
 import { useHistory } from "./useHistory";
 
 const READING_PENGUIN = require("../../../assets/mascot/penguin-reading-book-right.png");
-const FILTERS: (SprintMode | undefined)[] = [undefined, "addition", "subtraction", "multiplication", "mixed"];
+const FILTERS: (SprintMode | undefined)[] = [undefined, ...SPRINT_MODES];
 
 export default function HistoryScreen() {
   const router = useRouter();

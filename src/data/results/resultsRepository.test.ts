@@ -29,6 +29,49 @@ afterEach(() => {
 });
 
 describe("SQLite results repository", () => {
+  it("migrates existing results before saving division sprints", async () => {
+    const { adapter, db } = databaseAdapter();
+    const legacyResult = makeResult();
+    db.exec(`
+      CREATE TABLE sprints (
+        id TEXT PRIMARY KEY NOT NULL,
+        schema_version INTEGER NOT NULL,
+        mode TEXT NOT NULL CHECK (mode IN ('addition','subtraction','multiplication','mixed')),
+        duration_seconds INTEGER NOT NULL CHECK (duration_seconds IN (30,60,90,120)),
+        completed_at_ms INTEGER NOT NULL,
+        result_json TEXT NOT NULL,
+        previous_best INTEGER,
+        updated_best INTEGER,
+        best_status TEXT NOT NULL
+      );
+      CREATE INDEX sprints_completed ON sprints(completed_at_ms DESC);
+      CREATE TABLE personal_bests (
+        mode TEXT NOT NULL,
+        duration_seconds INTEGER NOT NULL,
+        correct_count INTEGER NOT NULL CHECK (correct_count >= 0),
+        sprint_id TEXT NOT NULL REFERENCES sprints(id),
+        PRIMARY KEY (mode, duration_seconds)
+      );
+      PRAGMA user_version = 1;
+    `);
+    db.prepare(`INSERT INTO sprints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      "legacy", 1, "addition", 30, legacyResult.completedAtMs,
+      JSON.stringify(legacyResult), null, legacyResult.correctCount, "first",
+    );
+    db.prepare(`INSERT INTO personal_bests VALUES (?, ?, ?, ?)`).run(
+      "addition", 30, legacyResult.correctCount, "legacy",
+    );
+
+    const repo = createResultsRepository(async () => adapter);
+    expect((await repo.list()).records.map(({ id }) => id)).toEqual(["legacy"]);
+    expect(await repo.getPersonalBests(30)).toEqual({ addition: 3 });
+
+    const divisionResult = makeResult(4, 5, { mode: "division" });
+    expect((await repo.save("division", divisionResult)).personalBest.status).toBe("first");
+    expect(await repo.getPersonalBests(30)).toEqual({ addition: 3, division: 4 });
+    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(2);
+  });
+
   it("reads all completion timestamps beyond the history page across modes", async () => {
     const { adapter, db } = databaseAdapter();
     const repo = createResultsRepository(async () => adapter);

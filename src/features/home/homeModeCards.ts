@@ -13,7 +13,8 @@ const DESCRIPTIONS: Record<SprintMode, string> = {
   addition: "Build addition confidence",
   subtraction: "Make subtraction click",
   multiplication: "Strengthen times tables",
-  mixed: "Mix all three skills",
+  division: "Make division click",
+  mixed: "Mix all four skills",
 };
 
 export const HOME_MODE_CARDS: HomeModeCardConfig[] = SPRINT_MODES.map((id) => {

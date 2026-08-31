@@ -27,10 +27,16 @@ export const SPRINT_MODE_DETAILS: Record<SprintMode, SprintModeDetails> = {
     symbol: "×",
     color: COLORS.green,
   },
+  division: {
+    title: "Division",
+    homeTitle: "Division",
+    symbol: "÷",
+    color: COLORS.teal,
+  },
   mixed: {
     title: "Mixed",
     homeTitle: "Mixed Sprint",
-    symbol: "±×",
+    symbol: "±×÷",
     color: COLORS.primary,
   },
 };

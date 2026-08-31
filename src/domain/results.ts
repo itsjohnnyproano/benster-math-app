@@ -1,4 +1,9 @@
-import type { SprintResult } from "./math-engine";
+import {
+  calculateCorrectAnswer,
+  isMathOperation,
+  MATH_OPERATORS,
+  type SprintResult,
+} from "./math-engine";
 import { isCardLayout, isInputStyle, isSprintDuration, isSprintMode } from "./sprint";
 
 export const RESULT_SCHEMA_VERSION = 1;
@@ -88,11 +93,11 @@ export function assertSprintResult(value: unknown): asserts value is SprintResul
       || answer.answeredAtMs < question.presentedAtMs
       || answer.answeredAtMs >= value.completedAtMs
       || answer.elapsedMs !== answer.answeredAtMs - question.presentedAtMs) return fail();
-    const expected = question.operation === "addition" ? question.leftOperand + question.rightOperand
-      : question.operation === "subtraction" ? question.leftOperand - question.rightOperand
-        : question.operation === "multiplication" ? question.leftOperand * question.rightOperand : null;
-    const operator = question.operation === "addition" ? "+" : question.operation === "subtraction" ? "−" : "×";
-    if (expected === null || expected !== question.correctAnswer || question.operator !== operator
+    if (!isMathOperation(question.operation)) return fail();
+    const operation = question.operation;
+    const expected = calculateCorrectAnswer(operation, question.leftOperand, question.rightOperand);
+    if (!Number.isSafeInteger(expected) || expected < 0
+      || expected !== question.correctAnswer || question.operator !== MATH_OPERATORS[operation]
       || (config.mode !== "mixed" && config.mode !== question.operation)
       || answer.isCorrect !== (answer.submittedAnswer === expected)
       || !Array.isArray(question.choices) || question.choices.length !== 4
