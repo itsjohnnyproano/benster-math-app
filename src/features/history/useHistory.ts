@@ -17,6 +17,7 @@ export function useHistory(mode: SprintMode | undefined) {
   const busy = useRef(false);
 
   const refresh = useCallback(async () => {
+    if (busy.current) return;
     const request = ++generation.current;
     busy.current = true;
     setStatus("loading");

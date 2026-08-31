@@ -144,6 +144,8 @@ describe("SQLite results repository", () => {
     const saved = await repo.save("first", makeResult());
     expect(saved.personalBest).toEqual({ previous: null, updated: 3, status: "first" });
     expect(await repo.get("first")).toEqual(saved);
+    expect(await repo.get("missing")).toBeNull();
+    await expect(repo.get("invalid/id")).rejects.toThrow("Invalid sprint ID");
     expect(await repo.getPersonalBests(30)).toEqual({ addition: 3 });
   });
 

@@ -33,7 +33,12 @@ export type HistoryCursor = Readonly<{ completedAtMs: number; id: string }>;
 export type HistoryPage = Readonly<{ records: SavedSprint[]; nextCursor: HistoryCursor | null }>;
 
 const DATABASE_SCHEMA_VERSION = 2;
+const SPRINT_ID_PATTERN = /^[a-zA-Z0-9-]{1,128}$/;
 const SPRINT_MODE_SQL_LIST = SPRINT_MODES.map((mode) => `'${mode}'`).join(",");
+
+export function isValidSprintId(value: unknown): value is string {
+  return typeof value === "string" && SPRINT_ID_PATTERN.test(value);
+}
 
 const CREATE_TABLES = `
   CREATE TABLE sprints (
@@ -153,7 +158,7 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       if ((mode !== undefined && !isSprintMode(mode))
         || !Number.isSafeInteger(limit) || limit < 1 || limit > 100
         || (cursor && (!Number.isSafeInteger(cursor.completedAtMs) || cursor.completedAtMs < 0
-          || !/^[a-zA-Z0-9-]{1,128}$/.test(cursor.id)))) {
+          || !isValidSprintId(cursor.id)))) {
         return Promise.reject(new Error("Invalid history query"));
       }
       // Keyset pagination stays stable when newer sprints are inserted. The ID
@@ -184,7 +189,7 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
 
     save(id: string, result: SprintResult): Promise<SavedSprint> {
       // timestamp/random IDs are identities only; never interpolate them into SQL.
-      if (!/^[a-zA-Z0-9-]{1,128}$/.test(id)) return Promise.reject(new Error("Invalid sprint ID"));
+      if (!isValidSprintId(id)) return Promise.reject(new Error("Invalid sprint ID"));
       try { assertSprintResult(result); } catch (error) { return Promise.reject(error); }
       const resultJson = JSON.stringify(result);
       const snapshot: SprintResult = JSON.parse(resultJson);
@@ -238,6 +243,7 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
     },
 
     get(id: string): Promise<SavedSprint | null> {
+      if (!isValidSprintId(id)) return Promise.reject(new Error("Invalid sprint ID"));
       return serialize(async () => {
         const db = await getDatabase();
         const row = await db.getFirstAsync<ResultRow>("SELECT * FROM sprints WHERE id = ?", [id]);

@@ -33,6 +33,7 @@ function AppNavigation() {
       <Stack.Protected guard={preferences.onboardingCompleted}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="streak" />
+        <Stack.Screen name="history/[sprintId]" />
         <Stack.Screen name="sprint/setup" />
         <Stack.Screen name="sprint/play" />
       </Stack.Protected>

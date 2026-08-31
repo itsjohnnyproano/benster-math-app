@@ -54,7 +54,15 @@ export default function HistoryScreen() {
         style={styles.results}
         sections={sections}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <HistoryCard record={item} />}
+        renderItem={({ item }) => (
+          <HistoryCard
+            record={item}
+            onPress={() => router.push({
+              pathname: "/history/[sprintId]",
+              params: { sprintId: item.id },
+            })}
+          />
+        )}
         renderSectionHeader={({ section }) => <Text accessibilityRole="header" style={styles.day}>{section.title}</Text>}
         stickySectionHeadersEnabled={false}
         contentContainerStyle={[styles.content, { paddingBottom: contentInset }]}
