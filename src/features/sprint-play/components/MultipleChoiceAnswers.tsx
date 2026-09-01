@@ -3,20 +3,23 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 import type { AnswerFeedback } from "../types";
+import type { GameplayLayout } from "../gameplayLayout";
 
 type MultipleChoiceAnswersProps = {
   choices: readonly number[];
   feedback: AnswerFeedback | null;
+  layout: GameplayLayout;
   onSelect: (answer: number) => void;
 };
 
 export function MultipleChoiceAnswers({
   choices,
   feedback,
+  layout,
   onSelect,
 }: MultipleChoiceAnswersProps) {
   return (
-    <View style={styles.grid}>
+    <View style={[styles.grid, { rowGap: layout.choiceGap }]}>
       {choices.map((choice) => {
         const isSubmitted = feedback?.submittedAnswer === choice;
         const isCorrect = feedback?.correctAnswer === choice;
@@ -31,6 +34,7 @@ export function MultipleChoiceAnswers({
             onPress={() => onSelect(choice)}
             style={({ pressed }) => [
               styles.answer,
+              { height: layout.choiceHeight },
               CARD_SHADOW,
               feedback && isCorrect && styles.correctAnswer,
               isWrongSelection && styles.wrongAnswer,
@@ -62,11 +66,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    rowGap: 13,
   },
   answer: {
     width: "47.7%",
-    height: 60,
     borderRadius: 17,
     borderWidth: 2,
     borderColor: COLORS.border,
