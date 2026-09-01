@@ -25,6 +25,7 @@ type OptionValue = string | number;
 const SHEET_HIDDEN_OFFSET = 520;
 const OPEN_DURATION_MS = 220;
 const CLOSE_DURATION_MS = 160;
+const IPAD_SELECTION_CLOSE_DURATION_MS = 90;
 
 type OptionBottomSheetProps = {
   visible: boolean;
@@ -108,18 +109,18 @@ export function OptionBottomSheet({
     animation.start();
   };
 
-  const animateOut = (complete: () => void) => {
+  const animateOut = (complete: () => void, duration = CLOSE_DURATION_MS) => {
     if (isClosing) return;
     setIsClosing(true);
     Animated.parallel([
       Animated.timing(backdropOpacity, {
-        duration: CLOSE_DURATION_MS,
+        duration,
         easing: Easing.in(Easing.cubic),
         toValue: 0,
         useNativeDriver: true,
       }),
       Animated.timing(sheetTranslateY, {
-        duration: CLOSE_DURATION_MS,
+        duration,
         easing: Easing.in(Easing.cubic),
         toValue: isIpad ? 14 : SHEET_HIDDEN_OFFSET,
         useNativeDriver: true,
@@ -154,7 +155,13 @@ export function OptionBottomSheet({
           style={[styles.backdropTint, { opacity: backdropOpacity }]}
         />
         <Animated.View
-          style={[isIpad && styles.ipadFrame, { transform: [{ translateY: sheetTranslateY }] }]}
+          style={[
+            isIpad && styles.ipadFrame,
+            {
+              opacity: isIpad ? backdropOpacity : 1,
+              transform: [{ translateY: sheetTranslateY }],
+            },
+          ]}
         >
           <Pressable
             accessibilityViewIsModal
@@ -197,7 +204,12 @@ export function OptionBottomSheet({
                     accessibilityState={{ checked: isSelected }}
                     key={option.value}
                     disabled={isClosing}
-                    onPress={() => animateOut(() => onSelect(option.value))}
+                    onPress={() =>
+                      animateOut(
+                        () => onSelect(option.value),
+                        isIpad ? IPAD_SELECTION_CLOSE_DURATION_MS : CLOSE_DURATION_MS
+                      )
+                    }
                     style={({ pressed }) => [
                       styles.option,
                       hasPreviews && styles.previewOption,
