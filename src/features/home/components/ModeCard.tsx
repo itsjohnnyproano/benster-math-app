@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { SymbolView } from "expo-symbols";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
+import { getAdaptiveLayout } from "@/shared/responsiveLayout";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 type ModeCardProps = {
@@ -26,8 +27,10 @@ function accentSource(color: string) {
 }
 
 export function ModeCard({ title, description, best, symbol, color, onPress, style }: ModeCardProps) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const compact = width < 375;
+  const isLandscapeIpad =
+    Platform.OS === "ios" && getAdaptiveLayout(width, height) === "tablet-landscape";
   return (
     <Pressable
       accessibilityHint={`Opens setup for a ${title.toLowerCase()} sprint`}
@@ -40,9 +43,15 @@ export function ModeCard({ title, description, best, symbol, color, onPress, sty
         <Image accessible={false} source={accentSource(color)} contentFit="fill" style={StyleSheet.absoluteFill} />
       </View>
       <View style={[styles.content, compact && styles.compactContent]}>
-        <View style={styles.copy}>
+        <View style={[styles.copy, isLandscapeIpad && styles.landscapeCopy]}>
           <Text maxFontSizeMultiplier={1.25} numberOfLines={1} adjustsFontSizeToFit style={styles.title}>{title}</Text>
-          <Text maxFontSizeMultiplier={1.3} numberOfLines={2} style={styles.description}>{description}</Text>
+          <Text
+            maxFontSizeMultiplier={1.3}
+            numberOfLines={2}
+            style={styles.description}
+          >
+            {description}
+          </Text>
           <Text maxFontSizeMultiplier={1.25} numberOfLines={1} style={styles.best}>Best: <Text style={{ color }}>{best ?? "—"}</Text></Text>
         </View>
         <View accessible={false} style={[styles.tile, { backgroundColor: `${color}12`, borderColor: `${color}30` }, compact && styles.compactTile]}>
@@ -82,9 +91,10 @@ const styles = StyleSheet.create({
   card: { minHeight: 126, borderRadius: 24, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   accent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 48, borderTopLeftRadius: 23, borderBottomLeftRadius: 23, overflow: "hidden" },
   compactAccent: { width: 28 },
-  content: { flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 62, paddingRight: 14, paddingVertical: 20, minHeight: 126 },
+  content: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 62, paddingRight: 14, paddingVertical: 20, minHeight: 126 },
   compactContent: { paddingLeft: 38, paddingRight: 10, gap: 7 },
   copy: { flex: 1, gap: 5 },
+  landscapeCopy: { alignSelf: "stretch", justifyContent: "space-between" },
   title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 20, letterSpacing: -0.5 },
   description: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 17 },
   best: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 14, marginTop: 4 },
