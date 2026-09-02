@@ -11,6 +11,7 @@ import { MAX_NICKNAME_LENGTH } from "@/domain/nickname";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { useIntroAdvance } from "./useIntroAdvance";
+import { getOnboardingLayout, ONBOARDING_COLUMN_GAP } from "./onboardingLayout";
 
 const WELCOME = {
   background: "#24134B",
@@ -31,7 +32,8 @@ export default function OnboardingScreen() {
   const [error, setError] = useState(false);
   const submitting = useRef(false);
   const mounted = useRef(true);
-  const { height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
+  const { tablet, twoColumn, maxWidth, introSize, footerWidth } = getOnboardingLayout(Platform.OS === "ios", width, height, fontScale);
   const compact = height < 740;
 
   useEffect(() => {
@@ -80,7 +82,7 @@ export default function OnboardingScreen() {
             contentFit="contain"
             onDisplay={() => setIntroImageReady(true)}
             onError={() => setIntroImageReady(true)}
-            style={[styles.introBrand, compact && styles.compactIntroBrand]}
+            style={[styles.introBrand, compact && styles.compactIntroBrand, tablet && { width: introSize, maxWidth: introSize }]}
           />
         </View>
       </SafeAreaView>
@@ -88,21 +90,25 @@ export default function OnboardingScreen() {
   }
 
   const welcome = step === 0;
+  const nicknameTitle = (
+    <Text accessibilityRole="header" style={[styles.title, tablet && styles.tabletTitle]}>What should{"\n"}we call you?</Text>
+  );
   return (
     <SafeAreaView style={[styles.screen, welcome && styles.darkScreen]}>
       <StatusBar style={welcome ? "light" : "dark"} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <ScrollView
           key={step}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, tablet && styles.tabletScroll]}
+          bounces={!tablet}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.page}>
+          <View style={[styles.page, { maxWidth }]}>
             <View style={styles.header}>
               {welcome ? (
-                <Text style={styles.wordmark}>benster<Text style={styles.wordmarkDot}>.</Text></Text>
+                <Text style={[styles.wordmark, tablet && styles.tabletWordmark]}>benster<Text style={styles.wordmarkDot}>.</Text></Text>
               ) : (
                 <Pressable
                   accessibilityRole="button"
@@ -119,12 +125,13 @@ export default function OnboardingScreen() {
             </View>
 
             {welcome ? (
-              <View style={styles.main}>
+              <View style={[styles.main, twoColumn && styles.landscapeMain]}>
+                <View style={[styles.visual, twoColumn && styles.landscapePane]}>
                 <View
                   accessible={false}
                   accessibilityElementsHidden
                   importantForAccessibility="no-hide-descendants"
-                  style={[styles.mascotStage, compact && styles.compactStage]}
+                  style={[styles.mascotStage, compact && styles.compactStage, tablet && styles.tabletStage]}
                 >
                   <View style={styles.orbit} />
                   <View style={styles.halo} />
@@ -133,31 +140,38 @@ export default function OnboardingScreen() {
                   <Text style={[styles.mathTile, styles.minus]}>−</Text>
                   <Image source={require("../../../assets/mascot/penguin-jumping-celebration-confetti.png")} contentFit="contain" style={styles.welcomeMascot} />
                 </View>
-                <Text accessibilityRole="header" style={[styles.title, styles.lightTitle]}>
+                </View>
+                <View style={[styles.copy, twoColumn && styles.landscapePane]}>
+                <Text accessibilityRole="header" style={[styles.title, styles.lightTitle, tablet && styles.tabletTitle]}>
                   Small sprints.{"\n"}<Text style={styles.accent}>Growing confidence.</Text>
                 </Text>
-                <Text style={[styles.body, styles.lightBody]}>
+                <Text style={[styles.body, styles.lightBody, tablet && styles.tabletBody]}>
                   Add, subtract, multiply—or mix them up.
                 </Text>
                 <View style={styles.benefits}>
-                  <Text style={styles.benefit}>30 sec–2 min</Text>
+                  <Text style={[styles.benefit, tablet && styles.tabletSmallText]}>30 sec–2 min</Text>
                   <View style={styles.divider} />
-                  <Text style={styles.benefit}>Tap or type</Text>
+                  <Text style={[styles.benefit, tablet && styles.tabletSmallText]}>Tap or type</Text>
+                </View>
                 </View>
               </View>
             ) : (
-              <View style={styles.main}>
+              <View style={[styles.main, twoColumn && styles.landscapeMain]}>
+                <View style={[styles.visual, twoColumn && styles.landscapePane]}>
                 <Image
                   accessibilityLabel="Benster running, ready to practice"
                   source={require("../../../assets/mascot/penguin-running-right-exact.png")}
                   contentFit="contain"
-                  style={[styles.nicknameMascot, compact && styles.compactNicknameMascot]}
+                  style={[styles.nicknameMascot, compact && styles.compactNicknameMascot, tablet && styles.tabletNicknameMascot, twoColumn && styles.landscapeNicknameMascot]}
                 />
-                <Text accessibilityRole="header" style={styles.title}>What should{"\n"}we call you?</Text>
-                <View style={[styles.nicknameCard, CARD_SHADOW]}>
+                {twoColumn && nicknameTitle}
+                </View>
+                <View style={[styles.copy, twoColumn && styles.landscapePane]}>
+                {!twoColumn && nicknameTitle}
+                <View style={[styles.nicknameCard, CARD_SHADOW, tablet && styles.tabletNicknameCard]}>
                   <View style={styles.labelRow}>
-                    <Text style={styles.label}>Nickname</Text>
-                    <Text style={styles.optional}>Optional</Text>
+                    <Text style={[styles.label, tablet && styles.tabletLabel]}>Nickname</Text>
+                    <Text style={[styles.optional, tablet && styles.tabletSmallText]}>Optional</Text>
                   </View>
                   <TextInput
                     accessibilityLabel="Your nickname, optional"
@@ -174,15 +188,16 @@ export default function OnboardingScreen() {
                     selectionColor={COLORS.primary}
                     returnKeyType="done"
                     onSubmitEditing={() => void finish(false)}
-                    style={styles.input}
+                    style={[styles.input, tablet && styles.tabletInput]}
                   />
-                  <Text style={styles.inputHelp}>Not your full name. Change it anytime in Settings.</Text>
+                  <Text style={[styles.inputHelp, tablet && styles.tabletHelp]}>Not your full name. Change it anytime in Settings.</Text>
                 </View>
-                <Text style={styles.privacyNote}>Saved on this device. No account needed.</Text>
+                <Text style={[styles.privacyNote, tablet && styles.tabletHelp]}>Saved on this device. No account needed.</Text>
+                </View>
               </View>
             )}
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, tablet && styles.tabletFooter, twoColumn && { width: footerWidth, alignSelf: "flex-end" }]}>
               {error && (
                 <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
                   We couldn’t save your setup. Please try again.
@@ -193,9 +208,9 @@ export default function OnboardingScreen() {
                 accessibilityState={{ disabled: saving, busy: saving }}
                 disabled={saving}
                 onPress={() => welcome ? setStep(1) : void finish(false)}
-                style={({ pressed }) => [styles.button, welcome && styles.welcomeButton, saving && styles.disabled, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.button, tablet && styles.tabletButton, welcome && styles.welcomeButton, saving && styles.disabled, pressed && styles.pressed]}
               >
-                <Text style={[styles.buttonText, welcome && styles.welcomeButtonText]}>
+                <Text style={[styles.buttonText, tablet && styles.tabletLabel, welcome && styles.welcomeButtonText]}>
                   {welcome ? "Let’s get started" : saving ? "Saving…" : "Let’s practice"}
                 </Text>
               </Pressable>
@@ -207,7 +222,7 @@ export default function OnboardingScreen() {
                   onPress={() => void finish(true)}
                   style={({ pressed }) => [styles.skip, pressed && styles.pressed]}
                 >
-                  <Text style={styles.skipText}>Skip for now</Text>
+                  <Text style={[styles.skipText, tablet && styles.tabletSmallText]}>Skip for now</Text>
                 </Pressable>
               )}
             </View>
@@ -227,6 +242,24 @@ function StepIndicator({ step }: { step: 0 | 1 }) {
 }
 
 const styles = StyleSheet.create({
+  tabletScroll: { paddingHorizontal: 32, paddingVertical: 24 },
+  tabletWordmark: { fontSize: 36 },
+  visual: { width: "100%", alignItems: "center" },
+  copy: { width: "100%", alignItems: "center" },
+  landscapeMain: { flexDirection: "row", gap: ONBOARDING_COLUMN_GAP },
+  landscapePane: { width: undefined, flexBasis: 0, flexGrow: 1, flexShrink: 1, minWidth: 0 },
+  tabletStage: { maxWidth: 420, height: 340, marginBottom: 24 },
+  tabletTitle: { fontSize: 40, lineHeight: 48 },
+  tabletBody: { fontSize: 20, lineHeight: 29, maxWidth: 460 },
+  tabletSmallText: { fontSize: 16 },
+  tabletLabel: { fontSize: 21 },
+  tabletHelp: { fontSize: 16, lineHeight: 24, maxWidth: 460 },
+  tabletNicknameMascot: { width: 240, height: 240 },
+  landscapeNicknameMascot: { width: "100%", maxWidth: 380, height: 280 },
+  tabletNicknameCard: { padding: 24 },
+  tabletInput: { minHeight: 68, fontSize: 26 },
+  tabletButton: { minHeight: 68 },
+  tabletFooter: { width: "100%", maxWidth: 560, alignSelf: "center", paddingTop: 24 },
   screen: { flex: 1, backgroundColor: COLORS.background },
   darkScreen: { backgroundColor: WELCOME.background },
   intro: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },

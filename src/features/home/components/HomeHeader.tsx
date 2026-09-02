@@ -6,14 +6,15 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 type HomeHeaderProps = {
   displayName: string;
   isTablet?: boolean;
+  stacked?: boolean;
   streakDays: number | null;
   onPressStreak?: () => void;
 };
 
-export function HomeHeader({ displayName, isTablet = false, streakDays, onPressStreak }: HomeHeaderProps) {
+export function HomeHeader({ displayName, isTablet = false, stacked = false, streakDays, onPressStreak }: HomeHeaderProps) {
   return (
-    <View style={styles.header}>
-      <View style={styles.greetingBlock}>
+    <View style={[styles.header, stacked && styles.stackedHeader]}>
+      <View style={[styles.greetingBlock, stacked && styles.stackedGreetingBlock]}>
         <Text maxFontSizeMultiplier={1.3} style={[styles.greeting, isTablet && styles.tabletGreeting]}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
         <Text maxFontSizeMultiplier={1.4} style={[styles.subtitle, isTablet && styles.tabletSubtitle]}>Ready to practice?</Text>
       </View>
@@ -33,7 +34,7 @@ export function HomeHeader({ displayName, isTablet = false, streakDays, onPressS
           size={20}
           tintColor={COLORS.orange}
         />
-        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={styles.streakText}>{streakDays === null ? "View streak" : `${streakDays} day streak`}</Text>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={[styles.streakText, isTablet && styles.tabletStreakText]}>{streakDays === null ? "View streak" : `${streakDays} day streak`}</Text>
       </Pressable>
     </View>
   );
@@ -48,6 +49,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   greetingBlock: { flex: 1 },
+  stackedHeader: { flexDirection: "column", gap: 16 },
+  stackedGreetingBlock: { flex: 0, width: "100%" },
   greeting: {
     color: COLORS.ink,
     fontFamily: "NunitoSans_700Bold",
@@ -55,7 +58,8 @@ const styles = StyleSheet.create({
     lineHeight: 41,
     letterSpacing: -1,
   },
-  tabletGreeting: { fontSize: 38, lineHeight: 47 },
+  tabletGreeting: { fontSize: 40, lineHeight: 50 },
+  tabletStreakText: { fontSize: 17 },
   subtitle: {
     marginTop: 1,
     color: COLORS.secondary,
@@ -63,7 +67,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 23,
   },
-  tabletSubtitle: { fontSize: 19, lineHeight: 26 },
+  tabletSubtitle: { fontSize: 21, lineHeight: 29 },
   streakPill: {
     minHeight: 48,
     paddingHorizontal: 14,

@@ -1,21 +1,34 @@
 import Constants from "expo-constants";
+import * as Linking from "expo-linking";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useRef, useState, type ReactNode } from "react";
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTabBarLayout } from "@/components/navigation/tabBarLayout";
 import { PracticePreferences } from "@/components/preferences/PracticePreferences";
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
+import { LEGAL_LINKS } from "@/config/legalLinks";
 import { MAX_NICKNAME_LENGTH, normalizeNickname } from "@/domain/nickname";
 import { resultsRepository } from "@/data/results/resultsRepository";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { formatResetPracticeMessage } from "./settingsPresentation";
+import { getSettingsLayout } from "./settingsLayout";
+import { SettingsColumns } from "./SettingsColumns";
 
 export default function SettingsScreen() {
-  const { contentInset } = useTabBarLayout();
+  const { contentInset, isIpad } = useTabBarLayout();
+  const { width, height, fontScale } = useWindowDimensions();
+  const { twoColumn, maxWidth } = getSettingsLayout(isIpad, width, height, fontScale);
   const { preferences, isReady, updatePreference, resetPracticePreferences, deleteAllPreferences } = usePreferences();
+  // Keep an unfinished edit when rotation changes the settings container.
+  const [nicknameDraft, setNicknameDraft] = useState(preferences.nickname);
+  const [savedNickname, setSavedNickname] = useState(preferences.nickname);
+  if (savedNickname !== preferences.nickname) {
+    setSavedNickname(preferences.nickname);
+    setNicknameDraft(preferences.nickname);
+  }
   const [resetOpen, setResetOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -26,14 +39,16 @@ export default function SettingsScreen() {
     <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: contentInset }]} showsVerticalScrollIndicator={false}>
-          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.title}>Settings</Text>
-          <Text maxFontSizeMultiplier={1.4} style={styles.subtitle}>Make practice feel like you.</Text>
-
-          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.section}>Your nickname</Text>
+        <SettingsContent tablet={isIpad} twoColumn={twoColumn} maxWidth={maxWidth} bottomInset={contentInset} header={<>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={[styles.title, isIpad && styles.tabletTitle]}>Settings</Text>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.subtitle, isIpad && styles.tabletSubtitle]}>Make practice feel like you.</Text>
+        </>} nickname={<>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={[styles.section, isIpad && styles.tabletSection]}>Your nickname</Text>
           <NicknameEditor
-            key={preferences.nickname}
+            tablet={isIpad}
             nickname={preferences.nickname}
+            draft={nicknameDraft}
+            onChangeDraft={setNicknameDraft}
             disabled={!isReady}
             onSave={(nickname) => {
               setSaveSection("nickname");
@@ -41,18 +56,17 @@ export default function SettingsScreen() {
             }}
           />
           {saveSection === "nickname" && <PreferenceSaveStatus />}
-
-          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.section}>Practice defaults</Text>
-          <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.sectionHelp]}>Changes save automatically and apply to your next sprint.</Text>
-          <PracticePreferences showSaveStatus={saveSection === "practice"} onChange={() => setSaveSection("practice")} />
+        </>}>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={[styles.section, isIpad && styles.tabletSection]}>Practice defaults</Text>
+          <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.sectionHelp, isIpad && styles.tabletHelp]}>Changes save automatically and apply to your next sprint.</Text>
+          <PracticePreferences tablet={isIpad} showSaveStatus={saveSection === "practice"} onChange={() => setSaveSection("practice")} />
 
           <Pressable accessibilityRole="button" disabled={!isReady} accessibilityState={{ disabled: !isReady }} onPress={() => setResetOpen(true)} style={({ pressed }) => [styles.reset, pressed && styles.pressed]}>
-            <Text maxFontSizeMultiplier={1.3} style={styles.resetText}>Reset practice defaults</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.resetText, isIpad && styles.tabletButtonText]}>Reset practice defaults</Text>
           </Pressable>
-          <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.centeredHelp]}>Your nickname, history, and personal bests stay yours.</Text>
-
-          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.section}>Saved data</Text>
-          <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.sectionHelp]}>Permanently remove this learner’s nickname, preferences, sprint history, streak, and personal bests from this device.</Text>
+          <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.centeredHelp, isIpad && styles.tabletHelp]}>Your nickname, history, and personal bests stay yours.</Text>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={[styles.section, isIpad && styles.tabletSection]}>Saved data</Text>
+          <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.sectionHelp, isIpad && styles.tabletHelp]}>Permanently remove this learner’s nickname, preferences, sprint history, streak, and personal bests from this device.</Text>
           <Pressable
             accessibilityRole="button"
             disabled={!isReady}
@@ -61,18 +75,18 @@ export default function SettingsScreen() {
               setDeleteError(false);
               setDeleteOpen(true);
             }}
-            style={({ pressed }) => [styles.deleteButton, !isReady && styles.disabled, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.deleteButton, isIpad && styles.tabletButton, !isReady && styles.disabled, pressed && styles.pressed]}
           >
-            <Text maxFontSizeMultiplier={1.3} style={styles.deleteButtonText}>Delete all saved data</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.deleteButtonText, isIpad && styles.tabletButtonText]}>Delete all saved data</Text>
           </Pressable>
-
-          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.section}>About</Text>
-          <View style={[styles.about, CARD_SHADOW]}>
-            <Text maxFontSizeMultiplier={1.3} style={styles.aboutTitle}>Math Sprint</Text>
-            <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutMeta]}>Version {Constants.expoConfig?.version ?? "—"}</Text>
-            <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutTagline]}>Little moments of practice. Lasting confidence.</Text>
+          <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={[styles.section, isIpad && styles.tabletSection]}>About</Text>
+          <View style={[styles.about, CARD_SHADOW, isIpad && styles.tabletCard]}>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.aboutTitle, isIpad && styles.tabletSectionText]}>Math Sprint</Text>
+            <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutMeta, isIpad && styles.tabletHelp]}>Version {Constants.expoConfig?.version ?? "—"}</Text>
+            <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutTagline, isIpad && styles.tabletHelp]}>Little moments of practice. Lasting confidence.</Text>
+            <LegalLinks tablet={isIpad} />
           </View>
-        </ScrollView>
+        </SettingsContent>
       </KeyboardAvoidingView>
       <Modal transparent visible={resetOpen} animationType="fade" onRequestClose={() => setResetOpen(false)}>
         <View style={styles.backdrop}>
@@ -142,23 +156,70 @@ export default function SettingsScreen() {
   );
 }
 
-function NicknameEditor({ nickname, disabled, onSave }: { nickname: string; disabled: boolean; onSave: (value: string) => void }) {
-  const [draft, setDraft] = useState(nickname);
+function SettingsContent({ tablet, twoColumn, maxWidth, bottomInset, header, nickname, children }: {
+  tablet: boolean; twoColumn: boolean; maxWidth: number; bottomInset: number;
+  header: ReactNode; nickname: ReactNode; children: ReactNode;
+}) {
+  const contentStyle = [styles.content, tablet && styles.tabletContent, tablet && { maxWidth }];
+  if (twoColumn) {
+    return (
+      <View style={[contentStyle, styles.flex]}>
+        {header}
+        <SettingsColumns nickname={nickname} bottomInset={bottomInset}>
+          {children}
+        </SettingsColumns>
+      </View>
+    );
+  }
+  return (
+    <ScrollView bounces={!tablet} keyboardShouldPersistTaps="handled" contentContainerStyle={[contentStyle, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
+      {header}
+      {nickname}
+      {children}
+    </ScrollView>
+  );
+}
+
+function LegalLinks({ tablet }: { tablet: boolean }) {
+  const opening = useRef(false);
+  const openLink = async (url: string) => {
+    if (opening.current) return;
+    opening.current = true;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Couldn’t open this page", `Please try again, or visit ${url} in your browser.`);
+    } finally {
+      opening.current = false;
+    }
+  };
+  return (
+    <View style={styles.legalLinks}>
+      {LEGAL_LINKS.map(({ label, url }) => (
+        <Pressable key={url} accessibilityRole="link" accessibilityHint="Opens in your browser" onPress={() => void openLink(url)} style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}>
+          <Text maxFontSizeMultiplier={1.3} style={[styles.resetText, tablet && styles.tabletButtonText]}>{label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function NicknameEditor({ nickname, draft, onChangeDraft, disabled, onSave, tablet = false }: { nickname: string; draft: string; onChangeDraft: (value: string) => void; disabled: boolean; onSave: (value: string) => void; tablet?: boolean }) {
   const normalized = normalizeNickname(draft);
   const unchanged = normalized === nickname;
   const save = () => {
     if (disabled || unchanged) return;
     onSave(normalized);
-    setDraft(normalized);
+    onChangeDraft(normalized);
   };
   return (
-    <View style={[styles.profile, CARD_SHADOW]}>
-      <Text maxFontSizeMultiplier={1.5} style={styles.help}>Optional—use a nickname, not your full name. Saved on this device.</Text>
+    <View style={[styles.profile, CARD_SHADOW, tablet && styles.tabletCard]}>
+      <Text maxFontSizeMultiplier={1.5} style={[styles.help, tablet && styles.tabletHelp]}>Optional—use a nickname, not your full name. Saved on this device.</Text>
       <TextInput
         accessibilityLabel="Nickname"
         editable={!disabled}
         value={draft}
-        onChangeText={setDraft}
+        onChangeText={onChangeDraft}
         maxLength={MAX_NICKNAME_LENGTH}
         placeholder="What should we call you?"
         placeholderTextColor={COLORS.secondary}
@@ -167,17 +228,29 @@ function NicknameEditor({ nickname, disabled, onSave }: { nickname: string; disa
         returnKeyType="done"
         onSubmitEditing={save}
         maxFontSizeMultiplier={1.3}
-        style={styles.input}
+        style={[styles.input, tablet && styles.tabletInput]}
       />
-      <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || unchanged }} disabled={disabled || unchanged} onPress={save} style={[styles.button, (disabled || unchanged) && styles.disabled]}>
-        <Text maxFontSizeMultiplier={1.3} style={styles.buttonText}>Save nickname</Text>
+      <Pressable accessibilityRole="button" accessibilityState={{ disabled: disabled || unchanged }} disabled={disabled || unchanged} onPress={save} style={[styles.button, tablet && styles.tabletButton, (disabled || unchanged) && styles.disabled]}>
+        <Text maxFontSizeMultiplier={1.3} style={[styles.buttonText, tablet && styles.tabletButtonText]}>Save nickname</Text>
       </Pressable>
-      <Text maxFontSizeMultiplier={1.5} style={styles.help}>Leave it blank for a simple “Hey there!”</Text>
+      <Text maxFontSizeMultiplier={1.5} style={[styles.help, tablet && styles.tabletHelp]}>Leave it blank for a simple “Hey there!”</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  tabletContent: { width: "100%", alignSelf: "center", paddingHorizontal: 32 },
+  legalLinks: { marginTop: 16, borderTopWidth: 1, borderTopColor: COLORS.border },
+  legalLink: { minHeight: 48, paddingVertical: 12, justifyContent: "center", alignItems: "flex-start" },
+  tabletTitle: { fontSize: 40 },
+  tabletSubtitle: { fontSize: 19 },
+  tabletSection: { fontSize: 24, marginBottom: 10 },
+  tabletSectionText: { fontSize: 24 },
+  tabletHelp: { fontSize: 16, lineHeight: 24 },
+  tabletCard: { padding: 24 },
+  tabletInput: { minHeight: 60, fontSize: 20 },
+  tabletButton: { minHeight: 58 },
+  tabletButtonText: { fontSize: 18, textAlign: "center" },
   screen: { flex: 1, backgroundColor: COLORS.background },
   flex: { flex: 1 },
   content: { paddingHorizontal: 24, paddingTop: 24 },

@@ -27,6 +27,15 @@ export default function HomeScreen() {
   const layout = getAdaptiveLayout(width, height);
   const isTablet = layout !== "phone";
   const isLandscapeTablet = layout === "tablet-landscape";
+  const header = (
+    <HomeHeader
+      displayName={preferences.nickname}
+      isTablet={isTablet}
+      stacked={isLandscapeTablet}
+      streakDays={streak.data?.currentStreak ?? null}
+      onPressStreak={() => router.push("/streak")}
+    />
+  );
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
@@ -38,26 +47,22 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.content, isTablet && styles.tabletContent]}>
-          <HomeHeader
-            displayName={preferences.nickname}
-            isTablet={isTablet}
-            streakDays={streak.data?.currentStreak ?? null}
-            onPressStreak={() => router.push("/streak")}
-          />
+          {!isLandscapeTablet && header}
 
           <View style={[styles.homeBody, isLandscapeTablet && styles.landscapeBody]}>
             <View style={[styles.heroPane, isLandscapeTablet && styles.landscapeHeroPane]}>
+              {isLandscapeTablet && header}
               <HomeHero layout={layout} />
             </View>
 
             <View style={[styles.modeList, isLandscapeTablet && styles.landscapeModeList]}>
-              <Text maxFontSizeMultiplier={1.35} style={styles.bestContext}>
+              <Text maxFontSizeMultiplier={1.35} style={[styles.bestContext, isTablet && styles.tabletBestContext]}>
                 Personal bests · {formatDurationLabel(preferences.durationSeconds)}
                 {personalBests.status === "loading" ? " · Loading…" : ""}
               </Text>
               {personalBests.status === "error" && (
                 <Pressable accessibilityRole="button" onPress={personalBests.retry} style={styles.retry}>
-                  <Text maxFontSizeMultiplier={1.35} style={styles.bestContext}>Couldn’t load personal bests. Tap to retry.</Text>
+                  <Text maxFontSizeMultiplier={1.35} style={[styles.bestContext, isTablet && styles.tabletBestContext]}>Couldn’t load personal bests. Tap to retry.</Text>
                 </Pressable>
               )}
               <View style={[styles.modeGrid, isTablet && styles.tabletModeGrid]}>
@@ -106,13 +111,14 @@ const styles = StyleSheet.create({
   homeBody: { gap: 18 },
   landscapeBody: { flexDirection: "row", alignItems: "flex-start", gap: 24 },
   heroPane: { width: "100%" },
-  landscapeHeroPane: { width: "36%", maxWidth: 410 },
+  landscapeHeroPane: { width: "36%", maxWidth: 410, gap: 24 },
   modeList: { gap: 13 },
   landscapeModeList: { flex: 1 },
   modeGrid: { gap: 13 },
-  tabletModeGrid: { flexDirection: "row", flexWrap: "wrap" },
+  tabletModeGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   tabletModeCard: { width: "48%" },
   wideModeCard: { width: "100%" },
   bestContext: { fontFamily: "NunitoSans_600SemiBold", fontSize: 13, color: COLORS.secondary },
+  tabletBestContext: { fontSize: 17, lineHeight: 24 },
   retry: { minHeight: 44, justifyContent: "center" },
 });

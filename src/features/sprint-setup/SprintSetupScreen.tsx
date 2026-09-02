@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { isSprintMode } from "@/domain/sprint";
@@ -11,19 +11,17 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 import { PracticePreferences } from "@/components/preferences/PracticePreferences";
 import { formatDurationSubtitle } from "@/shared/formatSprintDuration";
-import { getAdaptiveLayout } from "@/shared/responsiveLayout";
 import { SetupHeader } from "./components/SetupHeader";
+import { getSetupLayout } from "./setupLayout";
 
 export default function SprintSetupScreen() {
   const router = useRouter();
-  const { width, height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const { preferences, isReady } = usePreferences();
   const [isStarting, setIsStarting] = useState(false);
   const mode = isSprintMode(modeParam) ? modeParam : "addition";
-  const layout = getAdaptiveLayout(width, height);
-  const isTablet = layout !== "phone";
-  const isLandscapeTablet = layout === "tablet-landscape";
+  const { tablet: isTablet, twoColumn: isLandscapeTablet, maxWidth } = getSetupLayout(width, height, Platform.OS, fontScale);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,13 +46,14 @@ export default function SprintSetupScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
+    <SafeAreaView edges={isTablet ? ["top", "left", "right", "bottom"] : ["top", "left", "right"]} style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="dark" />
 
       <ScrollView bounces={false} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.content, isTablet && styles.tabletContent, isLandscapeTablet && styles.landscapeContent]}>
+        <View style={[styles.content, isTablet && styles.tabletContent, isTablet && { maxWidth }]}>
           <SetupHeader
+            tablet={isTablet}
             mode={mode}
             onBack={() => router.back()}
             subtitle={formatDurationSubtitle(preferences.durationSeconds)}
@@ -62,10 +61,10 @@ export default function SprintSetupScreen() {
 
           <View style={[styles.setupBody, isLandscapeTablet && styles.landscapeBody]}>
             <View style={[styles.preferenceList, isLandscapeTablet && styles.landscapePreferenceList]}>
-              <PracticePreferences showSaveStatus={false} />
+              <PracticePreferences showSaveStatus={false} tablet={isTablet} />
             </View>
 
-            <View style={isLandscapeTablet ? styles.landscapeActionPane : undefined}>
+            <View style={[isTablet && styles.tabletActionPane, isLandscapeTablet && styles.landscapeActionPane]}>
               <View style={[styles.mascotArea, isLandscapeTablet && styles.landscapeMascotArea]}>
                 <Image
                   accessibilityLabel="Benster mascot running"
@@ -83,12 +82,13 @@ export default function SprintSetupScreen() {
                 onPress={startSprint}
                 style={({ pressed }) => [
                   styles.startButton,
+                  isTablet && styles.tabletStartButton,
                   CARD_SHADOW,
                   (!isReady || isStarting) && styles.disabledButton,
                   pressed && styles.pressedButton,
                 ]}
               >
-                <Text style={styles.startButtonText}>{isStarting ? "Starting…" : "Start Sprint"}</Text>
+                <Text style={[styles.startButtonText, isTablet && styles.tabletStartButtonText]}>{isStarting ? "Starting…" : "Start Sprint"}</Text>
               </Pressable>
             </View>
           </View>
@@ -108,8 +108,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
   },
-  tabletContent: { maxWidth: 720, paddingHorizontal: 32, paddingTop: 20, paddingBottom: 32 },
-  landscapeContent: { maxWidth: 1100 },
+  tabletContent: { paddingHorizontal: 32, paddingTop: 20, paddingBottom: 32 },
   setupBody: { flexGrow: 1 },
   landscapeBody: { flexDirection: "row", alignItems: "stretch", gap: 36 },
   preferenceList: {
@@ -117,7 +116,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   landscapePreferenceList: { flex: 1, maxWidth: 620 },
-  landscapeActionPane: { width: "38%", justifyContent: "flex-start", paddingTop: 100 },
+  tabletActionPane: { width: "100%", maxWidth: 420, alignSelf: "center" },
+  landscapeActionPane: { width: "38%", justifyContent: "center", alignSelf: "stretch" },
   mascotArea: {
     minHeight: 184,
     marginTop: 24,
@@ -131,6 +131,8 @@ const styles = StyleSheet.create({
     height: 180,
   },
   tabletMascot: { width: 235, height: 205 },
+  tabletStartButton: { minHeight: 68, paddingHorizontal: 20, paddingVertical: 16 },
+  tabletStartButtonText: { fontSize: 23, lineHeight: 30, textAlign: "center" },
   startButton: {
     minHeight: 58,
     borderRadius: 18,

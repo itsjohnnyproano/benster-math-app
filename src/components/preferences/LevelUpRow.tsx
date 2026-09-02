@@ -1,15 +1,18 @@
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
+import { tabletPreferenceStyles } from "./tabletPreferenceStyles";
 
 type LevelUpRowProps = {
   disabled?: boolean;
+  tablet?: boolean;
   enabled: boolean;
   onChange: (enabled: boolean) => void;
 };
 
 export function LevelUpRow({
   disabled = false,
+  tablet = false,
   enabled,
   onChange,
 }: LevelUpRowProps) {
@@ -23,13 +26,14 @@ export function LevelUpRow({
       onPress={() => onChange(!enabled)}
       style={({ pressed }) => [
         styles.row,
+        tablet && tabletPreferenceStyles.row,
         CARD_SHADOW,
         pressed && styles.pressed,
       ]}
     >
       <View style={styles.copy}>
-        <Text maxFontSizeMultiplier={1.3} numberOfLines={1} adjustsFontSizeToFit style={styles.label}>Level Up mode</Text>
-        <Text maxFontSizeMultiplier={1.3} numberOfLines={2} style={styles.description}>Questions get harder as you go</Text>
+        <Text maxFontSizeMultiplier={tablet ? undefined : 1.3} numberOfLines={tablet ? undefined : 1} adjustsFontSizeToFit={!tablet} style={[styles.label, tablet && tabletPreferenceStyles.label]}>Level Up mode</Text>
+        <Text maxFontSizeMultiplier={tablet ? undefined : 1.3} numberOfLines={tablet ? undefined : 2} style={[styles.description, tablet && tabletPreferenceStyles.detail]}>Questions get harder as you go</Text>
       </View>
       <View pointerEvents="none" style={styles.switchContainer}>
         <Switch

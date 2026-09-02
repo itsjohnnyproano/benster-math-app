@@ -2,9 +2,11 @@ import { SymbolView } from "expo-symbols";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
+import { tabletPreferenceStyles } from "./tabletPreferenceStyles";
 
 type PreferenceRowProps = {
   disabled?: boolean;
+  tablet?: boolean;
   label: string;
   value: string;
   onPress: () => void;
@@ -12,6 +14,7 @@ type PreferenceRowProps = {
 
 export function PreferenceRow({
   disabled = false,
+  tablet = false,
   label,
   value,
   onPress,
@@ -26,13 +29,14 @@ export function PreferenceRow({
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
+        tablet && tabletPreferenceStyles.row,
         CARD_SHADOW,
         pressed && styles.pressed,
       ]}
     >
       <View style={styles.copy}>
-        <Text maxFontSizeMultiplier={1.3} numberOfLines={1} adjustsFontSizeToFit style={styles.label}>{label}</Text>
-        <Text maxFontSizeMultiplier={1.3} numberOfLines={1} style={styles.value}>{value}</Text>
+        <Text maxFontSizeMultiplier={tablet ? undefined : 1.3} numberOfLines={tablet ? undefined : 1} adjustsFontSizeToFit={!tablet} style={[styles.label, tablet && tabletPreferenceStyles.label]}>{label}</Text>
+        <Text maxFontSizeMultiplier={tablet ? undefined : 1.3} numberOfLines={tablet ? undefined : 1} style={[styles.value, tablet && tabletPreferenceStyles.detail]}>{value}</Text>
       </View>
       <SymbolView
         name={{

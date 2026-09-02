@@ -1,9 +1,11 @@
 import { Image } from "expo-image";
 import { SymbolView } from "expo-symbols";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "@/theme/tokens";
+import { getAdaptiveLayout } from "@/shared/responsiveLayout";
+import { getTabletCountdownLayout } from "../countdownLayout";
 
 type CountdownViewProps = {
   count: number;
@@ -16,9 +18,11 @@ export function CountdownView({
   modeTitle,
   onClose,
 }: CountdownViewProps) {
-  const { height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const mascotSize = Math.max(48, Math.min(112, height - insets.top - insets.bottom - 480));
+  const tablet = Platform.OS === "ios" && getAdaptiveLayout(width, height) !== "phone";
+  const layout = getTabletCountdownLayout(width - insets.left - insets.right, height - insets.top - insets.bottom, fontScale);
+  const mascotSize = tablet ? layout.mascot : Math.max(48, Math.min(112, height - insets.top - insets.bottom - 480));
 
   return (
     <View style={styles.screen}>
@@ -38,11 +42,11 @@ export function CountdownView({
           tintColor={COLORS.ink}
         />
       </Pressable>
-      <View style={styles.container}>
-        <Text maxFontSizeMultiplier={1.2} style={styles.eyebrow}>{modeTitle} sprint</Text>
-        <Text maxFontSizeMultiplier={1.2} style={styles.ready}>Ready?</Text>
-        <View style={styles.countCircle}>
-          <Text maxFontSizeMultiplier={1.2} style={styles.count}>{count}</Text>
+      <View style={[styles.container, tablet && { paddingVertical: layout.padding }]}>
+        <Text maxFontSizeMultiplier={1.2} style={[styles.eyebrow, tablet && styles.tabletEyebrow]}>{modeTitle} sprint</Text>
+        <Text maxFontSizeMultiplier={1.2} style={[styles.ready, tablet && styles.tabletReady]}>Ready?</Text>
+        <View style={[styles.countCircle, tablet && { width: layout.circle, height: layout.circle, borderRadius: layout.circle / 2, marginTop: 18 }]}>
+          <Text maxFontSizeMultiplier={1.2} style={[styles.count, tablet && { fontSize: layout.numberSize, lineHeight: layout.numberSize * 1.17, transform: [{ translateY: layout.numberSize / 16 }] }]}>{count}</Text>
         </View>
         <Image
           source={require("../../../../assets/mascot/penguin-sprint-start-crouch-exact.png")}
@@ -50,13 +54,16 @@ export function CountdownView({
           accessible={false}
           style={[styles.mascot, { width: mascotSize, height: mascotSize }]}
         />
-        <Text maxFontSizeMultiplier={1.2} style={styles.note}>Your timer starts after the countdown</Text>
+        <Text maxFontSizeMultiplier={1.2} style={[styles.note, tablet && styles.tabletNote]}>Your timer starts after the countdown</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  tabletEyebrow: { fontSize: 19, lineHeight: 26 },
+  tabletReady: { fontSize: 46, lineHeight: 58 },
+  tabletNote: { fontSize: 18, lineHeight: 26, maxWidth: 440 },
   screen: { flex: 1, paddingHorizontal: 24 },
   closeButton: {
     position: "absolute",
