@@ -3,10 +3,12 @@ import {
   Animated,
   Easing,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   useAnimatedValue,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useState } from "react";
@@ -14,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "@/theme/tokens";
 import type { CardLayout } from "@/domain/sprint";
+import { getAdaptiveLayout } from "@/shared/responsiveLayout";
 
 import type { PreferenceOption } from "./practiceOptions";
 
@@ -22,6 +25,7 @@ type OptionValue = string | number;
 const SHEET_HIDDEN_OFFSET = 520;
 const OPEN_DURATION_MS = 220;
 const CLOSE_DURATION_MS = 160;
+const IPAD_SELECTION_CLOSE_DURATION_MS = 90;
 
 type OptionBottomSheetProps = {
   visible: boolean;
@@ -77,6 +81,8 @@ export function OptionBottomSheet({
   onSelect,
 }: OptionBottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const isIpad = Platform.OS === "ios" && getAdaptiveLayout(width, height) !== "phone";
   const hasPreviews = options.some((option) => option.preview);
   const [isClosing, setIsClosing] = useState(false);
   const backdropOpacity = useAnimatedValue(0);
@@ -85,7 +91,7 @@ export function OptionBottomSheet({
   const animateIn = () => {
     setIsClosing(false);
     backdropOpacity.setValue(0);
-    sheetTranslateY.setValue(SHEET_HIDDEN_OFFSET);
+    sheetTranslateY.setValue(isIpad ? 14 : SHEET_HIDDEN_OFFSET);
     const animation = Animated.parallel([
       Animated.timing(backdropOpacity, {
         duration: OPEN_DURATION_MS,
@@ -103,20 +109,20 @@ export function OptionBottomSheet({
     animation.start();
   };
 
-  const animateOut = (complete: () => void) => {
+  const animateOut = (complete: () => void, duration = CLOSE_DURATION_MS) => {
     if (isClosing) return;
     setIsClosing(true);
     Animated.parallel([
       Animated.timing(backdropOpacity, {
-        duration: CLOSE_DURATION_MS,
+        duration,
         easing: Easing.in(Easing.cubic),
         toValue: 0,
         useNativeDriver: true,
       }),
       Animated.timing(sheetTranslateY, {
-        duration: CLOSE_DURATION_MS,
+        duration,
         easing: Easing.in(Easing.cubic),
-        toValue: SHEET_HIDDEN_OFFSET,
+        toValue: isIpad ? 14 : SHEET_HIDDEN_OFFSET,
         useNativeDriver: true,
       }),
     ]).start(({ finished }) => {
@@ -142,22 +148,50 @@ export function OptionBottomSheet({
         accessibilityLabel="Close options"
         accessibilityRole="button"
         onPress={requestClose}
-        style={styles.backdrop}
+        style={[styles.backdrop, isIpad && styles.ipadBackdrop]}
       >
         <Animated.View
           pointerEvents="none"
           style={[styles.backdropTint, { opacity: backdropOpacity }]}
         />
         <Animated.View
-          style={{ transform: [{ translateY: sheetTranslateY }] }}
+          style={[
+            isIpad && styles.ipadFrame,
+            {
+              opacity: isIpad ? backdropOpacity : 1,
+              transform: [{ translateY: sheetTranslateY }],
+            },
+          ]}
         >
           <Pressable
             accessibilityViewIsModal
             onPress={(event) => event.stopPropagation()}
-            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 18) }]}
+            style={[
+              styles.sheet,
+              isIpad && styles.ipadSheet,
+              { paddingBottom: isIpad ? 24 : Math.max(insets.bottom, 18) },
+            ]}
           >
-            <View style={styles.handle} />
-            <Text style={styles.title}>{title}</Text>
+            {!isIpad && <View style={styles.handle} />}
+            <View style={isIpad && styles.ipadTitleRow}>
+              <Text style={[styles.title, isIpad && styles.ipadTitle]}>{title}</Text>
+              {isIpad && (
+                <Pressable
+                  accessibilityLabel="Close options"
+                  accessibilityRole="button"
+                  disabled={isClosing}
+                  hitSlop={8}
+                  onPress={requestClose}
+                  style={({ pressed }) => [styles.closeButton, pressed && styles.pressedOption]}
+                >
+                  <SymbolView
+                    name={{ ios: "xmark", android: "close", web: "close" }}
+                    size={18}
+                    tintColor={COLORS.secondary}
+                  />
+                </Pressable>
+              )}
+            </View>
 
             <View style={[styles.optionList, hasPreviews && styles.previewList]}>
               {options.map((option) => {
@@ -170,7 +204,12 @@ export function OptionBottomSheet({
                     accessibilityState={{ checked: isSelected }}
                     key={option.value}
                     disabled={isClosing}
-                    onPress={() => animateOut(() => onSelect(option.value))}
+                    onPress={() =>
+                      animateOut(
+                        () => onSelect(option.value),
+                        isIpad ? IPAD_SELECTION_CLOSE_DURATION_MS : CLOSE_DURATION_MS
+                      )
+                    }
                     style={({ pressed }) => [
                       styles.option,
                       hasPreviews && styles.previewOption,
@@ -229,6 +268,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
+  ipadBackdrop: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+    paddingVertical: 32,
+  },
   backdropTint: {
     position: "absolute",
     top: 0,
@@ -249,6 +294,13 @@ const styles = StyleSheet.create({
     shadowRadius: 22,
     elevation: 20,
   },
+  ipadFrame: { width: "100%", maxWidth: 560 },
+  ipadSheet: {
+    paddingTop: 22,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    shadowOffset: { width: 0, height: 12 },
+  },
   handle: {
     alignSelf: "center",
     width: 42,
@@ -264,6 +316,19 @@ const styles = StyleSheet.create({
     fontSize: 23,
     lineHeight: 29,
     textAlign: "center",
+  },
+  ipadTitleRow: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+  ipadTitle: { marginTop: 0, marginBottom: 16, paddingHorizontal: 54 },
+  closeButton: {
+    position: "absolute",
+    top: -3,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.background,
+    alignItems: "center",
+    justifyContent: "center",
   },
   optionList: { gap: 9 },
   previewList: { flexDirection: "row" },

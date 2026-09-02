@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { useCallback, useEffect } from "react";
-import { Alert, BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
 import type { SprintResult } from "@/domain/math-engine";
@@ -12,10 +12,13 @@ import { useSavedSprint } from "./useSavedSprint";
 import { RESULT_PRESENTATION } from "./resultPresentation";
 import { formatResponseTime } from "@/shared/formatResponseTime";
 import { CARD_LAYOUT_LABELS } from "@/components/preferences/practiceOptions";
+import { getResultsLayout } from "./resultsLayout";
 
 type Props = { sprintId: string; result: SprintResult; onDone: () => void };
 
 export function SprintResultsScreen({ sprintId, result, onDone }: Props) {
+  const { width, height, fontScale } = useWindowDimensions();
+  const { isTablet, isTwoColumn, contentMaxWidth } = getResultsLayout(width, height, Platform.OS, fontScale);
   const save = useSavedSprint(sprintId, result);
   const encouragement = RESULT_PRESENTATION[getResultOutcome(result)];
   const { configuration } = result;
@@ -40,52 +43,59 @@ export function SprintResultsScreen({ sprintId, result, onDone }: Props) {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.hero}>
-          <Image
-            source={encouragement.useEncouragementMascot
-              ? require("../../../assets/mascot/penguin-score-lower-than-expected.png")
-              : require("../../../assets/mascot/penguin-thumbs-up.png")}
-            contentFit="contain"
-            style={styles.mascot}
-            accessible={false}
-          />
-          <Text style={styles.eyebrow}>SPRINT COMPLETE</Text>
-          <Text style={styles.title}>You showed up!</Text>
-          <Text style={styles.message}>{encouragement.message}</Text>
-          <Text style={styles.context}>{SPRINT_MODE_DETAILS[configuration.mode].title} · {duration}</Text>
-        </View>
-
-        <View style={[styles.scoreCard, CARD_SHADOW]}>
-          <Text accessibilityLabel={`${result.correctCount} correct out of ${result.attemptedCount} answered`} style={styles.score}>
-            {result.correctCount}<Text style={styles.scoreTotal}> / {result.attemptedCount}</Text>
-          </Text>
-          <Text style={styles.scoreLabel}>correct answers</Text>
-          <View style={styles.stats}>
-            <Stat label="Accuracy" value={result.attemptedCount === 0 ? "—" : `${Math.round(result.accuracy * 100)}%`} />
-            <Stat label="Avg. answer time" value={formatResponseTime(result.averageResponseMs)} />
-            <Stat label="Best answer streak" value={String(result.bestStreak)} />
-            {configuration.levelUpEnabled
-              ? <Stat label="Highest level" value={String(result.finalLevel)} />
-              : <Stat label="Sprint duration" value={duration} />}
+      <ScrollView bounces={!isTablet} contentContainerStyle={[
+        styles.content,
+        isTablet && [styles.tabletContent, { maxWidth: contentMaxWidth }],
+      ]} showsVerticalScrollIndicator={isTablet}>
+        <View style={[styles.summary, isTwoColumn && styles.summaryColumns]}>
+          <View style={[styles.hero, isTwoColumn && styles.heroColumn]}>
+            <Image
+              source={encouragement.useEncouragementMascot
+                ? require("../../../assets/mascot/penguin-score-lower-than-expected.png")
+                : require("../../../assets/mascot/penguin-thumbs-up.png")}
+              contentFit="contain"
+              style={[styles.mascot, isTablet && styles.tabletMascot]}
+              accessible={false}
+            />
+            <Text style={styles.eyebrow}>SPRINT COMPLETE</Text>
+            <Text style={[styles.title, isTablet && styles.tabletTitle]}>You showed up!</Text>
+            <Text style={[styles.message, isTablet && styles.tabletMessage]}>{encouragement.message}</Text>
+            <Text style={styles.context}>{SPRINT_MODE_DETAILS[configuration.mode].title} · {duration}</Text>
           </View>
-          {result.attemptedCount === 0 && <Text style={styles.note}>No answers submitted this time.</Text>}
-        </View>
 
-        <View accessibilityLiveRegion="polite" style={styles.bestCard}>
-          {save.status === "saved" ? (
-            <PersonalBest best={save.saved.personalBest} duration={duration} />
-          ) : save.status === "saving" ? (
-            <Text style={styles.bestTitle}>Saving your sprint…</Text>
-          ) : (
-            <>
-              <Text style={styles.bestTitle}>Your sprint hasn’t been saved</Text>
-              <Text style={styles.note}>Your result is still here. Please try saving again.</Text>
-              <Pressable accessibilityRole="button" onPress={save.retry} style={styles.retryButton}>
-                <Text style={styles.retryText}>Retry saving</Text>
-              </Pressable>
-            </>
-          )}
+          <View style={[styles.summary, isTwoColumn && styles.scoreColumn]}>
+            <View style={[styles.scoreCard, CARD_SHADOW, isTablet && styles.tabletScoreCard]}>
+              <Text accessibilityLabel={`${result.correctCount} correct out of ${result.attemptedCount} answered`} style={[styles.score, isTablet && styles.tabletScore]}>
+                {result.correctCount}<Text style={styles.scoreTotal}> / {result.attemptedCount}</Text>
+              </Text>
+              <Text style={styles.scoreLabel}>correct answers</Text>
+              <View style={styles.stats}>
+                <Stat label="Accuracy" value={result.attemptedCount === 0 ? "—" : `${Math.round(result.accuracy * 100)}%`} />
+                <Stat label="Avg. answer time" value={formatResponseTime(result.averageResponseMs)} />
+                <Stat label="Best answer streak" value={String(result.bestStreak)} />
+                {configuration.levelUpEnabled
+                  ? <Stat label="Highest level" value={String(result.finalLevel)} />
+                  : <Stat label="Sprint duration" value={duration} />}
+              </View>
+              {result.attemptedCount === 0 && <Text style={styles.note}>No answers submitted this time.</Text>}
+            </View>
+
+            <View accessibilityLiveRegion="polite" style={styles.bestCard}>
+              {save.status === "saved" ? (
+                <PersonalBest best={save.saved.personalBest} duration={duration} />
+              ) : save.status === "saving" ? (
+                <Text style={styles.bestTitle}>Saving your sprint…</Text>
+              ) : (
+                <>
+                  <Text style={styles.bestTitle}>Your sprint hasn’t been saved</Text>
+                  <Text style={styles.note}>Your result is still here. Please try saving again.</Text>
+                  <Pressable accessibilityRole="button" onPress={save.retry} style={styles.retryButton}>
+                    <Text style={styles.retryText}>Retry saving</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </View>
         </View>
 
         <AnswerReview answers={result.answeredQuestions} />
@@ -98,14 +108,14 @@ export function SprintResultsScreen({ sprintId, result, onDone }: Props) {
           <Text style={styles.detailsText}>{save.status === "saved" ? "Saved on this device" : "Not saved yet"}</Text>
         </View>
       </ScrollView>
-      <View style={styles.footer}>
+      <View style={[styles.footer, isTablet && styles.tabletFooter]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Done, return home"
           accessibilityState={{ disabled: save.status !== "saved" }}
           disabled={save.status !== "saved"}
           onPress={onDone}
-          style={({ pressed }) => [styles.doneButton, save.status !== "saved" && styles.disabled, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.doneButton, isTablet && styles.tabletDoneButton, save.status !== "saved" && styles.disabled, pressed && styles.pressed]}
         >
           <Text style={styles.doneText}>{save.status === "saving" ? "Saving…" : "Done"}</Text>
         </Pressable>
@@ -143,6 +153,18 @@ function PersonalBest({ best, duration }: { best: PersonalBestChange; duration: 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 20, gap: 18 },
+  summary: { gap: 18 },
+  tabletContent: { width: "100%", alignSelf: "center", paddingHorizontal: 32, paddingTop: 24, paddingBottom: 28, gap: 24 },
+  summaryColumns: { flexDirection: "row", alignItems: "center", gap: 32 },
+  heroColumn: { flex: 1, minWidth: 0 },
+  scoreColumn: { flex: 1.2, minWidth: 0 },
+  tabletMascot: { width: 168, height: 168 },
+  tabletTitle: { fontSize: 36, lineHeight: 44 },
+  tabletMessage: { fontSize: 18, lineHeight: 26, maxWidth: 420 },
+  tabletScoreCard: { padding: 24 },
+  tabletScore: { fontSize: 64 },
+  tabletFooter: { paddingVertical: 16 },
+  tabletDoneButton: { width: "100%", maxWidth: 420, alignSelf: "center", minHeight: 60 },
   hero: { alignItems: "center", gap: 6 },
   mascot: { width: 124, height: 124 },
   eyebrow: { fontFamily: "NunitoSans_700Bold", color: COLORS.primary, fontSize: 12, letterSpacing: 1.4, textAlign: "center" },

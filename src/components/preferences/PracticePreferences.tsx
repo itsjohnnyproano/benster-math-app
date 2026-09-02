@@ -12,7 +12,7 @@ import { PreferenceSaveStatus } from "./PreferenceSaveStatus";
 type ActiveSheet = "duration" | "input-style" | "card-layout" | null;
 
 // Shared by Setup and Settings: one set of controls and one preferences store.
-export function PracticePreferences({ showSaveStatus = true, onChange }: { showSaveStatus?: boolean; onChange?: () => void }) {
+export function PracticePreferences({ showSaveStatus = true, onChange, tablet = false }: { showSaveStatus?: boolean; onChange?: () => void; tablet?: boolean }) {
   const { preferences, isReady, updatePreference } = usePreferences();
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const update: typeof updatePreference = (key, value) => {
@@ -23,24 +23,28 @@ export function PracticePreferences({ showSaveStatus = true, onChange }: { showS
     <>
       <View style={styles.list}>
           <PreferenceRow
+            tablet={tablet}
             disabled={!isReady}
             label="Sprint length"
             onPress={() => setActiveSheet("duration")}
             value={formatDurationLabel(preferences.durationSeconds)}
           />
           <PreferenceRow
+            tablet={tablet}
             disabled={!isReady}
             label="Input style"
             onPress={() => setActiveSheet("input-style")}
             value={INPUT_STYLE_LABELS[preferences.inputStyle]}
           />
           <PreferenceRow
+            tablet={tablet}
             disabled={!isReady}
             label="Card layout"
             onPress={() => setActiveSheet("card-layout")}
             value={CARD_LAYOUT_LABELS[preferences.cardLayout]}
           />
           <LevelUpRow
+            tablet={tablet}
             disabled={!isReady}
             enabled={preferences.levelUpEnabled}
             onChange={(enabled) =>
@@ -49,8 +53,8 @@ export function PracticePreferences({ showSaveStatus = true, onChange }: { showS
           />
       </View>
       {showSaveStatus && (
-        <View style={styles.saveStatusSlot}>
-          <PreferenceSaveStatus compact />
+        <View style={tablet ? styles.tabletSaveStatusSlot : styles.saveStatusSlot}>
+          <PreferenceSaveStatus compact={!tablet} />
         </View>
       )}
       <OptionBottomSheet
@@ -94,6 +98,7 @@ export function PracticePreferences({ showSaveStatus = true, onChange }: { showS
 }
 
 const styles = StyleSheet.create({
+  tabletSaveStatusSlot: { minHeight: 20 },
   list: { gap: 12 },
   saveStatusSlot: {
     height: 20,

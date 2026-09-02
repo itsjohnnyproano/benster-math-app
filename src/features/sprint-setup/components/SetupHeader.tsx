@@ -9,9 +9,10 @@ type SetupHeaderProps = {
   mode: SprintMode;
   subtitle: string;
   onBack: () => void;
+  tablet?: boolean;
 };
 
-export function SetupHeader({ mode, subtitle, onBack }: SetupHeaderProps) {
+export function SetupHeader({ mode, subtitle, onBack, tablet = false }: SetupHeaderProps) {
   const modeDetails = SPRINT_MODE_DETAILS[mode];
 
   return (
@@ -23,6 +24,7 @@ export function SetupHeader({ mode, subtitle, onBack }: SetupHeaderProps) {
         onPress={onBack}
         style={({ pressed }) => [
           styles.backButton,
+          tablet && styles.tabletBackButton,
           pressed && styles.pressed,
         ]}
       >
@@ -38,26 +40,31 @@ export function SetupHeader({ mode, subtitle, onBack }: SetupHeaderProps) {
       </Pressable>
 
       <View style={styles.titleBlock}>
-        <Text style={styles.title}>Let&apos;s go!</Text>
+        <Text style={[styles.title, tablet && styles.tabletTitle]}>Let&apos;s go!</Text>
         <View
           style={[
             styles.modePill,
             { backgroundColor: `${modeDetails.color}18` },
           ]}
         >
-          <Text style={[styles.modePillText, { color: modeDetails.color }]}>
+          <Text style={[styles.modePillText, tablet && styles.tabletModeText, { color: modeDetails.color }]}>
             {modeDetails.symbol} {modeDetails.title}
           </Text>
         </View>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text style={[styles.subtitle, tablet && styles.tabletSubtitle]}>{subtitle}</Text>
       </View>
 
-      <View style={styles.headerBalance} />
+      <View style={[styles.headerBalance, tablet && styles.tabletHeaderBalance]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  tabletBackButton: { width: 48, height: 48 },
+  tabletHeaderBalance: { width: 48 },
+  tabletTitle: { fontSize: 40, lineHeight: 48, textAlign: "center" },
+  tabletModeText: { fontSize: 17, lineHeight: 24, textAlign: "center" },
+  tabletSubtitle: { fontSize: 19, lineHeight: 26, textAlign: "center" },
   header: {
     flexDirection: "row",
     alignItems: "flex-start",

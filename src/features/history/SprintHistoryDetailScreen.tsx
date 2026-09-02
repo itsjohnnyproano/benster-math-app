@@ -1,7 +1,7 @@
 import { SymbolView } from "expo-symbols";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnswerReviewRow } from "@/components/sprints/AnswerReviewRow";
@@ -9,11 +9,19 @@ import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
 import type { SavedSprint } from "@/domain/results";
 import { formatResponseTime } from "@/shared/formatResponseTime";
 import { formatDurationLabel } from "@/shared/formatSprintDuration";
+import { getAdaptiveLayout } from "@/shared/responsiveLayout";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 import { useHistorySprint } from "./useHistorySprint";
+import { getHistoryLayout } from "./historyLayout";
 
-type ReviewFilter = "mistakes" | "all";
+function useDetailLayout() {
+  const { width, height, fontScale } = useWindowDimensions();
+  const tablet = Platform.OS === "ios" && getAdaptiveLayout(width, height) !== "phone";
+  return { tablet, ...getHistoryLayout(tablet, width, height, fontScale) };
+}
+
+type ReviewFilter = "incorrect" | "all";
 
 type Props = {
   onBack: () => void;
@@ -37,7 +45,8 @@ export default function SprintHistoryDetailScreen({ onBack, sprintId }: Props) {
 }
 
 function SprintReview({ onBack, record }: { onBack: () => void; record: SavedSprint }) {
-  const [filter, setFilter] = useState<ReviewFilter>("mistakes");
+  const { tablet, columns, maxWidth } = useDetailLayout();
+  const [filter, setFilter] = useState<ReviewFilter>("incorrect");
   const { result } = record;
   const { configuration } = result;
   const mode = SPRINT_MODE_DETAILS[configuration.mode];
@@ -45,32 +54,40 @@ function SprintReview({ onBack, record }: { onBack: () => void; record: SavedSpr
     () => result.answeredQuestions.filter((answer) => !answer.isCorrect),
     [result.answeredQuestions],
   );
-  const answers = filter === "mistakes" ? incorrectAnswers : result.answeredQuestions;
+  const answers = filter === "incorrect" ? incorrectAnswers : result.answeredQuestions;
 
   return (
     <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.screen}>
       <StatusBar style="dark" />
+      {tablet && <View style={[styles.tabletNavigation, { maxWidth }]}><NavigationHeader onBack={onBack} tablet /></View>}
       <FlatList
+        key={columns}
+        numColumns={columns}
+        columnWrapperStyle={columns === 2 ? styles.answerColumns : undefined}
         data={answers}
         keyExtractor={(answer) => String(answer.question.id)}
         renderItem={({ item }) => (
+          <View style={columns === 2 ? styles.answerColumn : undefined}>
           <AnswerReviewRow
             answer={item}
             emphasizeCorrection
             position={item.question.id}
+            tablet={tablet}
           />
+          </View>
         )}
         ItemSeparatorComponent={ListGap}
         ListHeaderComponent={(
           <View style={styles.headerContent}>
-            <NavigationHeader onBack={onBack} />
-            <View style={[styles.hero, { backgroundColor: `${mode.color}12`, borderColor: `${mode.color}30` }]}>
+            {!tablet && <NavigationHeader onBack={onBack} />}
+            <View style={[styles.overview, columns === 2 && styles.overviewColumns]}>
+            <View style={[styles.hero, columns === 2 && styles.overviewColumn, { backgroundColor: `${mode.color}12`, borderColor: `${mode.color}30` }]}>
               <View style={[styles.symbol, { backgroundColor: mode.color }]}>
                 <Text style={styles.symbolText}>{mode.symbol}</Text>
               </View>
               <Text style={[styles.eyebrow, { color: mode.color }]}>{mode.title.toUpperCase()} SPRINT</Text>
-              <Text style={styles.heroTitle}>Sprint review</Text>
-              <Text style={styles.heroMeta}>
+              <Text style={[styles.heroTitle, tablet && styles.tabletTitle]}>Sprint review</Text>
+              <Text style={[styles.heroMeta, tablet && styles.tabletBody]}>
                 {formatDurationLabel(configuration.durationSeconds)} · {new Date(result.completedAtMs).toLocaleString(undefined, {
                   month: "short",
                   day: "numeric",
@@ -80,24 +97,28 @@ function SprintReview({ onBack, record }: { onBack: () => void; record: SavedSpr
               </Text>
             </View>
 
-            <View style={[styles.summary, CARD_SHADOW]}>
-              <SummaryStat label="Correct" value={`${result.correctCount} / ${result.attemptedCount}`} />
-              <SummaryStat label="Accuracy" value={result.attemptedCount ? `${Math.round(result.accuracy * 100)}%` : "—"} />
-              <SummaryStat label="Avg. answer" value={formatResponseTime(result.averageResponseMs)} />
+            <View style={[styles.summary, CARD_SHADOW, columns === 2 && styles.overviewColumn]}>
+              <SummaryStat tablet={tablet} label="Correct" value={`${result.correctCount} / ${result.attemptedCount}`} />
+              <SummaryStat tablet={tablet} label="Accuracy" value={result.attemptedCount ? `${Math.round(result.accuracy * 100)}%` : "—"} />
+              <SummaryStat tablet={tablet} label="Avg. answer" value={formatResponseTime(result.averageResponseMs)} />
               <SummaryStat
+                tablet={tablet}
                 label={configuration.levelUpEnabled ? "Highest level" : "Best streak"}
                 value={String(configuration.levelUpEnabled ? result.finalLevel : result.bestStreak)}
               />
             </View>
+            </View>
 
             <View accessibilityRole="tablist" style={styles.filters}>
               <ReviewTab
+                tablet={tablet}
                 color={mode.color}
-                label={`Mistakes (${incorrectAnswers.length})`}
-                selected={filter === "mistakes"}
-                onPress={() => setFilter("mistakes")}
+                label={`Incorrect (${incorrectAnswers.length})`}
+                selected={filter === "incorrect"}
+                onPress={() => setFilter("incorrect")}
               />
               <ReviewTab
+                tablet={tablet}
                 color={mode.color}
                 label={`All answers (${result.answeredQuestions.length})`}
                 selected={filter === "all"}
@@ -109,7 +130,7 @@ function SprintReview({ onBack, record }: { onBack: () => void; record: SavedSpr
         ListEmptyComponent={(
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>
-              {result.attemptedCount === 0 ? "No answers submitted" : "No mistakes this time!"}
+              {result.attemptedCount === 0 ? "No answers submitted" : "No incorrect answers!"}
             </Text>
             <Text style={styles.emptyBody}>
               {result.attemptedCount === 0
@@ -123,35 +144,35 @@ function SprintReview({ onBack, record }: { onBack: () => void; record: SavedSpr
             )}
           </View>
         )}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, tablet && styles.tabletContent, tablet && { maxWidth }]}
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
   );
 }
 
-function NavigationHeader({ onBack }: { onBack: () => void }) {
+function NavigationHeader({ onBack, tablet = false }: { onBack: () => void; tablet?: boolean }) {
   return (
     <View style={styles.navigation}>
       <Pressable accessibilityLabel="Back to history" accessibilityRole="button" hitSlop={10} onPress={onBack} style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
         <SymbolView name={{ ios: "chevron.left", android: "arrow_back_ios_new", web: "arrow_back_ios_new" }} size={22} tintColor={COLORS.ink} />
       </Pressable>
-      <Text accessibilityRole="header" style={styles.navigationTitle}>Sprint details</Text>
+      <Text accessibilityRole="header" style={[styles.navigationTitle, tablet && styles.tabletNavigationTitle]}>Sprint details</Text>
       <View style={styles.navigationBalance} />
     </View>
   );
 }
 
-function SummaryStat({ label, value }: { label: string; value: string }) {
+function SummaryStat({ label, value, tablet = false }: { label: string; value: string; tablet?: boolean }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, tablet && styles.tabletStatValue]}>{value}</Text>
+      <Text style={[styles.statLabel, tablet && styles.tabletBody]}>{label}</Text>
     </View>
   );
 }
 
-function ReviewTab({ color, label, onPress, selected }: { color: string; label: string; onPress: () => void; selected: boolean }) {
+function ReviewTab({ color, label, onPress, selected, tablet = false }: { color: string; label: string; onPress: () => void; selected: boolean; tablet?: boolean }) {
   return (
     <Pressable
       accessibilityRole="tab"
@@ -159,21 +180,23 @@ function ReviewTab({ color, label, onPress, selected }: { color: string; label: 
       onPress={onPress}
       style={({ pressed }) => [
         styles.filter,
+        tablet && styles.tabletFilter,
         selected && { backgroundColor: color, borderColor: color },
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.filterText, selected && styles.selectedFilterText]}>{label}</Text>
+      <Text style={[styles.filterText, tablet && styles.tabletBody, selected && styles.selectedFilterText]}>{label}</Text>
     </Pressable>
   );
 }
 
 function DetailState({ onBack, onRetry, status }: { onBack: () => void; onRetry: () => void; status: "loading" | "not-found" | "error" }) {
+  const { tablet, maxWidth } = useDetailLayout();
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar style="dark" />
-      <View style={styles.stateContent}>
-        <NavigationHeader onBack={onBack} />
+      <View style={[styles.stateContent, tablet && styles.tabletContent, tablet && { maxWidth }]}>
+        <NavigationHeader onBack={onBack} tablet={tablet} />
         <View style={styles.stateCard}>
           {status === "loading" ? (
             <><ActivityIndicator color={COLORS.primary} size="large" /><Text style={styles.emptyBody}>Loading sprint details…</Text></>
@@ -201,6 +224,18 @@ function ListGap() {
 }
 
 const styles = StyleSheet.create({
+  tabletContent: { width: "100%", alignSelf: "center" },
+  tabletNavigation: { width: "100%", alignSelf: "center", paddingHorizontal: 24, paddingBottom: 16 },
+  tabletNavigationTitle: { fontSize: 24 },
+  overview: { gap: 16 },
+  overviewColumns: { flexDirection: "row" },
+  overviewColumn: { flex: 1, justifyContent: "center" },
+  answerColumns: { justifyContent: "space-between" },
+  answerColumn: { width: "49%" },
+  tabletTitle: { fontSize: 32 },
+  tabletBody: { fontSize: 16 },
+  tabletStatValue: { fontSize: 28 },
+  tabletFilter: { minHeight: 56, paddingVertical: 10 },
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 24, paddingBottom: 28 },
   headerContent: { gap: 16, paddingBottom: 16 },

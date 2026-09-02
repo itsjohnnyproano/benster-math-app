@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, SectionList, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTabBarLayout } from "@/components/navigation/tabBarLayout";
@@ -12,27 +12,30 @@ import { COLORS } from "@/theme/tokens";
 import { HistoryCard } from "./components/HistoryCard";
 import { groupHistory } from "./historySections";
 import { useHistory } from "./useHistory";
+import { getHistoryLayout, historyRows } from "./historyLayout";
 
 const READING_PENGUIN = require("../../../assets/mascot/penguin-reading-book-right.png");
 const FILTERS: (SprintMode | undefined)[] = [undefined, ...SPRINT_MODES];
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { contentInset } = useTabBarLayout();
+  const { contentInset, isIpad } = useTabBarLayout();
+  const { width, height, fontScale } = useWindowDimensions();
+  const { columns, maxWidth } = getHistoryLayout(isIpad, width, height, fontScale);
   const [mode, setMode] = useState<SprintMode>();
   const history = useHistory(mode);
-  const sections = groupHistory(history.records);
+  const sections = historyRows(groupHistory(history.records), columns);
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
       <StatusBar style="dark" />
-      <View style={styles.fixedHeader}>
+      <View style={[styles.fixedHeader, isIpad && [styles.tabletContainer, { maxWidth }]]}>
             <View style={styles.header}>
               <View style={styles.headerText}>
-                <Text accessibilityRole="header" style={styles.title}>History</Text>
-                <Text style={styles.subtitle}>A little practice.{"\n"}A lot of progress.</Text>
+                <Text accessibilityRole="header" style={[styles.title, isIpad && styles.tabletTitle]}>History</Text>
+                <Text style={[styles.subtitle, isIpad && styles.tabletSubtitle]}>A little practice.{"\n"}A lot of progress.</Text>
               </View>
-              <Image accessible={false} source={READING_PENGUIN} contentFit="contain" style={styles.mascot} />
+              <Image accessible={false} source={READING_PENGUIN} contentFit="contain" style={[styles.mascot, isIpad && styles.tabletMascot]} />
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
               {FILTERS.map((filter) => (
@@ -41,9 +44,9 @@ export default function HistoryScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ selected: filter === mode }}
                   onPress={() => setMode(filter)}
-                  style={({ pressed }) => [styles.filter, filter === mode && styles.selectedFilter, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.filter, isIpad && styles.tabletFilter, filter === mode && styles.selectedFilter, pressed && styles.pressed]}
                 >
-                  <Text style={[styles.filterText, filter === mode && styles.selectedText]}>{filter ? SPRINT_MODE_DETAILS[filter].title : "All"}</Text>
+                  <Text style={[styles.filterText, isIpad && styles.tabletFilterText, filter === mode && styles.selectedText]}>{filter ? SPRINT_MODE_DETAILS[filter].title : "All"}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -53,20 +56,28 @@ export default function HistoryScreen() {
         key={mode ?? "all"}
         style={styles.results}
         sections={sections}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(row) => row[0].id}
         renderItem={({ item }) => (
-          <HistoryCard
-            record={item}
-            onPress={() => router.push({
-              pathname: "/history/[sprintId]",
-              params: { sprintId: item.id },
-            })}
-          />
+          <View style={[styles.cardRow, columns === 2 && styles.twoColumns]}>
+            {item.map((record) => (
+              <View key={record.id} style={styles.cardCell}>
+                <HistoryCard
+                  record={record}
+                  tablet={isIpad}
+                  onPress={() => router.push({
+                    pathname: "/history/[sprintId]",
+                    params: { sprintId: record.id },
+                  })}
+                />
+              </View>
+            ))}
+            {columns === 2 && item.length === 1 && <View style={styles.cardCell} />}
+          </View>
         )}
-        renderSectionHeader={({ section }) => <Text accessibilityRole="header" style={styles.day}>{section.title}</Text>}
+        renderSectionHeader={({ section }) => <Text accessibilityRole="header" style={[styles.day, isIpad && styles.tabletDay]}>{section.title}</Text>}
         stickySectionHeadersEnabled={false}
-        contentContainerStyle={[styles.content, { paddingBottom: contentInset }]}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, isIpad && [styles.tabletContainer, { maxWidth }], { paddingBottom: contentInset }]}
+        showsVerticalScrollIndicator={isIpad}
         refreshing={history.status === "loading"}
         onRefresh={history.refresh}
         ListEmptyComponent={
@@ -108,6 +119,16 @@ function Action({ label, onPress, separated = false }: { label: string; onPress:
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   fixedHeader: { paddingHorizontal: 24, paddingTop: 18 },
+  tabletContainer: { width: "100%", alignSelf: "center", paddingHorizontal: 32 },
+  tabletTitle: { fontSize: 40 },
+  tabletSubtitle: { fontSize: 19, lineHeight: 26 },
+  tabletMascot: { width: 140, height: 150 },
+  tabletFilter: { minHeight: 50, paddingHorizontal: 20 },
+  tabletFilterText: { fontSize: 16 },
+  tabletDay: { fontSize: 17, marginTop: 20, marginBottom: 14 },
+  cardRow: { flexDirection: "row" },
+  twoColumns: { gap: 20, alignItems: "stretch" },
+  cardCell: { flex: 1, minWidth: 0 },
   results: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: 24 },
   header: { flexDirection: "row", alignItems: "center", minHeight: 132, gap: 8, marginBottom: 18 },

@@ -8,30 +8,35 @@ type Props = {
   answer: AnsweredQuestion;
   emphasizeCorrection?: boolean;
   position: number;
+  tablet?: boolean;
 };
 
-export function AnswerReviewRow({ answer, emphasizeCorrection = false, position }: Props) {
+export function AnswerReviewRow({ answer, emphasizeCorrection = false, position, tablet = false }: Props) {
   return (
-    <View style={[styles.row, !answer.isCorrect && styles.incorrectRow]}>
+    <View style={[styles.row, tablet && styles.tabletRow, !answer.isCorrect && styles.incorrectRow]}>
       <View style={styles.rowTop}>
-        <Text style={styles.position}>Question {position}</Text>
-        <Text style={[styles.status, !answer.isCorrect && styles.incorrectStatus]}>
+        <Text style={[styles.position, tablet && styles.tabletMeta]}>Question {position}</Text>
+        <Text style={[styles.status, tablet && styles.tabletMeta, !answer.isCorrect && styles.incorrectStatus]}>
           {answer.isCorrect ? "✓ Correct" : "✕ Incorrect"}
         </Text>
       </View>
-      <Text style={styles.equation}>
+      <Text style={[styles.equation, tablet && styles.tabletEquation]}>
         {answer.question.leftOperand} {answer.question.operator} {answer.question.rightOperand} = {answer.question.correctAnswer}
       </Text>
-      <Text style={styles.detail}>Your answer: {answer.submittedAnswer}</Text>
+      <Text style={[styles.detail, tablet && styles.tabletDetail]}>Your answer: {answer.submittedAnswer}</Text>
       {emphasizeCorrection && !answer.isCorrect && (
-        <Text style={styles.correctAnswer}>Correct answer: {answer.question.correctAnswer}</Text>
+        <Text style={[styles.correctAnswer, tablet && styles.tabletDetail]}>Correct answer: {answer.question.correctAnswer}</Text>
       )}
-      <Text style={styles.detail}>Time taken: {formatResponseTime(answer.elapsedMs)}</Text>
+      <Text style={[styles.detail, tablet && styles.tabletDetail]}>Time taken: {formatResponseTime(answer.elapsedMs)}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  tabletRow: { padding: 22, gap: 10, flex: 1 },
+  tabletMeta: { fontSize: 15 },
+  tabletEquation: { fontSize: 28 },
+  tabletDetail: { fontSize: 17 },
   row: { padding: 14, borderWidth: 1, borderColor: COLORS.border, borderRadius: 16, gap: 7, backgroundColor: COLORS.card },
   incorrectRow: { backgroundColor: COLORS.redSoft },
   rowTop: { flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: 6 },

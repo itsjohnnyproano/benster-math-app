@@ -2,8 +2,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { COLORS } from "@/theme/tokens";
 
-import type { AnswerFeedback } from "../types";
 import type { GameplayLayout } from "../gameplayLayout";
+import type { AnswerFeedback } from "../types";
 
 const KEY_ROWS = [
   ["1", "2", "3"],
@@ -26,7 +26,6 @@ export function NumberPad({ value, feedback, onChange, onSubmit, layout }: Numbe
     if (feedback || value.length >= 3) return;
     onChange(value === "0" ? digit : `${value}${digit}`);
   };
-
   return (
     <View style={styles.container}>
       <View
@@ -77,7 +76,16 @@ export function NumberPad({ value, feedback, onChange, onSubmit, layout }: Numbe
         </View>
       </View>
 
-      <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit accessibilityLiveRegion="polite" style={styles.feedbackMessage}>
+      <Text
+        maxFontSizeMultiplier={layout.feedbackFontSize === 14 ? 1 : 1.2}
+        numberOfLines={1}
+        adjustsFontSizeToFit={layout.feedbackFontSize !== 14}
+        accessibilityLiveRegion="polite"
+        style={[
+          styles.feedbackMessage,
+          { fontSize: layout.feedbackFontSize },
+        ]}
+      >
         {feedback
           ? feedback.isCorrect
             ? "Correct!"
@@ -108,7 +116,12 @@ function NumberKey({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.key, variant === "primary" && styles.primaryKey, disabled && styles.disabled, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.key,
+        variant === "primary" && styles.primaryKey,
+        disabled && styles.disabled,
+        pressed && styles.pressed,
+      ]}
     >
       <Text
         maxFontSizeMultiplier={1.2}

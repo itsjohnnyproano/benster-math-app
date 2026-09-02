@@ -5,23 +5,25 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 type HomeHeaderProps = {
   displayName: string;
+  isTablet?: boolean;
+  stacked?: boolean;
   streakDays: number | null;
   onPressStreak?: () => void;
 };
 
-export function HomeHeader({ displayName, streakDays, onPressStreak }: HomeHeaderProps) {
+export function HomeHeader({ displayName, isTablet = false, stacked = false, streakDays, onPressStreak }: HomeHeaderProps) {
   return (
-    <View style={styles.header}>
-      <View style={styles.greetingBlock}>
-        <Text maxFontSizeMultiplier={1.3} style={styles.greeting}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
-        <Text maxFontSizeMultiplier={1.4} style={styles.subtitle}>Ready to practice?</Text>
+    <View style={[styles.header, stacked && styles.stackedHeader]}>
+      <View style={[styles.greetingBlock, stacked && styles.stackedGreetingBlock]}>
+        <Text maxFontSizeMultiplier={1.3} style={[styles.greeting, isTablet && styles.tabletGreeting]}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
+        <Text maxFontSizeMultiplier={1.4} style={[styles.subtitle, isTablet && styles.tabletSubtitle]}>Ready to practice?</Text>
       </View>
 
       <Pressable
         accessibilityLabel={streakDays === null ? "View practice streak" : `${streakDays} day practice streak`}
         accessibilityRole="button"
         onPress={onPressStreak}
-        style={({ pressed }) => [styles.streakPill, CARD_SHADOW, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.streakPill, isTablet && styles.tabletStreakPill, CARD_SHADOW, pressed && styles.pressed]}
       >
         <SymbolView
           name={{
@@ -32,7 +34,7 @@ export function HomeHeader({ displayName, streakDays, onPressStreak }: HomeHeade
           size={20}
           tintColor={COLORS.orange}
         />
-        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={styles.streakText}>{streakDays === null ? "View streak" : `${streakDays} day streak`}</Text>
+        <Text maxFontSizeMultiplier={1.2} numberOfLines={1} style={[styles.streakText, isTablet && styles.tabletStreakText]}>{streakDays === null ? "View streak" : `${streakDays} day streak`}</Text>
       </Pressable>
     </View>
   );
@@ -47,6 +49,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   greetingBlock: { flex: 1 },
+  stackedHeader: { flexDirection: "column", gap: 16 },
+  stackedGreetingBlock: { flex: 0, width: "100%" },
   greeting: {
     color: COLORS.ink,
     fontFamily: "NunitoSans_700Bold",
@@ -54,6 +58,8 @@ const styles = StyleSheet.create({
     lineHeight: 41,
     letterSpacing: -1,
   },
+  tabletGreeting: { fontSize: 40, lineHeight: 50 },
+  tabletStreakText: { fontSize: 17 },
   subtitle: {
     marginTop: 1,
     color: COLORS.secondary,
@@ -61,6 +67,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 23,
   },
+  tabletSubtitle: { fontSize: 21, lineHeight: 29 },
   streakPill: {
     minHeight: 48,
     paddingHorizontal: 14,
@@ -71,6 +78,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 7,
   },
+  tabletStreakPill: { minHeight: 52, paddingHorizontal: 18, borderRadius: 26 },
   streakText: {
     color: COLORS.orange,
     fontFamily: "NunitoSans_700Bold",

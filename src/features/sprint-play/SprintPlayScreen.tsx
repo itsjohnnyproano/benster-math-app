@@ -1,17 +1,12 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
-import {
-  createSprint,
-  getRemainingMs,
-  submitAnswer,
-  tickSprint,
-  type SprintState,
-} from "@/domain/math-engine";
+import { createSprint, getRemainingMs, submitAnswer, tickSprint, type SprintState } from "@/domain/math-engine";
+import { createLocalSprintId } from "@/domain/results";
 import {
   isCardLayout,
   isInputStyle,
@@ -19,18 +14,18 @@ import {
   parseSprintDuration,
   type SprintConfiguration,
 } from "@/domain/sprint";
-import { COLORS } from "@/theme/tokens";
-import { createLocalSprintId } from "@/domain/results";
 import { SprintResultsScreen } from "@/features/sprint-results/SprintResultsScreen";
+import { getAdaptiveLayout } from "@/shared/responsiveLayout";
+import { COLORS } from "@/theme/tokens";
 
 import { CountdownView } from "./components/CountdownView";
 import { MultipleChoiceAnswers } from "./components/MultipleChoiceAnswers";
 import { NumberPad } from "./components/NumberPad";
 import { QuestionCard } from "./components/QuestionCard";
 import { SprintHeader } from "./components/SprintHeader";
-import type { AnswerFeedback } from "./types";
 import { getGameplayLayout, resolveQuestionCardLayout } from "./gameplayLayout";
 import { createSprintClock } from "./sprintClock";
+import type { AnswerFeedback } from "./types";
 
 const FEEDBACK_DURATION_MS = 650;
 
@@ -55,29 +50,27 @@ export default function SprintPlayScreen() {
     Object.freeze({
       mode: isSprintMode(params.mode) ? params.mode : "addition",
       durationSeconds: parseSprintDuration(params.durationSeconds) ?? 60,
-      inputStyle: isInputStyle(params.inputStyle)
-        ? params.inputStyle
-        : "multiple-choice",
-      cardLayout: isCardLayout(params.cardLayout)
-        ? params.cardLayout
-        : "horizontal",
+      inputStyle: isInputStyle(params.inputStyle) ? params.inputStyle : "multiple-choice",
+      cardLayout: isCardLayout(params.cardLayout) ? params.cardLayout : "horizontal",
       levelUpEnabled: readBoolean(params.levelUpEnabled),
-    }),
+    })
   );
   const [countdown, setCountdown] = useState(3);
   const [sprintState, setSprintState] = useState<SprintState | null>(null);
-  const [remainingMs, setRemainingMs] = useState(
-    configuration.durationSeconds * 1000,
-  );
+  const [remainingMs, setRemainingMs] = useState(configuration.durationSeconds * 1000);
   const [typedAnswer, setTypedAnswer] = useState("");
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockedRef = useRef(false);
   const clockRef = useRef<ReturnType<typeof createSprintClock> | null>(null);
   const modeDetails = SPRINT_MODE_DETAILS[configuration.mode];
+  const adaptiveLayout = Platform.OS === "ios" ? getAdaptiveLayout(window.width, window.height) : "phone";
+  const isIpad = adaptiveLayout !== "phone";
+  const isLandscapeIpad = adaptiveLayout === "tablet-landscape";
   const layout = getGameplayLayout(
     measuredHeight ?? window.height - insets.top - insets.bottom,
     configuration.inputStyle,
+    adaptiveLayout
   );
 
   useEffect(() => {
@@ -114,7 +107,7 @@ export default function SprintPlayScreen() {
     () => () => {
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
     },
-    [],
+    []
   );
 
   const submit = useCallback(
@@ -138,16 +131,16 @@ export default function SprintPlayScreen() {
 
       feedbackTimeoutRef.current = setTimeout(() => {
         const nextQuestionPresentedAtMs = clock.now();
-        setSprintState(submitAnswer(
-          sprintState, submittedAnswer, answeredAtMs, Math.random, nextQuestionPresentedAtMs,
-        ));
+        setSprintState(
+          submitAnswer(sprintState, submittedAnswer, answeredAtMs, Math.random, nextQuestionPresentedAtMs)
+        );
         setTypedAnswer("");
         setFeedback(null);
         submissionLockedRef.current = false;
         feedbackTimeoutRef.current = null;
       }, FEEDBACK_DURATION_MS);
     },
-    [sprintState],
+    [sprintState]
   );
 
   const closeSprint = () => {
@@ -162,11 +155,7 @@ export default function SprintPlayScreen() {
       <SafeAreaView style={styles.safeArea}>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar style="dark" />
-        <CountdownView
-          count={countdown}
-          modeTitle={modeDetails.title}
-          onClose={() => router.back()}
-        />
+        <CountdownView count={countdown} modeTitle={modeDetails.title} onClose={() => router.back()} />
       </SafeAreaView>
     );
   }
@@ -176,11 +165,7 @@ export default function SprintPlayScreen() {
       <SafeAreaView style={styles.safeArea}>
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
         <StatusBar style="dark" />
-        <SprintResultsScreen
-          sprintId={sprintId}
-          onDone={() => router.dismissTo("/")}
-          result={sprintState.result}
-        />
+        <SprintResultsScreen sprintId={sprintId} onDone={() => router.dismissTo("/")} result={sprintState.result} />
       </SafeAreaView>
     );
   }
@@ -201,10 +186,7 @@ export default function SprintPlayScreen() {
             style={[
               styles.progressFill,
               {
-                width: `${Math.max(
-                  0,
-                  (remainingMs / (configuration.durationSeconds * 1000)) * 100,
-                )}%`,
+                width: `${Math.max(0, (remainingMs / (configuration.durationSeconds * 1000)) * 100)}%`,
               },
             ]}
           />
@@ -222,15 +204,22 @@ export default function SprintPlayScreen() {
             ]}
           >
             {layout.promptHeight > 0 && (
-              <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={[styles.prompt, { height: layout.promptHeight }]}>Solve it!</Text>
+              <Text
+                maxFontSizeMultiplier={1.2}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={[styles.prompt, { height: layout.promptHeight }]}
+              >
+                Solve it!
+              </Text>
             )}
             <QuestionCard
               height={layout.cardHeight}
-              layout={resolveQuestionCardLayout(
-                configuration.cardLayout,
-                sprintState.currentQuestion.id,
-              )}
+              layout={resolveQuestionCardLayout(configuration.cardLayout, sprintState.currentQuestion.id)}
+              maxFontSize={layout.questionFontMaxSize}
+              maxWidth={layout.cardMaxWidth}
               question={sprintState.currentQuestion}
+              verticalLineWidth={layout.questionLineWidth}
             />
           </View>
 
@@ -238,12 +227,14 @@ export default function SprintPlayScreen() {
             style={[
               styles.answerArea,
               configuration.inputStyle === "multiple-choice" && styles.insetAnswers,
+              isLandscapeIpad && styles.landscapeAnswerArea,
             ]}
           >
             {configuration.inputStyle === "multiple-choice" ? (
               <MultipleChoiceAnswers
                 choices={sprintState.currentQuestion.choices}
                 feedback={feedback}
+                layout={layout}
                 onSelect={submit}
               />
             ) : (
@@ -257,7 +248,12 @@ export default function SprintPlayScreen() {
             )}
           </View>
 
-          <Text maxFontSizeMultiplier={1.2} numberOfLines={1} adjustsFontSizeToFit style={styles.levelLabel}>
+          <Text
+            maxFontSizeMultiplier={isIpad ? 1.1 : 1.2}
+            numberOfLines={1}
+            adjustsFontSizeToFit={!isIpad}
+            style={[styles.levelLabel, isIpad && styles.ipadLevelLabel]}
+          >
             Level {sprintState.difficultyLevel}
             {configuration.levelUpEnabled ? " · Level Up on" : ""}
           </Text>
@@ -301,6 +297,7 @@ const styles = StyleSheet.create({
   answerArea: {
     flexShrink: 0,
   },
+  landscapeAnswerArea: { alignSelf: "center", width: "100%", maxWidth: 700 },
   // Center the question and choices as one group instead of pinning choices
   // to the bottom like the typed keypad. Keep the existing height budget.
   choiceQuestionArea: { flex: 0, marginTop: "auto" },
@@ -313,5 +310,15 @@ const styles = StyleSheet.create({
     fontFamily: "NunitoSans_600SemiBold",
     fontSize: 12,
     textAlign: "center",
+  },
+  ipadLevelLabel: {
+    height: 20,
+    lineHeight: 20,
+    marginTop: 3,
+    color: COLORS.secondary,
+    fontFamily: "NunitoSans_600SemiBold",
+    fontSize: 14,
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
 });

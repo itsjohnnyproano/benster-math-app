@@ -8,10 +8,20 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 type QuestionCardProps = {
   height: number;
   layout: ConcreteCardLayout;
+  maxFontSize: number;
+  maxWidth: number;
   question: MathQuestion;
+  verticalLineWidth: number;
 };
 
-export function QuestionCard({ layout, question, height }: QuestionCardProps) {
+export function QuestionCard({
+  layout,
+  question,
+  height,
+  maxFontSize,
+  maxWidth,
+  verticalLineWidth,
+}: QuestionCardProps) {
   const isVertical = layout === "vertical";
   const [cardWidth, setCardWidth] = useState(272);
   // Equation sizing belongs to the card's height budget rather than OS text
@@ -21,7 +31,7 @@ export function QuestionCard({ layout, question, height }: QuestionCardProps) {
   const digitCount = isVertical ? Math.max(leftDigits, rightDigits) : leftDigits + rightDigits;
   // Reserve padding, operator width, and gaps even for equations like 100 + 100.
   const widthLimit = (cardWidth - 64) / (digitCount * 0.65 + 0.8);
-  const fontSize = Math.min(60, widthLimit, Math.max(24, (height - 20) / 2.6));
+  const fontSize = Math.min(maxFontSize, widthLimit, Math.max(24, (height - 20) / 2.6));
   const numberStyle = { fontSize, lineHeight: fontSize * 1.15 };
   const operatorStyle = { fontSize: fontSize * 0.8, lineHeight: fontSize * 1.15 };
 
@@ -32,11 +42,11 @@ export function QuestionCard({ layout, question, height }: QuestionCardProps) {
       style={[
         styles.card,
         CARD_SHADOW,
-        { height },
+        { height, maxWidth },
       ]}
     >
       {isVertical ? (
-        <View style={styles.verticalProblem}>
+        <View style={[styles.verticalProblem, { width: verticalLineWidth }]}>
           <Text maxFontSizeMultiplier={1} style={[styles.verticalNumber, numberStyle]}>{question.leftOperand}</Text>
           <View style={styles.verticalSecondRow}>
             <Text maxFontSizeMultiplier={1} style={[styles.operator, operatorStyle]}>{question.operator}</Text>
@@ -69,7 +79,6 @@ const styles = StyleSheet.create({
   card: {
     alignSelf: "center",
     width: "90%",
-    maxWidth: 340,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: "rgba(109, 69, 232, 0.08)",
