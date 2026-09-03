@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "math-sprint",
+    "name": "Benster",
     "slug": "math-sprint",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/branding/math-sprint-app-icon.png",
+    "icon": "./assets/branding/benster-icon.png",
     "scheme": "mathsprint",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -16,14 +16,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/branding/math-sprint-app-icon.png",
+        "foregroundImage": "./assets/branding/benster-icon.png",
         "backgroundColor": "#F6F3FF"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/branding/math-sprint-app-icon.png"
+      "favicon": "./assets/branding/benster-icon.png"
     },
     "plugins": [
       "expo-router",
@@ -31,7 +31,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#F6F3FF",
-          "image": "./assets/branding/math-sprint-app-icon.png",
+          "image": "./assets/branding/benster-icon.png",
           "imageWidth": 120
         }
       ],
