@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Benster",
-    "slug": "math-sprint",
+    "slug": "benster",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/branding/benster-icon.png",
@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.itsjohnnyproano.math-sprint",
+      "bundleIdentifier": "app.jp4labs.benster",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
