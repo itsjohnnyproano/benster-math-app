@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useAnimatedValue } from "react-native";
+import { AccessibilityInfo, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAnimatedValue } from "@/shared/useAnimatedValue";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createParentalChallenge, isParentalAnswerCorrect } from "@/domain/parentalGate";
 import { COLORS } from "@/theme/tokens";

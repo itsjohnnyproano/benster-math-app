@@ -62,4 +62,26 @@ Use a separate security-focused audit before the first external TestFlight relea
 
 ## Handoff and commit
 
+### Web preview and SQLite
+
+Benster uses `web.output: "single"` (client-rendered SPA). With SDK 57,
+`static` output reproduced a development-server error: `Worker chunk not found`
+for `expo-sqlite/web/worker.ts`, even though production export succeeded.
+Keep the single-page setting unless static rendering is deliberately reintroduced
+and tested with SQLite in both development and production. This does not change
+native iPhone/iPad layouts or the separate benster.app marketing website.
+
+After package or Metro configuration updates, stop existing Expo servers and run
+`npx expo start --dev-client --clear`. Reload the browser; do not uninstall the
+native app or clear its saved data. Native package updates also require rebuilding
+development clients before device verification.
+
+For a future web deployment, configure route fallback to `index.html` and the
+COOP/COEP headers required by Expo SQLite. Do not treat an export-only check as
+browser runtime verification. Verify onboarding, database-backed screens, and
+direct route reloads in a browser too.
+
+References: [SDK 57 web output](https://docs.expo.dev/versions/v57.0.0/config/app/#output)
+and [SDK 57 SQLite web setup](https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/#web-setup).
+
 Summarize what changed, where, why, and what was verified. State remaining manual checks explicitly. Commit only after the user has reviewed the result or requested the commit; push, pull, merge, and release actions require separate user direction.
