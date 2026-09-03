@@ -1,7 +1,8 @@
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import { StatusBar } from "expo-status-bar";
-import { useRef, useState, type ReactNode } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -16,6 +17,9 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { formatResetPracticeMessage } from "./settingsPresentation";
 import { getSettingsLayout } from "./settingsLayout";
 import { SettingsColumns } from "./SettingsColumns";
+import { ParentalGate } from "./ParentalGate";
+import { useParentalGate } from "./useParentalGate";
+import { confirmDeleteSavedData } from "./confirmDeleteSavedData";
 
 export default function SettingsScreen() {
   const { contentInset, isIpad } = useTabBarLayout();
@@ -30,15 +34,36 @@ export default function SettingsScreen() {
     setNicknameDraft(preferences.nickname);
   }
   const [resetOpen, setResetOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState(false);
+  const deleting = useRef(false);
+  const focused = useRef(false);
+  const gate = useParentalGate();
+  useFocusEffect(useCallback(() => {
+    focused.current = true;
+    setIsDeleting(deleting.current);
+    return () => { focused.current = false; setResetOpen(false); };
+  }, []));
+  const deleteSavedData = async () => {
+    if (deleting.current || !focused.current || !isReady) return;
+    deleting.current = true;
+    setIsDeleting(true);
+    try {
+      // Keep the existing deletion order. A failed preference clear can be retried.
+      await resultsRepository.clearAll();
+      await deleteAllPreferences();
+    } catch {
+      if (focused.current) Alert.alert("Couldn’t delete everything", "Some data may already have been removed. Please try again from Settings.");
+    } finally {
+      deleting.current = false;
+      if (focused.current) setIsDeleting(false);
+    }
+  };
   // Keep the shared save/retry feedback beside the most recently edited section.
   const [saveSection, setSaveSection] = useState<"nickname" | "practice">("practice");
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
       <StatusBar style="dark" />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={styles.flex} pointerEvents={isDeleting ? "none" : "auto"} accessibilityElementsHidden={isDeleting} importantForAccessibility={isDeleting ? "no-hide-descendants" : "auto"} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <SettingsContent tablet={isIpad} twoColumn={twoColumn} maxWidth={maxWidth} bottomInset={contentInset} header={<>
           <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={[styles.title, isIpad && styles.tabletTitle]}>Settings</Text>
           <Text maxFontSizeMultiplier={1.4} style={[styles.subtitle, isIpad && styles.tabletSubtitle]}>Make practice feel like you.</Text>
@@ -61,7 +86,7 @@ export default function SettingsScreen() {
           <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.sectionHelp, isIpad && styles.tabletHelp]}>Changes save automatically and apply to your next sprint.</Text>
           <PracticePreferences tablet={isIpad} showSaveStatus={saveSection === "practice"} onChange={() => setSaveSection("practice")} />
 
-          <Pressable accessibilityRole="button" disabled={!isReady} accessibilityState={{ disabled: !isReady }} onPress={() => setResetOpen(true)} style={({ pressed }) => [styles.reset, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" disabled={!isReady || isDeleting} accessibilityState={{ disabled: !isReady || isDeleting }} onPress={() => gate.request(() => setResetOpen(true))} style={({ pressed }) => [styles.reset, pressed && styles.pressed]}>
             <Text maxFontSizeMultiplier={1.3} style={[styles.resetText, isIpad && styles.tabletButtonText]}>Reset practice defaults</Text>
           </Pressable>
           <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.centeredHelp, isIpad && styles.tabletHelp]}>Your nickname, history, and personal bests stay yours.</Text>
@@ -69,25 +94,23 @@ export default function SettingsScreen() {
           <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.sectionHelp, isIpad && styles.tabletHelp]}>Permanently remove this learner’s nickname, preferences, sprint history, streak, and personal bests from this device.</Text>
           <Pressable
             accessibilityRole="button"
-            disabled={!isReady}
-            accessibilityState={{ disabled: !isReady }}
-            onPress={() => {
-              setDeleteError(false);
-              setDeleteOpen(true);
-            }}
+            disabled={!isReady || isDeleting}
+            accessibilityState={{ disabled: !isReady || isDeleting }}
+            onPress={() => gate.request(() => confirmDeleteSavedData(() => { void deleteSavedData(); }))}
             style={({ pressed }) => [styles.deleteButton, isIpad && styles.tabletButton, !isReady && styles.disabled, pressed && styles.pressed]}
           >
-            <Text maxFontSizeMultiplier={1.3} style={[styles.deleteButtonText, isIpad && styles.tabletButtonText]}>Delete all saved data</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.deleteButtonText, isIpad && styles.tabletButtonText]}>{isDeleting ? "Deleting…" : "Delete all saved data"}</Text>
           </Pressable>
           <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={[styles.section, isIpad && styles.tabletSection]}>About</Text>
           <View style={[styles.about, CARD_SHADOW, isIpad && styles.tabletCard]}>
             <Text maxFontSizeMultiplier={1.3} style={[styles.aboutTitle, isIpad && styles.tabletSectionText]}>Math Sprint</Text>
             <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutMeta, isIpad && styles.tabletHelp]}>Version {Constants.expoConfig?.version ?? "—"}</Text>
             <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutTagline, isIpad && styles.tabletHelp]}>Little moments of practice. Lasting confidence.</Text>
-            <LegalLinks tablet={isIpad} />
+            <LegalLinks tablet={isIpad} requestGate={gate.request} />
           </View>
         </SettingsContent>
       </KeyboardAvoidingView>
+      {gate.visible && <ParentalGate onResolved={gate.onResolved} />}
       <Modal transparent visible={resetOpen} animationType="fade" onRequestClose={() => setResetOpen(false)}>
         <View style={styles.backdrop}>
           <View accessibilityViewIsModal style={styles.dialog}>
@@ -98,56 +121,6 @@ export default function SettingsScreen() {
             </Pressable>
             <Pressable accessibilityRole="button" onPress={() => setResetOpen(false)} style={styles.reset}>
               <Text maxFontSizeMultiplier={1.3} style={styles.resetText}>Keep my settings</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-      <Modal
-        transparent
-        visible={deleteOpen}
-        animationType="fade"
-        onRequestClose={() => {
-          if (!isDeleting) setDeleteOpen(false);
-        }}
-      >
-        <View style={styles.backdrop}>
-          <View accessibilityViewIsModal style={styles.dialog}>
-            <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={styles.dialogTitle}>Delete all saved data?</Text>
-            <Text maxFontSizeMultiplier={1.5} style={styles.help}>Your nickname, preferences, sprint history, day streak, and personal bests will be permanently deleted from this device. This can’t be undone.</Text>
-            {deleteError && (
-              <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.4} style={styles.deleteError}>We couldn’t delete everything. Your remaining data is still on this device. Please try again.</Text>
-            )}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: isDeleting }}
-              disabled={isDeleting}
-              onPress={async () => {
-                if (isDeleting) return;
-                setIsDeleting(true);
-                setDeleteError(false);
-                try {
-                  // Clear results first. Retrying is safe if preference deletion fails afterward.
-                  await resultsRepository.clearAll();
-                  await deleteAllPreferences();
-                  setDeleteOpen(false);
-                } catch {
-                  setDeleteError(true);
-                } finally {
-                  setIsDeleting(false);
-                }
-              }}
-              style={({ pressed }) => [styles.confirmDeleteButton, isDeleting && styles.disabled, pressed && styles.pressed]}
-            >
-              <Text maxFontSizeMultiplier={1.3} style={styles.confirmDeleteText}>{isDeleting ? "Deleting…" : "Delete everything"}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: isDeleting }}
-              disabled={isDeleting}
-              onPress={() => setDeleteOpen(false)}
-              style={styles.keepDataButton}
-            >
-              <Text maxFontSizeMultiplier={1.3} style={styles.resetText}>Keep my data</Text>
             </Pressable>
           </View>
         </View>
@@ -180,7 +153,7 @@ function SettingsContent({ tablet, twoColumn, maxWidth, bottomInset, header, nic
   );
 }
 
-function LegalLinks({ tablet }: { tablet: boolean }) {
+function LegalLinks({ tablet, requestGate }: { tablet: boolean; requestGate: (action: () => void) => void }) {
   const opening = useRef(false);
   const openLink = async (url: string) => {
     if (opening.current) return;
@@ -196,7 +169,7 @@ function LegalLinks({ tablet }: { tablet: boolean }) {
   return (
     <View style={styles.legalLinks}>
       {LEGAL_LINKS.map(({ label, url }) => (
-        <Pressable key={url} accessibilityRole="link" accessibilityHint="Opens in your browser" onPress={() => void openLink(url)} style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}>
+        <Pressable key={url} accessibilityRole="link" accessibilityHint="Requires a parental check, then opens in your browser" onPress={() => requestGate(() => { void openLink(url); })} style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}>
           <Text maxFontSizeMultiplier={1.3} style={[styles.resetText, tablet && styles.tabletButtonText]}>{label}</Text>
         </Pressable>
       ))}
@@ -275,10 +248,6 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(16,24,39,0.4)", justifyContent: "center", padding: 24 },
   dialog: { backgroundColor: COLORS.card, padding: 24, borderRadius: 24, gap: 12, width: "100%", maxWidth: 440, alignSelf: "center" },
   dialogTitle: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 23 },
-  confirmDeleteButton: { minHeight: 50, borderRadius: 16, backgroundColor: COLORS.red, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, paddingVertical: 12 },
-  confirmDeleteText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
-  keepDataButton: { minHeight: 46, alignItems: "center", justifyContent: "center", paddingVertical: 10 },
-  deleteError: { color: COLORS.red, fontFamily: "NunitoSans_700Bold", fontSize: 13, lineHeight: 19, textAlign: "center" },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.7 },
 });
