@@ -7,7 +7,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useAnimatedValue,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -17,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "@/theme/tokens";
 import type { CardLayout } from "@/domain/sprint";
 import { getAdaptiveLayout } from "@/shared/responsiveLayout";
+import { useAnimatedValue } from "@/shared/useAnimatedValue";
 
 import type { PreferenceOption } from "./practiceOptions";
 
