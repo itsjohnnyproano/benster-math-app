@@ -103,10 +103,10 @@ export default function SettingsScreen() {
           </Pressable>
           <Text accessibilityRole="header" maxFontSizeMultiplier={1.3} style={[styles.section, isIpad && styles.tabletSection]}>About</Text>
           <View style={[styles.about, CARD_SHADOW, isIpad && styles.tabletCard]}>
-            <Text maxFontSizeMultiplier={1.3} style={[styles.aboutTitle, isIpad && styles.tabletSectionText]}>Math Sprint</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.aboutTitle, isIpad && styles.tabletSectionText]}>Benster</Text>
             <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutMeta, isIpad && styles.tabletHelp]}>Version {Constants.expoConfig?.version ?? "—"}</Text>
             <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutTagline, isIpad && styles.tabletHelp]}>Little moments of practice. Lasting confidence.</Text>
-            <LegalLinks tablet={isIpad} />
+            <LegalLinks tablet={isIpad} requestGate={gate.request} />
           </View>
         </SettingsContent>
       </KeyboardAvoidingView>
@@ -153,7 +153,7 @@ function SettingsContent({ tablet, twoColumn, maxWidth, bottomInset, header, nic
   );
 }
 
-function LegalLinks({ tablet }: { tablet: boolean }) {
+function LegalLinks({ tablet, requestGate }: { tablet: boolean; requestGate: (action: () => void) => void }) {
   const opening = useRef(false);
   const openLink = async (url: string) => {
     if (opening.current) return;
@@ -169,7 +169,7 @@ function LegalLinks({ tablet }: { tablet: boolean }) {
   return (
     <View style={styles.legalLinks}>
       {LEGAL_LINKS.map(({ label, url }) => (
-        <Pressable key={url} accessibilityRole="link" accessibilityHint="Opens in your browser" onPress={() => { void openLink(url); }} style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}>
+        <Pressable key={url} accessibilityRole="link" accessibilityHint="Requires a parental check, then opens in your browser" onPress={() => requestGate(() => { void openLink(url); })} style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}>
           <Text maxFontSizeMultiplier={1.3} style={[styles.resetText, tablet && styles.tabletButtonText]}>{label}</Text>
         </Pressable>
       ))}

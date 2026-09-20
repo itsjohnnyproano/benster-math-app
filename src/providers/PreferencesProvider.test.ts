@@ -112,4 +112,17 @@ describe("onboarding preference commit", () => {
     expect(storage.removeItem).toHaveBeenCalledOnce();
     cleanup();
   });
+
+  it("offers an explicit preference reset when saved preferences cannot be read", async () => {
+    storage.getItem.mockResolvedValue("not json");
+    const { value, cleanup } = await mount();
+    expect(render().loadError).toBe(true);
+    expect(render().isReady).toBe(false);
+    await value.resetUnreadablePreferences();
+    expect(storage.removeItem).toHaveBeenCalledOnce();
+    expect(render().preferences).toEqual(DEFAULT_PREFERENCES);
+    expect(render().isReady).toBe(true);
+    expect(render().loadError).toBe(false);
+    cleanup();
+  });
 });

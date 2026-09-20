@@ -1,10 +1,14 @@
 export type ParentalChallenge = Readonly<{ left: number; right: number }>;
 
-// This is a parental friction step, not age verification or authentication.
+const LEFT_OPERANDS = [13, 14, 15, 16, 17, 18, 19] as const;
+const RIGHT_OPERANDS = [17, 18, 19, 20, 21, 22, 23] as const;
+
+// This is adult-level friction for access to settings that leave the app or
+// remove data. It is not age verification or authentication.
 export function createParentalChallenge(previous?: ParentalChallenge, random = Math.random): ParentalChallenge {
   const choices: ParentalChallenge[] = [];
-  for (let left = 6; left <= 12; left++) {
-    for (let right = 6; right <= 12; right++) {
+  for (const left of LEFT_OPERANDS) {
+    for (const right of RIGHT_OPERANDS) {
       // A retry must not reuse the same answer (including reversed operands).
       if (!previous || left * right !== previous.left * previous.right) choices.push({ left, right });
     }
