@@ -8,6 +8,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useAppFonts } from "@/lib/fonts";
 import { PreferencesProvider, usePreferences } from "@/providers/PreferencesProvider";
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
+import { PreferencesRecoveryScreen } from "@/components/preferences/PreferencesRecoveryScreen";
 import { COLORS } from "@/theme/tokens";
 
 SplashScreen.preventAutoHideAsync();
@@ -16,10 +17,12 @@ function AppNavigation() {
   const { isReady, loadError, preferences } = usePreferences();
 
   if (!isReady) {
+    if (loadError) return <PreferencesRecoveryScreen />;
+
     return (
       <View style={styles.loading}>
         <Text style={styles.brand}>Benster</Text>
-        {!loadError && <ActivityIndicator color={COLORS.primary} size="large" />}
+        <ActivityIndicator color={COLORS.primary} size="large" />
         <PreferenceSaveStatus />
       </View>
     );

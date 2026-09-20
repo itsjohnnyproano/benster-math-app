@@ -40,7 +40,7 @@ describe("native parental gate", () => {
   it("waits for iOS dismissal before delivering approval and ignores repeated Submit", () => {
     const done = vi.fn();
     let tree = render(done);
-    find(tree, "TextInput")[0].props.onChangeText!("36");
+    find(tree, "TextInput")[0].props.onChangeText!("221");
     tree = render(done);
     find(tree, "Pressable")[1].props.onPress!();
     find(tree, "Pressable")[1].props.onPress!();
@@ -60,8 +60,8 @@ describe("native parental gate", () => {
     expect(find(tree, "TextInput")[0].props.value).toBe("");
     expect(tree.props.visible).toBe(true);
     expect(done).not.toHaveBeenCalled();
-    // Constant randomness still produces a new answer: 6×7 instead of 6×6.
-    find(tree, "TextInput")[0].props.onChangeText!("42");
+    // Constant randomness still produces a new answer: 13×18 instead of 13×17.
+    find(tree, "TextInput")[0].props.onChangeText!("234");
     tree = render(done);
     find(tree, "Pressable")[1].props.onPress!();
     render(done).props.onDismiss!();

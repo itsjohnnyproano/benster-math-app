@@ -23,6 +23,7 @@ type PreferencesContextValue = {
   saveStatus: "idle" | "saving" | "saved" | "error";
   loadError: boolean;
   retryLoad: () => void;
+  resetUnreadablePreferences: () => Promise<void>;
   retrySave: () => void;
   deleteAllPreferences: () => Promise<void>;
   completeOnboarding: (nickname: string) => Promise<void>;
@@ -93,6 +94,20 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         retryLoad: () => {
           setLoadError(false);
           setLoadAttempt((attempt) => attempt + 1);
+        },
+        resetUnreadablePreferences: async () => {
+          if (isReady) throw new Error("Preferences are already available");
+          try {
+            await deletePreferences();
+            if (mounted.current) {
+              preferencesRef.current = DEFAULT_PREFERENCES;
+              setPreferences(DEFAULT_PREFERENCES);
+              setLoadError(false);
+              setIsReady(true);
+            }
+          } catch {
+            if (mounted.current) setLoadError(true);
+          }
         },
         retrySave: () => { if (isReady) persist(preferencesRef.current); },
         completeOnboarding: async (nickname) => {

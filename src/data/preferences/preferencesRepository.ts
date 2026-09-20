@@ -47,14 +47,13 @@ export function sanitizePreferences(value: unknown): UserPreferences {
 export async function loadPreferences(): Promise<UserPreferences> {
   // An I/O failure must not masquerade as a new install and overwrite saved data.
   const savedValue = await Storage.getItem(PREFERENCES_KEY);
+  if (!savedValue) return DEFAULT_PREFERENCES;
   try {
-    if (!savedValue) {
-      return DEFAULT_PREFERENCES;
-    }
-
     return sanitizePreferences(JSON.parse(savedValue));
   } catch {
-    return DEFAULT_PREFERENCES;
+    // The provider offers an explicit reset action instead of quietly treating
+    // a returning learner as a new installation.
+    throw new Error("Saved preferences could not be read");
   }
 }
 

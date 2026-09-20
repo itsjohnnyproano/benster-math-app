@@ -46,10 +46,10 @@ describe("preferences storage", () => {
     expect(original.durationSeconds).toBe(90);
   });
 
-  it("uses defaults for missing or malformed JSON but surfaces I/O failure", async () => {
+  it("uses defaults for missing preferences and surfaces malformed data or I/O failure", async () => {
     expect(await loadPreferences()).toEqual(DEFAULT_PREFERENCES);
     storage.getItem.mockResolvedValue("not json");
-    expect(await loadPreferences()).toEqual(DEFAULT_PREFERENCES);
+    await expect(loadPreferences()).rejects.toThrow("could not be read");
     storage.getItem.mockRejectedValue(new Error("Unavailable"));
     await expect(loadPreferences()).rejects.toThrow("Unavailable");
     expect(storage.setItem).not.toHaveBeenCalled();
