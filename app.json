@@ -36,7 +36,9 @@
         }
       ],
       "expo-sqlite",
-      "./plugins/with-ipad-orientations"
+      "./plugins/with-ipad-orientations",
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
