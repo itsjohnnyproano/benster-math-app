@@ -6,8 +6,10 @@ import type { HistoryCursor } from "@/data/results/createResultsRepository";
 import { resultsRepository } from "@/data/results/resultsRepository";
 import type { SavedSprint } from "@/domain/results";
 import type { SprintMode } from "@/domain/sprint";
+import { usePreferences } from "@/providers/PreferencesProvider";
 
 export function useHistory(mode: SprintMode | undefined) {
+  const { activeLearner } = usePreferences();
   const [records, setRecords] = useState<SavedSprint[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [loadingMore, setLoadingMore] = useState(false);
@@ -26,7 +28,7 @@ export function useHistory(mode: SprintMode | undefined) {
     setMoreError(false);
     setLoadingMore(false);
     try {
-      const page = await resultsRepository.list({ mode });
+      const page = await resultsRepository.list(activeLearner.id, { mode });
       if (request !== generation.current) return;
       setRecords(page.records);
       setCursor(page.nextCursor);
@@ -36,7 +38,7 @@ export function useHistory(mode: SprintMode | undefined) {
     } finally {
       if (request === generation.current) busy.current = false;
     }
-  }, [mode]);
+  }, [activeLearner.id, mode]);
 
   useFocusEffect(useCallback(() => {
     void refresh();
@@ -57,7 +59,7 @@ export function useHistory(mode: SprintMode | undefined) {
     setLoadingMore(true);
     setMoreError(false);
     try {
-      const page = await resultsRepository.list({ mode, cursor });
+      const page = await resultsRepository.list(activeLearner.id, { mode, cursor });
       if (request !== generation.current) return;
       setRecords((current) => {
         const ids = new Set(current.map((record) => record.id));
@@ -72,7 +74,7 @@ export function useHistory(mode: SprintMode | undefined) {
         setLoadingMore(false);
       }
     }
-  }, [cursor, mode, status]);
+  }, [activeLearner.id, cursor, mode, status]);
 
   return { records, status, refresh, loadMore, loadingMore, moreError, hasMore: cursor !== null };
 }

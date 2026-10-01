@@ -6,7 +6,7 @@ import { calculatePracticeStreak, type PracticeStreak } from "@/domain/practiceS
 
 type State = { status: "loading"; data?: never } | { status: "error"; data?: never } | { status: "ready"; data: PracticeStreak };
 
-export function usePracticeStreak() {
+export function usePracticeStreak(learnerId: string) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   useFocusEffect(useCallback(() => {
@@ -19,7 +19,7 @@ export function usePracticeStreak() {
       clearTimeout(timer);
       setState({ status: "loading" });
       try {
-        const times = await resultsRepository.listCompletionTimes();
+        const times = await resultsRepository.listCompletionTimes(learnerId);
         if (active && request === generation) setState({ status: "ready", data: calculatePracticeStreak(times) });
       } catch {
         if (active && request === generation) setState({ status: "error" });
@@ -37,6 +37,6 @@ export function usePracticeStreak() {
       if (next === "active") void refresh();
     });
     return () => { active = false; clearTimeout(timer); subscription.remove(); };
-  }, [attempt]));
+  }, [learnerId, attempt]));
   return { ...state, retry: () => setAttempt((value) => value + 1) };
 }

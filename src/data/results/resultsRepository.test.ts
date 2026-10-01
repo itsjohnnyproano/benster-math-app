@@ -69,7 +69,39 @@ describe("SQLite results repository", () => {
     const divisionResult = makeResult(4, 5, { mode: "division" });
     expect((await repo.save("division", divisionResult)).personalBest.status).toBe("first");
     expect(await repo.getPersonalBests(30)).toEqual({ addition: 3, division: 4 });
-    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(2);
+    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(3);
+  });
+
+  it("migrates v2 records into the original local learner without losing personal bests", async () => {
+    const { adapter, db } = databaseAdapter();
+    const legacyResult = makeResult();
+    db.exec(`
+      CREATE TABLE sprints (id TEXT PRIMARY KEY NOT NULL, schema_version INTEGER NOT NULL, mode TEXT NOT NULL, duration_seconds INTEGER NOT NULL, completed_at_ms INTEGER NOT NULL, result_json TEXT NOT NULL, previous_best INTEGER, updated_best INTEGER, best_status TEXT NOT NULL);
+      CREATE TABLE personal_bests (mode TEXT NOT NULL, duration_seconds INTEGER NOT NULL, correct_count INTEGER NOT NULL, sprint_id TEXT NOT NULL, PRIMARY KEY (mode, duration_seconds));
+      INSERT INTO sprints VALUES ('v2', 1, 'addition', 30, ${legacyResult.completedAtMs}, '${JSON.stringify(legacyResult).replace(/'/g, "''")}', NULL, 3, 'first');
+      INSERT INTO personal_bests VALUES ('addition', 30, 3, 'v2');
+      PRAGMA user_version = 2;
+    `);
+    const repo = createResultsRepository(async () => adapter);
+    expect((await repo.list()).records.map(({ id }) => id)).toEqual(["v2"]);
+    expect(await repo.getPersonalBests(30)).toEqual({ addition: 3 });
+    expect(db.prepare("SELECT learner_id FROM sprints WHERE id = 'v2'").get()?.learner_id).toBe("legacy-learner");
+  });
+
+  it("keeps each learner's history, streak source, and personal bests separate", async () => {
+    const { adapter } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save("learner-a", "a", makeResult(4));
+    await repo.save("learner-b", "b", makeResult(2));
+
+    expect((await repo.list("learner-a")).records.map(({ id }) => id)).toEqual(["a"]);
+    expect((await repo.list("learner-b")).records.map(({ id }) => id)).toEqual(["b"]);
+    expect(await repo.getPersonalBests("learner-a", 30)).toEqual({ addition: 4 });
+    expect(await repo.getPersonalBests("learner-b", 30)).toEqual({ addition: 2 });
+    expect(await repo.get("learner-b", "a")).toBeNull();
+    await repo.clearAll("learner-a");
+    expect((await repo.list("learner-a")).records).toEqual([]);
+    expect((await repo.list("learner-b")).records.map(({ id }) => id)).toEqual(["b"]);
   });
 
   it("reads all completion timestamps beyond the history page across modes", async () => {
@@ -250,5 +282,15 @@ describe("SQLite results repository", () => {
     expect(await repo.listCompletionTimes()).toEqual([]);
     expect(await repo.getPersonalBests(30)).toEqual({});
     expect((await repo.save("after-delete", makeResult(2))).personalBest.status).toBe("first");
+  });
+
+  it("can clear every local learner for the device-wide delete action", async () => {
+    const { adapter } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save("learner-a", "a", makeResult(4));
+    await repo.save("learner-b", "b", makeResult(2));
+    await repo.clearDevice();
+    expect((await repo.list("learner-a")).records).toEqual([]);
+    expect((await repo.list("learner-b")).records).toEqual([]);
   });
 });

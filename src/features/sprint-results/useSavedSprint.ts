@@ -8,17 +8,17 @@ type SaveState =
   | { status: "error"; saved: null }
   | { status: "saved"; saved: SavedSprint };
 
-export function useSavedSprint(id: string, result: SprintResult) {
+export function useSavedSprint(learnerId: string, id: string, result: SprintResult) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<SaveState>({ status: "saving", saved: null });
   useEffect(() => {
     let active = true;
-    resultsRepository.save(id, result).then(
+    resultsRepository.save(learnerId, id, result).then(
       (saved) => { if (active) setState({ status: "saved", saved }); },
       () => { if (active) setState({ status: "error", saved: null }); },
     );
     return () => { active = false; };
-  }, [id, result, attempt]);
+  }, [learnerId, id, result, attempt]);
 
   return {
     ...state,

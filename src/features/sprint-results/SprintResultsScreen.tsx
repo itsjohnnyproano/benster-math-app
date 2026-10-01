@@ -14,12 +14,12 @@ import { formatResponseTime } from "@/shared/formatResponseTime";
 import { CARD_LAYOUT_LABELS } from "@/components/preferences/practiceOptions";
 import { getResultsLayout } from "./resultsLayout";
 
-type Props = { sprintId: string; result: SprintResult; onDone: () => void };
+type Props = { learnerId: string; sprintId: string; result: SprintResult; onDone: () => void };
 
-export function SprintResultsScreen({ sprintId, result, onDone }: Props) {
+export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Props) {
   const { width, height, fontScale } = useWindowDimensions();
   const { isTablet, isTwoColumn, contentMaxWidth } = getResultsLayout(width, height, Platform.OS, fontScale);
-  const save = useSavedSprint(sprintId, result);
+  const save = useSavedSprint(learnerId, sprintId, result);
   const encouragement = RESULT_PRESENTATION[getResultOutcome(result)];
   const { configuration } = result;
   const duration = formatDurationLabel(configuration.durationSeconds);

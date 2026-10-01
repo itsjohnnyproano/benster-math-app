@@ -7,6 +7,7 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, V
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { usePracticeStreak } from "./usePracticeStreak";
+import { usePreferences } from "@/providers/PreferencesProvider";
 import { streakEncouragement, streakMascotState } from "./streakPresentation";
 import { getStreakLayout } from "./streakLayout";
 
@@ -14,10 +15,11 @@ const CELEBRATING_PENGUIN = require("../../../assets/mascot/penguin-jumping-cele
 const SLEEPING_PENGUIN = require("../../../assets/mascot/penguin-sleeping-z-running-shoes.png");
 
 export default function StreakScreen() {
+  const { activeLearner } = usePreferences();
   const router = useRouter();
   const { width, height, fontScale } = useWindowDimensions();
   const { tablet, twoColumn, maxWidth } = getStreakLayout(width, height, Platform.OS, fontScale);
-  const streak = usePracticeStreak();
+  const streak = usePracticeStreak(activeLearner.id);
   const encouragement = streak.status === "ready" && (
     <View style={styles.encouragement}>
       <Image

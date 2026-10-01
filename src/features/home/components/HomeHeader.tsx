@@ -5,17 +5,24 @@ import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 type HomeHeaderProps = {
   displayName: string;
+  profileInitial?: string;
   isTablet?: boolean;
   stacked?: boolean;
   streakDays: number | null;
   onPressStreak?: () => void;
+  onPressProfile?: () => void;
 };
 
-export function HomeHeader({ displayName, isTablet = false, stacked = false, streakDays, onPressStreak }: HomeHeaderProps) {
+export function HomeHeader({ displayName, profileInitial, isTablet = false, stacked = false, streakDays, onPressStreak, onPressProfile }: HomeHeaderProps) {
   return (
     <View style={[styles.header, stacked && styles.stackedHeader]}>
       <View style={[styles.greetingBlock, stacked && styles.stackedGreetingBlock]}>
-        <Text maxFontSizeMultiplier={1.3} style={[styles.greeting, isTablet && styles.tabletGreeting]}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
+        <View style={styles.greetingLine}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Choose learner profile" onPress={onPressProfile} style={({ pressed }) => [styles.profileAvatar, isTablet && styles.tabletProfileAvatar, pressed && styles.pressed]}>
+            <Text style={[styles.profileInitial, isTablet && styles.tabletProfileInitial]}>{(profileInitial || "L").slice(0, 1).toUpperCase()}</Text>
+          </Pressable>
+          <Text maxFontSizeMultiplier={1.3} style={[styles.greeting, isTablet && styles.tabletGreeting]}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
+        </View>
         <Text maxFontSizeMultiplier={1.4} style={[styles.subtitle, isTablet && styles.tabletSubtitle]}>Ready to practice?</Text>
       </View>
 
@@ -49,6 +56,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   greetingBlock: { flex: 1 },
+  greetingLine: { flexDirection: "row", alignItems: "center", gap: 10 },
   stackedHeader: { flexDirection: "column", gap: 16 },
   stackedGreetingBlock: { flex: 0, width: "100%" },
   greeting: {
@@ -59,6 +67,10 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   tabletGreeting: { fontSize: 40, lineHeight: 50 },
+  profileAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
+  tabletProfileAvatar: { width: 52, height: 52, borderRadius: 26 },
+  profileInitial: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 18 },
+  tabletProfileInitial: { fontSize: 22 },
   tabletStreakText: { fontSize: 17 },
   subtitle: {
     marginTop: 1,

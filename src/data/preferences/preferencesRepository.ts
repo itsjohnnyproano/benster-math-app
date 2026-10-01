@@ -10,7 +10,8 @@ import {
 
 import { DEFAULT_PREFERENCES } from "./preferenceDefaults";
 
-const PREFERENCES_KEY = "math-sprint:user-preferences:v1";
+const LEGACY_PREFERENCES_KEY = "math-sprint:user-preferences:v1";
+const learnerPreferencesKey = (learnerId: string) => `benster:learner-preferences:v1:${learnerId}`;
 
 let writeQueue = Promise.resolve();
 
@@ -44,10 +45,10 @@ export function sanitizePreferences(value: unknown): UserPreferences {
   };
 }
 
-export async function loadPreferences(): Promise<UserPreferences> {
+async function loadPreferencesAtKey(key: string): Promise<UserPreferences | null> {
   // An I/O failure must not masquerade as a new install and overwrite saved data.
-  const savedValue = await Storage.getItem(PREFERENCES_KEY);
-  if (!savedValue) return DEFAULT_PREFERENCES;
+  const savedValue = await Storage.getItem(key);
+  if (!savedValue) return null;
   try {
     return sanitizePreferences(JSON.parse(savedValue));
   } catch {
@@ -57,18 +58,26 @@ export async function loadPreferences(): Promise<UserPreferences> {
   }
 }
 
-export function savePreferences(preferences: UserPreferences): Promise<void> {
+export async function loadPreferences(): Promise<UserPreferences> {
+  return (await loadPreferencesAtKey(LEGACY_PREFERENCES_KEY)) ?? DEFAULT_PREFERENCES;
+}
+
+export async function loadLearnerPreferences(learnerId: string, legacyPreferences: UserPreferences): Promise<UserPreferences> {
+  return (await loadPreferencesAtKey(learnerPreferencesKey(learnerId))) ?? legacyPreferences;
+}
+
+export function savePreferences(preferences: UserPreferences, learnerId?: string): Promise<void> {
   const snapshot = JSON.stringify(sanitizePreferences(preferences));
   const nextWrite = writeQueue.then(() =>
-    Storage.setItem(PREFERENCES_KEY, snapshot),
+    Storage.setItem(learnerId ? learnerPreferencesKey(learnerId) : LEGACY_PREFERENCES_KEY, snapshot),
   );
 
   writeQueue = nextWrite.catch(() => undefined);
   return nextWrite;
 }
 
-export function deletePreferences(): Promise<void> {
-  const nextWrite = writeQueue.then(() => Storage.removeItem(PREFERENCES_KEY));
+export function deletePreferences(learnerId?: string): Promise<void> {
+  const nextWrite = writeQueue.then(() => Storage.removeItem(learnerId ? learnerPreferencesKey(learnerId) : LEGACY_PREFERENCES_KEY));
 
   writeQueue = nextWrite.catch(() => undefined);
   return nextWrite;
