@@ -17,7 +17,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { useTabBarLayout } from "@/components/navigation/tabBarLayout";
 import { PracticePreferences } from "@/components/preferences/PracticePreferences";
@@ -39,7 +39,6 @@ import { useParentalGate } from "./useParentalGate";
 export default function SettingsScreen() {
   const { contentInset, isIpad } = useTabBarLayout();
   const { width, height, fontScale } = useWindowDimensions();
-  const safeAreaInsets = useSafeAreaInsets();
   const { twoColumn, maxWidth } = getSettingsLayout(isIpad, width, height, fontScale);
   const {
     preferences,
@@ -105,6 +104,27 @@ export default function SettingsScreen() {
   };
   // Keep the shared save/retry feedback beside the most recently edited section.
   const [saveSection, setSaveSection] = useState<"nickname" | "practice">("practice");
+  const deleteLearner = async (learnerId: string) => {
+    setProfileError(null);
+    try {
+      // Remove the profile first. Its history is only cleared after the
+      // registry update succeeds, so a failed profile mutation cannot leave a
+      // visible learner with missing results.
+      await removeLearner(learnerId);
+    } catch {
+      setProfileError("Couldn’t remove this learner. Please try again.");
+      return;
+    }
+
+    try {
+      await resultsRepository.clearAll(learnerId);
+      setProfilePickerOpen(false);
+    } catch {
+      setProfileError(
+        "The learner was removed, but some old history could not be cleared. Delete all saved data from Settings to remove it."
+      );
+    }
+  };
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
       <StatusBar style="dark" />
@@ -297,13 +317,14 @@ export default function SettingsScreen() {
         presentationStyle="fullScreen"
         onRequestClose={() => setProfilePickerOpen(false)}
       >
-        <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.profileManagerScreen}>
-          <View style={styles.profileManagerViewport}>
+        <SafeAreaProvider>
+          <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.profileManagerScreen}>
+            <View style={styles.profileManagerViewport}>
             <ScrollView
               contentContainerStyle={[
                 styles.profileManagerContent,
                 isIpad && styles.tabletProfileManagerContent,
-                { paddingTop: isIpad ? 104 : safeAreaInsets.top + 24 },
+                { paddingTop: isIpad ? 104 : 10 },
               ]}
               showsVerticalScrollIndicator={false}
             >
@@ -329,6 +350,11 @@ export default function SettingsScreen() {
               >
                 Each learner keeps their own practice and progress.
               </Text>
+              {profileError && (
+                <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+                  {profileError}
+                </Text>
+              )}
             </View>
             <View style={[styles.profileManagerList, isIpad && styles.tabletProfileManagerList]}>
               {learners.map((learner) => {
@@ -380,7 +406,7 @@ export default function SettingsScreen() {
                           accessibilityRole="button"
                           accessibilityLabel={`Delete ${displayName}`}
                           onPress={() => {
-                            setProfilePickerOpen(false);
+                            setProfileError(null);
                             gate.request(() =>
                               Alert.alert(
                                 "Delete learner?",
@@ -391,13 +417,7 @@ export default function SettingsScreen() {
                                     text: "Delete learner",
                                     style: "destructive",
                                     onPress: () => {
-                                      void resultsRepository
-                                        .clearAll(learner.id)
-                                        .then(() => removeLearner(learner.id))
-                                        .then(
-                                          () => setProfilePickerOpen(false),
-                                          () => setProfileError("Couldn’t update learner profiles. Please try again.")
-                                        );
+                                      void deleteLearner(learner.id);
                                     },
                                   },
                                 ]
@@ -467,8 +487,9 @@ export default function SettingsScreen() {
               </Pressable>
             </View>
             </ScrollView>
-          </View>
-        </SafeAreaView>
+            </View>
+          </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
       <Modal transparent visible={addLearnerOpen} animationType="fade" onRequestClose={() => setAddLearnerOpen(false)}>
         <View style={styles.backdrop}>

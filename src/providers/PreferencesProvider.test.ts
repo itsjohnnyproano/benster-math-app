@@ -130,6 +130,28 @@ describe("onboarding preference commit", () => {
     cleanup();
   });
 
+  it("preserves a color change made alongside a new learner", async () => {
+    storage.getItem
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify({
+        activeLearnerId: LEGACY_LEARNER_ID,
+        learners: [{ id: LEGACY_LEARNER_ID, nickname: "Jo", colorId: "sky", createdAtMs: 0 }],
+      }))
+      .mockResolvedValueOnce(null);
+    const { value, cleanup } = await mount();
+
+    await Promise.all([
+      value.updateLearnerColor(LEGACY_LEARNER_ID, "coral"),
+      value.addLearner("Ari"),
+    ]);
+
+    expect(render().learners).toMatchObject([
+      { id: LEGACY_LEARNER_ID, colorId: "coral" },
+      { nickname: "Ari" },
+    ]);
+    cleanup();
+  });
+
   it("offers an explicit preference reset when saved preferences cannot be read", async () => {
     storage.getItem.mockResolvedValue("not json");
     const { value, cleanup } = await mount();

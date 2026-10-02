@@ -220,7 +220,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         await saveLearnerRegistry(nextRegistry);
         if (mounted.current) { registryRef.current = nextRegistry; setRegistry(nextRegistry); }
       }),
-      updateLearnerColor: async (learnerId, colorId) => {
+      updateLearnerColor: (learnerId, colorId) => serializeLearnerMutation(async () => {
         if (!isReady) throw new Error("Preferences are not ready");
         const current = registryRef.current;
         if (!current?.learners.some(({ id }) => id === learnerId)) throw new Error("Unknown learner profile");
@@ -233,8 +233,8 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
           registryRef.current = nextRegistry;
           setRegistry(nextRegistry);
         }
-      },
-      removeLearner: async (learnerId) => {
+      }),
+      removeLearner: (learnerId) => serializeLearnerMutation(async () => {
         if (!isReady) throw new Error("Preferences are not ready");
         const current = registryRef.current;
         const remaining = current?.learners.filter((learner) => learner.id !== learnerId) ?? [];
@@ -253,7 +253,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
           setRegistry(nextRegistry);
           setPreferences(nextPreferences);
         }
-      },
+      }),
       profilePickerVisible,
       openProfilePicker: () => setProfilePickerVisible(true),
       closeProfilePicker: () => setProfilePickerVisible(false),
