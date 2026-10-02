@@ -16,7 +16,7 @@ describe("learner registry", () => {
   it("creates one legacy learner for an existing device and preserves its nickname", async () => {
     await expect(loadLearnerRegistry("Jo")).resolves.toEqual({
       activeLearnerId: "legacy-learner",
-      learners: [{ id: "legacy-learner", nickname: "Jo", colorId: defaultProfileColorId("legacy-learner"), createdAtMs: 0 }],
+      learners: [{ id: "legacy-learner", nickname: "Jo", defaultName: "Learner 1", colorId: defaultProfileColorId("legacy-learner"), createdAtMs: 0 }],
     });
   });
 
@@ -31,5 +31,19 @@ describe("learner registry", () => {
   it("surfaces malformed stored JSON for explicit recovery", async () => {
     storage.getItem.mockResolvedValue("not json");
     await expect(loadLearnerRegistry()).rejects.toThrow("could not be read");
+  });
+
+  it("migrates older unnamed profiles to stable fallback labels", () => {
+    const registry = sanitizeLearnerRegistry({
+      activeLearnerId: "learner-two",
+      learners: [
+        { id: "learner-one", nickname: "", createdAtMs: 1 },
+        { id: "learner-two", nickname: "", createdAtMs: 2 },
+      ],
+    });
+
+    expect(registry.learners.map(({ defaultName }) => defaultName)).toEqual(["Learner 1", "Learner 2"]);
+    expect(sanitizeLearnerRegistry({ ...registry, learners: registry.learners.slice(1) }).learners[0].defaultName)
+      .toBe("Learner 2");
   });
 });

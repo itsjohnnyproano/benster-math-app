@@ -11,6 +11,8 @@ const LEARNER_ID_PATTERN = /^[a-z][a-z0-9-]{1,127}$/;
 export type Learner = Readonly<{
   id: string;
   nickname: string;
+  /** Stable local fallback shown when the learner does not use a nickname. */
+  defaultName: string;
   colorId: ProfileColorId;
   createdAtMs: number;
 }>;
@@ -31,25 +33,36 @@ export function nextAvailableProfileColorId(learners: readonly Learner[]): Profi
 }
 
 export function learnerDisplayName(
-  learner: Pick<Learner, "id" | "nickname">,
-  learners: readonly Pick<Learner, "id" | "nickname">[],
+  learner: Pick<Learner, "id" | "nickname" | "defaultName">,
+  _learners: readonly Pick<Learner, "id" | "nickname" | "defaultName">[],
 ): string {
-  return learner.nickname || `Learner ${learners.findIndex(({ id }) => id === learner.id) + 1}`;
+  return learner.nickname || learner.defaultName;
 }
 
 export function isDuplicateLearnerDisplayName(
   candidate: string,
-  learners: readonly Pick<Learner, "id" | "nickname">[],
+  learners: readonly Pick<Learner, "id" | "nickname" | "defaultName">[],
   learnerId?: string,
+  fallbackName?: string,
 ): boolean {
   const normalizedCandidate = normalizeNickname(candidate);
-  const candidateLabel = normalizedCandidate || `Learner ${learnerId
-    ? learners.findIndex(({ id }) => id === learnerId) + 1
-    : learners.length + 1}`;
+  const learner = learnerId ? learners.find(({ id }) => id === learnerId) : undefined;
+  const candidateLabel = normalizedCandidate || fallbackName || learner?.defaultName;
+  if (!candidateLabel) throw new Error("A fallback learner name is required");
   const candidateKey = candidateLabel.toLocaleLowerCase();
 
   return learners.some((learner) => learner.id !== learnerId
     && learnerDisplayName(learner, learners).toLocaleLowerCase() === candidateKey);
+}
+
+export function nextAvailableLearnerDefaultName(
+  learners: readonly Pick<Learner, "id" | "nickname" | "defaultName">[],
+): string {
+  const labels = new Set(learners.map((learner) => learnerDisplayName(learner, learners).toLocaleLowerCase()));
+  for (let number = 1; ; number += 1) {
+    const candidate = `Learner ${number}`;
+    if (!labels.has(candidate.toLocaleLowerCase())) return candidate;
+  }
 }
 
 export function isValidLearnerId(value: unknown): value is string {
@@ -72,6 +85,7 @@ export function sanitizeLearner(value: unknown): Learner | null {
   return {
     id: candidate.id,
     nickname: normalizeNickname(candidate.nickname),
+    defaultName: normalizeNickname(candidate.defaultName),
     colorId: isProfileColorId(candidate.colorId) ? candidate.colorId : defaultProfileColorId(candidate.id),
     createdAtMs,
   };

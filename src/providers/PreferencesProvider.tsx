@@ -3,7 +3,7 @@ import { createContext, type PropsWithChildren, useContext, useEffect, useMemo, 
 import { deleteLearnerRegistry, loadLearnerRegistry, saveLearnerRegistry, type LearnerRegistry } from "@/data/learners/learnersRepository";
 import { DEFAULT_PREFERENCES, resetPracticeDefaults } from "@/data/preferences/preferenceDefaults";
 import { deleteAllLearnerPreferences, deletePreferences, loadLearnerPreferences, loadPreferences, savePreferences, sanitizePreferences } from "@/data/preferences/preferencesRepository";
-import { createLearnerId, defaultProfileColorId, isDuplicateLearnerDisplayName, LEGACY_LEARNER_ID, MAX_LOCAL_LEARNERS, nextAvailableProfileColorId, type Learner, type ProfileColorId } from "@/domain/learner";
+import { createLearnerId, defaultProfileColorId, isDuplicateLearnerDisplayName, LEGACY_LEARNER_ID, MAX_LOCAL_LEARNERS, nextAvailableLearnerDefaultName, nextAvailableProfileColorId, type Learner, type ProfileColorId } from "@/domain/learner";
 import { normalizeNickname } from "@/domain/nickname";
 import type { UserPreferences } from "@/domain/sprint";
 
@@ -38,7 +38,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [registry, setRegistry] = useState<LearnerRegistry>({
     activeLearnerId: LEGACY_LEARNER_ID,
-    learners: [{ id: LEGACY_LEARNER_ID, nickname: "", colorId: defaultProfileColorId(LEGACY_LEARNER_ID), createdAtMs: 0 }],
+    learners: [{ id: LEGACY_LEARNER_ID, nickname: "", defaultName: "Learner 1", colorId: defaultProfileColorId(LEGACY_LEARNER_ID), createdAtMs: 0 }],
   });
   const [isReady, setIsReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -198,7 +198,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
           if (mounted.current && revision === saveRevision.current) {
             const nextRegistry: LearnerRegistry = {
               activeLearnerId: LEGACY_LEARNER_ID,
-              learners: [{ id: LEGACY_LEARNER_ID, nickname: "", colorId: defaultProfileColorId(LEGACY_LEARNER_ID), createdAtMs: 0 }],
+              learners: [{ id: LEGACY_LEARNER_ID, nickname: "", defaultName: "Learner 1", colorId: defaultProfileColorId(LEGACY_LEARNER_ID), createdAtMs: 0 }],
             };
             registryRef.current = nextRegistry;
             preferencesRef.current = DEFAULT_PREFERENCES;
@@ -255,11 +255,18 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         const current = registryRef.current;
         if (!current) throw new Error("Learner profiles are not ready");
         if (current.learners.length >= MAX_LOCAL_LEARNERS) throw new Error(`You can add up to ${MAX_LOCAL_LEARNERS} learners on this device`);
-        if (isDuplicateLearnerDisplayName(nickname, current.learners)) {
+        const defaultName = nextAvailableLearnerDefaultName(current.learners);
+        if (isDuplicateLearnerDisplayName(nickname, current.learners, undefined, defaultName)) {
           throw new Error("A learner already uses that nickname");
         }
         const createdAtMs = Date.now();
-        const learner: Learner = { id: createLearnerId(createdAtMs), nickname: normalizeNickname(nickname), colorId: nextAvailableProfileColorId(current.learners), createdAtMs };
+        const learner: Learner = {
+          id: createLearnerId(createdAtMs),
+          nickname: normalizeNickname(nickname),
+          defaultName,
+          colorId: nextAvailableProfileColorId(current.learners),
+          createdAtMs,
+        };
         await savePreferences({ ...DEFAULT_PREFERENCES, onboardingCompleted: true, nickname: learner.nickname }, learner.id);
         const nextRegistry = { ...current, learners: [...current.learners, learner] };
         await saveLearnerRegistry(nextRegistry);

@@ -4,6 +4,7 @@ import {
   LEGACY_LEARNER_ID,
   MAX_LOCAL_LEARNERS,
   defaultProfileColorId,
+  nextAvailableLearnerDefaultName,
   sanitizeLearner,
   type Learner,
 } from "@/domain/learner";
@@ -21,7 +22,13 @@ let writeQueue = Promise.resolve();
 function defaultRegistry(nickname: string): LearnerRegistry {
   return {
     activeLearnerId: LEGACY_LEARNER_ID,
-    learners: [{ id: LEGACY_LEARNER_ID, nickname: normalizeNickname(nickname), colorId: defaultProfileColorId(LEGACY_LEARNER_ID), createdAtMs: 0 }],
+    learners: [{
+      id: LEGACY_LEARNER_ID,
+      nickname: normalizeNickname(nickname),
+      defaultName: "Learner 1",
+      colorId: defaultProfileColorId(LEGACY_LEARNER_ID),
+      createdAtMs: 0,
+    }],
   };
 }
 
@@ -32,10 +39,17 @@ export function sanitizeLearnerRegistry(value: unknown, legacyNickname = ""): Le
   const learners = candidate.learners.map(sanitizeLearner).filter((learner): learner is Learner => learner !== null);
   const uniqueLearners = learners.filter((learner, index) => learners.findIndex(({ id }) => id === learner.id) === index);
   if (uniqueLearners.length === 0 || uniqueLearners.length > MAX_LOCAL_LEARNERS) return defaultRegistry(legacyNickname);
-  const activeLearnerId = uniqueLearners.some(({ id }) => id === candidate.activeLearnerId)
+  // Older registries did not save a fallback label. Assign it once while
+  // reading, then carry it forward on every subsequent registry save so an
+  // unnamed learner's label never changes when a sibling is removed.
+  const learnersWithDefaultNames = uniqueLearners.reduce<Learner[]>((learners, learner) => [
+    ...learners,
+    { ...learner, defaultName: learner.defaultName || nextAvailableLearnerDefaultName(learners) },
+  ], []);
+  const activeLearnerId = learnersWithDefaultNames.some(({ id }) => id === candidate.activeLearnerId)
     ? candidate.activeLearnerId as string
-    : uniqueLearners[0].id;
-  return { activeLearnerId, learners: uniqueLearners };
+    : learnersWithDefaultNames[0].id;
+  return { activeLearnerId, learners: learnersWithDefaultNames };
 }
 
 export async function loadLearnerRegistry(legacyNickname = ""): Promise<LearnerRegistry> {

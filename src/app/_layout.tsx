@@ -1,8 +1,8 @@
 import "../global.css";
 
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { useAppFonts } from "@/lib/fonts";
@@ -10,14 +10,12 @@ import { PreferencesProvider, usePreferences } from "@/providers/PreferencesProv
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
 import { PreferencesRecoveryScreen } from "@/components/preferences/PreferencesRecoveryScreen";
 import { COLORS } from "@/theme/tokens";
-import { ProfilePicker } from "@/features/learners/ProfilePicker";
+import { ProfilePickerController } from "@/features/learners/ProfilePickerController";
 
 SplashScreen.preventAutoHideAsync();
 
 function AppNavigation() {
-  const router = useRouter();
-  const { isReady, loadError, preferences, learners, activeLearner, profilePickerVisible, switchLearner, closeProfilePicker } = usePreferences();
-  const [profileSwitchError, setProfileSwitchError] = useState<string | null>(null);
+  const { isReady, loadError, preferences } = usePreferences();
 
   if (!isReady) {
     if (loadError) return <PreferencesRecoveryScreen />;
@@ -44,19 +42,7 @@ function AppNavigation() {
         <Stack.Screen name="sprint/play" />
       </Stack.Protected>
     </Stack>
-    <ProfilePicker
-      activeLearnerId={activeLearner.id}
-      learners={learners}
-      visible={profilePickerVisible}
-      error={profileSwitchError}
-      onChoose={(learnerId) => {
-        setProfileSwitchError(null);
-        void switchLearner(learnerId).then(closeProfilePicker, () => {
-          setProfileSwitchError("Couldn’t switch learners. Please try again.");
-        });
-      }}
-      onManage={() => { closeProfilePicker(); router.navigate("/settings"); }}
-    />
+    <ProfilePickerController />
   </>;
 }
 
