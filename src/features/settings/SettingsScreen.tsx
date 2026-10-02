@@ -2,7 +2,6 @@ import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import { useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { SymbolView } from "expo-symbols";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
@@ -17,19 +16,19 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTabBarLayout } from "@/components/navigation/tabBarLayout";
 import { PracticePreferences } from "@/components/preferences/PracticePreferences";
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
 import { LEGAL_LINKS } from "@/config/legalLinks";
 import { resultsRepository } from "@/data/results/resultsRepository";
-import { isDuplicateLearnerDisplayName, learnerDisplayName, nextAvailableLearnerDefaultName, PROFILE_COLOR_IDS } from "@/domain/learner";
+import { isDuplicateLearnerDisplayName, learnerDisplayName } from "@/domain/learner";
 import { MAX_NICKNAME_LENGTH, normalizeNickname } from "@/domain/nickname";
 import { usePreferences } from "@/providers/PreferencesProvider";
-import { PROFILE_COLORS } from "@/theme/profileColors";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { confirmDeleteSavedData } from "./confirmDeleteSavedData";
+import { ManageLearnersModal } from "./ManageLearnersModal";
 import { ParentalGate } from "./ParentalGate";
 import { SettingsColumns } from "./SettingsColumns";
 import { getSettingsLayout } from "./settingsLayout";
@@ -45,12 +44,7 @@ export default function SettingsScreen() {
     isReady,
     learners,
     activeLearner,
-    switchLearner,
-    addLearner,
-    removeLearner,
-    retryRemovedLearnerPreferencesCleanup,
     renameActiveLearner,
-    updateLearnerColor,
     resetPracticePreferences,
     deleteAllPreferences,
   } = usePreferences();
@@ -63,19 +57,7 @@ export default function SettingsScreen() {
   }
   const [resetOpen, setResetOpen] = useState(false);
   const [profilePickerOpen, setProfilePickerOpen] = useState(false);
-  const [addLearnerOpen, setAddLearnerOpen] = useState(false);
-  const [newLearnerNickname, setNewLearnerNickname] = useState("");
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [pendingLearnerCleanups, setPendingLearnerCleanups] = useState<readonly {
-    learnerId: string;
-    displayName: string;
-    preferences: boolean;
-    history: boolean;
-  }[]>([]);
   const [nicknameError, setNicknameError] = useState<string | null>(null);
-  const [colorPickerLearnerId, setColorPickerLearnerId] = useState<string | null>(null);
-  const [colorError, setColorError] = useState<string | null>(null);
-  const [isAddingLearner, setIsAddingLearner] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const deleting = useRef(false);
   const focused = useRef(false);
@@ -111,71 +93,6 @@ export default function SettingsScreen() {
   };
   // Keep the shared save/retry feedback beside the most recently edited section.
   const [saveSection, setSaveSection] = useState<"nickname" | "practice">("practice");
-  const deleteLearner = async (learnerId: string) => {
-    setProfileError(null);
-    const learner = learners.find(({ id }) => id === learnerId);
-    const displayName = learner ? learnerDisplayName(learner, learners) : "this learner";
-    let localPreferencesCleared: boolean;
-    try {
-      // Remove the profile first. Its history is only cleared after the
-      // registry update succeeds, so a failed profile mutation cannot leave a
-      // visible learner with missing results.
-      ({ localPreferencesCleared } = await removeLearner(learnerId));
-    } catch {
-      setProfileError("Couldn’t remove this learner. Please try again.");
-      return;
-    }
-
-    let historyCleared = true;
-    try {
-      await resultsRepository.clearAll(learnerId);
-    } catch {
-      historyCleared = false;
-    }
-
-    if (localPreferencesCleared && historyCleared) {
-      setProfilePickerOpen(false);
-    } else {
-      setPendingLearnerCleanups((current) => [
-        ...current.filter((cleanup) => cleanup.learnerId !== learnerId),
-        {
-        learnerId,
-        displayName,
-        preferences: !localPreferencesCleared,
-        history: !historyCleared,
-        },
-      ]);
-      setProfileError(
-        "The learner was removed, but some local data could not be cleared. Retry cleanup to finish removing it."
-      );
-    }
-  };
-  const retryLearnerCleanup = async (learnerId: string) => {
-    const pending = pendingLearnerCleanups.find((cleanup) => cleanup.learnerId === learnerId);
-    if (!pending) return;
-    setProfileError(null);
-
-    const preferencesCleared = !pending.preferences || await retryRemovedLearnerPreferencesCleanup(pending.learnerId);
-    let historyCleared = !pending.history;
-    if (pending.history) {
-      try {
-        await resultsRepository.clearAll(pending.learnerId);
-        historyCleared = true;
-      } catch {
-        historyCleared = false;
-      }
-    }
-
-    if (preferencesCleared && historyCleared) {
-      setPendingLearnerCleanups((current) => current.filter((cleanup) => cleanup.learnerId !== pending.learnerId));
-      return;
-    }
-
-    setPendingLearnerCleanups((current) => current.map((cleanup) => cleanup.learnerId === pending.learnerId
-      ? { ...cleanup, preferences: !preferencesCleared, history: !historyCleared }
-      : cleanup));
-    setProfileError("Some local data could not be cleared. Retry cleanup to finish removing it.");
-  };
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
       <StatusBar style="dark" />
@@ -363,258 +280,13 @@ export default function SettingsScreen() {
       {/* A gate for the base Settings screen belongs above its content. Gates
           requested from the full-screen learner manager render inside that
           modal below so they are immediately visible on iPhone and iPad. */}
-      {gate.visible && !profilePickerOpen && <ParentalGate onResolved={gate.onResolved} />}
-      <Modal
+      {gate.visible && <ParentalGate onResolved={gate.onResolved} />}
+      <ManageLearnersModal
         visible={profilePickerOpen}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => setProfilePickerOpen(false)}
-      >
-        <SafeAreaProvider>
-          <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.profileManagerScreen}>
-            <View style={styles.profileManagerViewport}>
-            <ScrollView
-              contentContainerStyle={[
-                styles.profileManagerContent,
-                isIpad && styles.tabletProfileManagerContent,
-                { paddingTop: isIpad ? 104 : 10 },
-              ]}
-              showsVerticalScrollIndicator={false}
-            >
-            <View style={styles.profileManagerHeader}>
-              <View style={styles.profileManagerTitleRow}>
-                <Text accessibilityRole="header" style={styles.dialogTitle}>
-                  Manage learners
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setProfilePickerOpen(false)}
-                  style={[styles.managerDone, isIpad && styles.tabletManagerDone]}
-                >
-                  <Text style={styles.resetText}>Done</Text>
-                </Pressable>
-              </View>
-              <Text
-                adjustsFontSizeToFit
-                maxFontSizeMultiplier={1.2}
-                minimumFontScale={0.82}
-                numberOfLines={1}
-                style={styles.help}
-              >
-                Each learner keeps their own practice and progress.
-              </Text>
-              {profileError && (
-                <Text accessibilityLiveRegion="polite" style={styles.errorText}>
-                  {profileError}
-                </Text>
-              )}
-              {pendingLearnerCleanups.map((cleanup) => (
-                <Pressable
-                  key={cleanup.learnerId}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Retry cleanup for ${cleanup.displayName}`}
-                  onPress={() => void retryLearnerCleanup(cleanup.learnerId)}
-                  style={styles.retryCleanupButton}
-                >
-                  <Text style={styles.resetText}>Retry cleanup for {cleanup.displayName}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <View style={[styles.profileManagerList, isIpad && styles.tabletProfileManagerList]}>
-              {learners.map((learner) => {
-                const color = PROFILE_COLORS[learner.colorId];
-                const displayName = learnerDisplayName(learner, learners);
-                return (
-                  <View key={learner.id} style={[styles.learnerGroup, isIpad && styles.tabletLearnerGroup]}>
-                    <View style={[styles.learnerRow, learner.id === activeLearner.id && styles.activeLearnerRow]}>
-                      <View
-                        style={[
-                          styles.learnerOption,
-                          isIpad && styles.tabletLearnerOption,
-                          learner.id === activeLearner.id && styles.activeLearnerOption,
-                        ]}
-                      >
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Change ${displayName}'s profile color`}
-                          accessibilityHint="Opens ten color choices"
-                          onPress={() => {
-                            setColorError(null);
-                            setColorPickerLearnerId((current) => (current === learner.id ? null : learner.id));
-                          }}
-                          style={({ pressed }) => [
-                            styles.managerAvatar,
-                            { backgroundColor: color.background },
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <Text style={[styles.managerAvatarText, { color: color.foreground }]}>
-                            {displayName.slice(0, 1).toUpperCase()}
-                          </Text>
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: learner.id === activeLearner.id }}
-                          onPress={() => {
-                            void switchLearner(learner.id);
-                            setProfilePickerOpen(false);
-                          }}
-                          style={({ pressed }) => [styles.learnerSelect, pressed && styles.pressed]}
-                        >
-                          <Text style={styles.learnerOptionText}>{displayName}</Text>
-                          {learner.id === activeLearner.id && <Text style={styles.activeLearnerCheck}>✓</Text>}
-                        </Pressable>
-                      </View>
-                      {learners.length > 1 && (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Delete ${displayName}`}
-                          onPress={() => {
-                            setProfileError(null);
-                            gate.request(() =>
-                              Alert.alert(
-                                "Delete learner?",
-                                `This permanently removes ${displayName} and their local settings, history, streak, and personal bests. This cannot be undone.`,
-                                [
-                                  { text: "Cancel", style: "cancel" },
-                                  {
-                                    text: "Delete learner",
-                                    style: "destructive",
-                                    onPress: () => {
-                                      void deleteLearner(learner.id);
-                                    },
-                                  },
-                                ]
-                              )
-                            );
-                          }}
-                          style={[styles.deleteLearnerButton, isIpad && styles.tabletDeleteLearnerButton]}
-                        >
-                          <SymbolView
-                            name={{ ios: "trash", android: "delete_outline", web: "delete_outline" }}
-                            size={24}
-                            tintColor="#B42318"
-                          />
-                        </Pressable>
-                      )}
-                    </View>
-                    {colorPickerLearnerId === learner.id && (
-                      <View accessibilityLabel={`Choose a color for ${displayName}`} style={styles.colorPicker}>
-                        {PROFILE_COLOR_IDS.map((colorId) => {
-                          const option = PROFILE_COLORS[colorId];
-                          return (
-                            <Pressable
-                              key={colorId}
-                              accessibilityRole="button"
-                              accessibilityLabel={option.label}
-                              accessibilityState={{ selected: learner.colorId === colorId }}
-                              onPress={() => {
-                                setColorError(null);
-                                void updateLearnerColor(learner.id, colorId).then(
-                                  () => setColorPickerLearnerId(null),
-                                  () => setColorError("Couldn’t update this color. Please try again.")
-                                );
-                              }}
-                              style={({ pressed }) => [
-                                styles.colorOption,
-                                { backgroundColor: option.background },
-                                learner.colorId === colorId && styles.selectedColorOption,
-                                pressed && styles.pressed,
-                              ]}
-                            >
-                              {learner.colorId === colorId && (
-                                <Text style={[styles.colorCheck, { color: option.foreground }]}>✓</Text>
-                              )}
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    )}
-                    {colorPickerLearnerId === learner.id && colorError && (
-                      <Text accessibilityLiveRegion="polite" style={styles.errorText}>{colorError}</Text>
-                    )}
-                  </View>
-                );
-              })}
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  setProfilePickerOpen(false);
-                  gate.request(() => {
-                    setProfileError(null);
-                    setAddLearnerOpen(true);
-                  });
-                }}
-                style={[styles.addLearnerButton, isIpad && styles.tabletAddLearnerButton]}
-              >
-                <Text style={styles.addLearnerText}>+ Add a learner</Text>
-              </Pressable>
-            </View>
-            </ScrollView>
-            </View>
-            {gate.visible && <ParentalGate onResolved={gate.onResolved} />}
-          </SafeAreaView>
-        </SafeAreaProvider>
-      </Modal>
-      <Modal transparent visible={addLearnerOpen} animationType="fade" onRequestClose={() => setAddLearnerOpen(false)}>
-        <View style={styles.backdrop}>
-          <View accessibilityViewIsModal style={styles.dialog}>
-            <Text accessibilityRole="header" style={styles.dialogTitle}>
-              Add a learner
-            </Text>
-            <Text style={styles.help}>Use a nickname instead of a full name. This profile stays on this device.</Text>
-            <TextInput
-              accessibilityLabel="New learner nickname"
-              value={newLearnerNickname}
-              onChangeText={setNewLearnerNickname}
-              maxLength={MAX_NICKNAME_LENGTH}
-              placeholder="Nickname (optional)"
-              placeholderTextColor={COLORS.secondary}
-              autoCorrect={false}
-              autoComplete="off"
-              style={styles.input}
-            />
-            {profileError && (
-              <Text accessibilityLiveRegion="polite" style={styles.errorText}>
-                {profileError}
-              </Text>
-            )}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                if (isAddingLearner) return;
-                setIsAddingLearner(true);
-                void addLearner(newLearnerNickname).then(
-                  () => {
-                    setNewLearnerNickname("");
-                    setAddLearnerOpen(false);
-                    setProfilePickerOpen(true);
-                  },
-                  () =>
-                    setProfileError(
-                      isDuplicateLearnerDisplayName(
-                        newLearnerNickname,
-                        learners,
-                        undefined,
-                        nextAvailableLearnerDefaultName(learners),
-                      )
-                        ? "That nickname is already being used by another learner."
-                        : "Couldn’t add this learner. Please try again."
-                    )
-                ).finally(() => setIsAddingLearner(false));
-              }}
-              disabled={isAddingLearner}
-              accessibilityState={{ disabled: isAddingLearner }}
-              style={styles.button}
-            >
-              <Text style={styles.buttonText}>{isAddingLearner ? "Adding…" : "Add learner"}</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => setAddLearnerOpen(false)} style={styles.reset}>
-              <Text style={styles.resetText}>Cancel</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        tablet={isIpad}
+        onClose={() => setProfilePickerOpen(false)}
+        onOpen={() => setProfilePickerOpen(true)}
+      />
       <Modal transparent visible={resetOpen} animationType="fade" onRequestClose={() => setResetOpen(false)}>
         <View style={styles.backdrop}>
           <View accessibilityViewIsModal style={styles.dialog}>
@@ -865,73 +537,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   buttonText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
-  profileManagerScreen: { flex: 1, backgroundColor: COLORS.background },
-  profileManagerViewport: { flex: 1, overflow: "hidden" },
-  // Compact phones need less room below the safe area than taller phones and iPads.
-  profileManagerContent: {
-    width: "100%",
-    maxWidth: 640,
-    alignSelf: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-  },
-  tabletProfileManagerContent: { maxWidth: 860, paddingHorizontal: 32, paddingBottom: 40 },
-  profileManagerHeader: {
-    marginBottom: 20,
-  },
-  profileManagerTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  managerDone: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  tabletManagerDone: { width: 64 },
-  profileManagerList: { width: "100%" },
-  tabletProfileManagerList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    columnGap: 16,
-    rowGap: 16,
-  },
-  learnerGroup: { marginBottom: 4 },
-  tabletLearnerGroup: { width: "48%", marginBottom: 0 },
-  learnerOption: {
-    flex: 1,
-    minHeight: 68,
-    paddingHorizontal: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  tabletLearnerOption: { backgroundColor: COLORS.card },
-  learnerRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 },
-  activeLearnerRow: {},
-  activeLearnerOption: { borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft },
-  managerAvatar: { width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center" },
-  managerAvatarText: { fontFamily: "NunitoSans_700Bold", fontSize: 18 },
-  learnerSelect: { flex: 1, minHeight: 52, flexDirection: "row", alignItems: "center", gap: 8 },
-  learnerOptionText: { flex: 1, color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 17 },
-  activeLearnerCheck: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 20 },
-  colorPicker: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingVertical: 10, paddingHorizontal: 14 },
-  colorOption: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  selectedColorOption: { borderWidth: 3, borderColor: COLORS.ink },
-  colorCheck: { fontFamily: "NunitoSans_700Bold", fontSize: 18 },
-  addLearnerButton: {
-    minHeight: 52,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 16,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    borderStyle: "dashed",
-  },
-  tabletAddLearnerButton: { width: "100%", marginTop: 4 },
-  addLearnerText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 16 },
   errorText: { color: "#B42318", fontFamily: "NunitoSans_600SemiBold", fontSize: 13, marginTop: 8 },
-  retryCleanupButton: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", marginTop: 4 },
-  deleteLearnerButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  tabletDeleteLearnerButton: { width: 64 },
   reset: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 16, paddingVertical: 10 },
   resetText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
   deleteButton: {

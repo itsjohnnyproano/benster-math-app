@@ -89,8 +89,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   error: { color: "#B42318", fontFamily: "NunitoSans_600SemiBold", fontSize: 14, marginTop: 8, textAlign: "center" },
-  // Nine choices (eight learners plus management) form a consistent three-by-three grid.
-  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 24, paddingTop: 30 },
+  // Profiles fill left-to-right, so Add always occupies the next open slot.
+  grid: { flexDirection: "row", flexWrap: "wrap", columnGap: "5%", rowGap: 24, paddingTop: 30 },
   profile: { width: "30%", minHeight: 120, alignItems: "center", justifyContent: "flex-start" },
   avatar: {
     width: 82,
