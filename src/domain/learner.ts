@@ -51,10 +51,11 @@ export function isDuplicateLearnerDisplayName(
   if (!candidateLabel) throw new Error("A fallback learner name is required");
   const candidateKey = candidateLabel.toLocaleLowerCase();
 
+  // This validates the label that will be shown after the save. Hidden
+  // fallbacks stay reserved by the allocator below, but must not block a
+  // nickname clear when the other learner is visibly using a different name.
   return learners.some((learner) => learner.id !== learnerId
-    && [learner.nickname, learner.defaultName]
-      .filter(Boolean)
-      .some((name) => name.toLocaleLowerCase() === candidateKey));
+    && learnerDisplayName(learner, learners).toLocaleLowerCase() === candidateKey);
 }
 
 export function nextAvailableLearnerDefaultName(
