@@ -30,6 +30,28 @@ export function nextAvailableProfileColorId(learners: readonly Learner[]): Profi
     ?? PROFILE_COLOR_IDS[learners.length % PROFILE_COLOR_IDS.length];
 }
 
+export function learnerDisplayName(
+  learner: Pick<Learner, "id" | "nickname">,
+  learners: readonly Pick<Learner, "id" | "nickname">[],
+): string {
+  return learner.nickname || `Learner ${learners.findIndex(({ id }) => id === learner.id) + 1}`;
+}
+
+export function isDuplicateLearnerDisplayName(
+  candidate: string,
+  learners: readonly Pick<Learner, "id" | "nickname">[],
+  learnerId?: string,
+): boolean {
+  const normalizedCandidate = normalizeNickname(candidate);
+  const candidateLabel = normalizedCandidate || `Learner ${learnerId
+    ? learners.findIndex(({ id }) => id === learnerId) + 1
+    : learners.length + 1}`;
+  const candidateKey = candidateLabel.toLocaleLowerCase();
+
+  return learners.some((learner) => learner.id !== learnerId
+    && learnerDisplayName(learner, learners).toLocaleLowerCase() === candidateKey);
+}
+
 export function isValidLearnerId(value: unknown): value is string {
   return typeof value === "string" && LEARNER_ID_PATTERN.test(value);
 }

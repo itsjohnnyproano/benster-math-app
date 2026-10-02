@@ -1,7 +1,7 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type { Learner } from "@/domain/learner";
+import { learnerDisplayName, type Learner } from "@/domain/learner";
 import { PROFILE_COLORS } from "@/theme/profileColors";
 import { COLORS } from "@/theme/tokens";
 
@@ -9,11 +9,12 @@ type Props = {
   activeLearnerId: string;
   learners: readonly Learner[];
   visible: boolean;
+  error: string | null;
   onChoose: (learnerId: string) => void;
   onManage: () => void;
 };
 
-export function ProfilePicker({ activeLearnerId, learners, visible, onChoose, onManage }: Props) {
+export function ProfilePicker({ activeLearnerId, learners, visible, error, onChoose, onManage }: Props) {
   return (
     <Modal animationType="fade" presentationStyle="fullScreen" visible={visible} onRequestClose={() => undefined}>
       <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.screen}>
@@ -22,25 +23,26 @@ export function ProfilePicker({ activeLearnerId, learners, visible, onChoose, on
             Who’s practicing?
           </Text>
           <Text style={styles.subtitle}>Choose your profile to keep practice and progress just for you.</Text>
+          {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
         </View>
         <ScrollView bounces={false} contentContainerStyle={styles.profileContent} showsVerticalScrollIndicator={false}>
           <View style={styles.grid}>
-            {learners.map((learner, index) => (
+            {learners.map((learner) => (
               <Pressable
                 key={learner.id}
                 accessibilityRole="button"
                 accessibilityState={{ selected: learner.id === activeLearnerId }}
-                accessibilityLabel={`Choose ${displayName(learner, index)}`}
+                accessibilityLabel={`Choose ${learnerDisplayName(learner, learners)}`}
                 onPress={() => onChoose(learner.id)}
                 style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
               >
                 <View style={[styles.avatar, { backgroundColor: PROFILE_COLORS[learner.colorId].background }, learner.id === activeLearnerId && styles.activeAvatar]}>
                   <Text style={[styles.avatarLetter, { color: PROFILE_COLORS[learner.colorId].foreground }]}>
-                    {displayName(learner, index).slice(0, 1).toUpperCase()}
+                    {learnerDisplayName(learner, learners).slice(0, 1).toUpperCase()}
                   </Text>
                 </View>
                 <Text numberOfLines={1} style={styles.name}>
-                  {displayName(learner, index)}
+                  {learnerDisplayName(learner, learners)}
                 </Text>
               </Pressable>
             ))}
@@ -60,10 +62,6 @@ export function ProfilePicker({ activeLearnerId, learners, visible, onChoose, on
       </SafeAreaView>
     </Modal>
   );
-}
-
-function displayName(learner: Learner, index: number) {
-  return learner.nickname || `Learner ${index + 1}`;
 }
 
 const styles = StyleSheet.create({
@@ -90,6 +88,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginTop: 8,
   },
+  error: { color: "#B42318", fontFamily: "NunitoSans_600SemiBold", fontSize: 14, marginTop: 8, textAlign: "center" },
   // Nine choices (eight learners plus management) form a consistent three-by-three grid.
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 24, paddingTop: 30 },
   profile: { width: "30%", minHeight: 120, alignItems: "center", justifyContent: "flex-start" },

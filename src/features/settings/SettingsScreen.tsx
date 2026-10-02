@@ -24,8 +24,8 @@ import { PracticePreferences } from "@/components/preferences/PracticePreference
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
 import { LEGAL_LINKS } from "@/config/legalLinks";
 import { resultsRepository } from "@/data/results/resultsRepository";
-import { PROFILE_COLOR_IDS } from "@/domain/learner";
-import { isDuplicateNickname, MAX_NICKNAME_LENGTH, normalizeNickname } from "@/domain/nickname";
+import { isDuplicateLearnerDisplayName, learnerDisplayName, PROFILE_COLOR_IDS } from "@/domain/learner";
+import { MAX_NICKNAME_LENGTH, normalizeNickname } from "@/domain/nickname";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { PROFILE_COLORS } from "@/theme/profileColors";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
@@ -48,6 +48,7 @@ export default function SettingsScreen() {
     switchLearner,
     addLearner,
     removeLearner,
+    retryRemovedLearnerPreferencesCleanup,
     renameActiveLearner,
     updateLearnerColor,
     resetPracticePreferences,
@@ -65,6 +66,11 @@ export default function SettingsScreen() {
   const [addLearnerOpen, setAddLearnerOpen] = useState(false);
   const [newLearnerNickname, setNewLearnerNickname] = useState("");
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [pendingLearnerCleanup, setPendingLearnerCleanup] = useState<{
+    learnerId: string;
+    preferences: boolean;
+    history: boolean;
+  } | null>(null);
   const [nicknameError, setNicknameError] = useState<string | null>(null);
   const [colorPickerLearnerId, setColorPickerLearnerId] = useState<string | null>(null);
   const [colorError, setColorError] = useState<string | null>(null);
@@ -106,6 +112,7 @@ export default function SettingsScreen() {
   const [saveSection, setSaveSection] = useState<"nickname" | "practice">("practice");
   const deleteLearner = async (learnerId: string) => {
     setProfileError(null);
+    setPendingLearnerCleanup(null);
     let localPreferencesCleared: boolean;
     try {
       // Remove the profile first. Its history is only cleared after the
@@ -127,10 +134,44 @@ export default function SettingsScreen() {
     if (localPreferencesCleared && historyCleared) {
       setProfilePickerOpen(false);
     } else {
+      setPendingLearnerCleanup({
+        learnerId,
+        preferences: !localPreferencesCleared,
+        history: !historyCleared,
+      });
       setProfileError(
-        "The learner was removed, but some local data could not be cleared. It will not appear in the app."
+        "The learner was removed, but some local data could not be cleared. Retry cleanup to finish removing it."
       );
     }
+  };
+  const retryLearnerCleanup = async () => {
+    const pending = pendingLearnerCleanup;
+    if (!pending) return;
+    setProfileError(null);
+
+    const preferencesCleared = !pending.preferences || await retryRemovedLearnerPreferencesCleanup(pending.learnerId);
+    let historyCleared = !pending.history;
+    if (pending.history) {
+      try {
+        await resultsRepository.clearAll(pending.learnerId);
+        historyCleared = true;
+      } catch {
+        historyCleared = false;
+      }
+    }
+
+    if (preferencesCleared && historyCleared) {
+      setPendingLearnerCleanup(null);
+      setProfilePickerOpen(false);
+      return;
+    }
+
+    setPendingLearnerCleanup({
+      learnerId: pending.learnerId,
+      preferences: !preferencesCleared,
+      history: !historyCleared,
+    });
+    setProfileError("Some local data could not be cleared. Retry cleanup to finish removing it.");
   };
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
@@ -213,11 +254,10 @@ export default function SettingsScreen() {
                 onSave={(nickname) => {
                   setSaveSection("nickname");
                   if (
-                    isDuplicateNickname(
+                    isDuplicateLearnerDisplayName(
                       nickname,
-                      learners
-                        .filter(({ id }) => id !== activeLearner.id)
-                        .map(({ nickname: existingNickname }) => existingNickname)
+                      learners,
+                      activeLearner.id,
                     )
                   ) {
                     setNicknameError("That nickname is already being used by another learner.");
@@ -361,6 +401,15 @@ export default function SettingsScreen() {
                 <Text accessibilityLiveRegion="polite" style={styles.errorText}>
                   {profileError}
                 </Text>
+              )}
+              {pendingLearnerCleanup && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void retryLearnerCleanup()}
+                  style={styles.retryCleanupButton}
+                >
+                  <Text style={styles.resetText}>Retry cleanup</Text>
+                </Pressable>
               )}
             </View>
             <View style={[styles.profileManagerList, isIpad && styles.tabletProfileManagerList]}>
@@ -534,9 +583,9 @@ export default function SettingsScreen() {
                   },
                   () =>
                     setProfileError(
-                      isDuplicateNickname(
+                      isDuplicateLearnerDisplayName(
                         newLearnerNickname,
-                        learners.map(({ nickname }) => nickname)
+                        learners,
                       )
                         ? "That nickname is already being used by another learner."
                         : "Couldn’t add this learner. Please try again."
@@ -665,14 +714,6 @@ function LegalLinks({ tablet, requestGate }: { tablet: boolean; requestGate: (ac
       ))}
     </View>
   );
-}
-
-function learnerDisplayName(
-  learner: { id: string; nickname: string },
-  learners: readonly { id: string; nickname: string }[]
-) {
-  if (learner.nickname) return learner.nickname;
-  return `Learner ${learners.findIndex(({ id }) => id === learner.id) + 1}`;
 }
 
 function NicknameEditor({
@@ -877,6 +918,7 @@ const styles = StyleSheet.create({
   tabletAddLearnerButton: { width: "100%", marginTop: 4 },
   addLearnerText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 16 },
   errorText: { color: "#B42318", fontFamily: "NunitoSans_600SemiBold", fontSize: 13, marginTop: 8 },
+  retryCleanupButton: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", marginTop: 4 },
   deleteLearnerButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   tabletDeleteLearnerButton: { width: 64 },
   reset: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 16, paddingVertical: 10 },

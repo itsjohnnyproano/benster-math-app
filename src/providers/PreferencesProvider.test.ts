@@ -24,7 +24,13 @@ vi.mock("react", async (importOriginal) => ({
   useMemo: (factory: () => unknown) => factory(),
 }));
 
-const storage = vi.hoisted(() => ({ getItem: vi.fn(), setItem: vi.fn(), removeItem: vi.fn() }));
+const storage = vi.hoisted(() => ({
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  getAllKeys: vi.fn(),
+  multiRemove: vi.fn(),
+}));
 vi.mock("expo-sqlite/kv-store", () => ({ default: storage }));
 
 import { DEFAULT_PREFERENCES } from "@/data/preferences/preferenceDefaults";
@@ -52,6 +58,8 @@ beforeEach(() => {
   storage.getItem.mockReset().mockResolvedValue(null);
   storage.setItem.mockReset().mockResolvedValue(undefined);
   storage.removeItem.mockReset().mockResolvedValue(undefined);
+  storage.getAllKeys.mockReset().mockResolvedValue([]);
+  storage.multiRemove.mockReset().mockResolvedValue(undefined);
 });
 
 describe("onboarding preference commit", () => {
@@ -217,16 +225,58 @@ describe("onboarding preference commit", () => {
     await expect(value.removeLearner("ari")).resolves.toEqual({ localPreferencesCleared: false });
 
     expect(render().learners.map((learner: { id: string }) => learner.id)).toEqual([LEGACY_LEARNER_ID]);
+    await expect(value.retryRemovedLearnerPreferencesCleanup("ari")).resolves.toBe(true);
+    cleanup();
+  });
+
+  it("does not persist a learner switch when the selected learner preferences cannot load", async () => {
+    storage.getItem
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify({
+        activeLearnerId: LEGACY_LEARNER_ID,
+        learners: [
+          { id: LEGACY_LEARNER_ID, nickname: "Jo", colorId: "sky", createdAtMs: 0 },
+          { id: "ari", nickname: "Ari", colorId: "coral", createdAtMs: 1 },
+        ],
+      }))
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error("Unreadable"));
+    const { value, cleanup } = await mount();
+
+    await expect(value.switchLearner("ari")).rejects.toThrow("Unreadable");
+
+    expect(render().activeLearner.id).toBe(LEGACY_LEARNER_ID);
+    expect(storage.setItem).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("keeps both a nickname and a practice-setting change made at the same time", async () => {
+    const { value, cleanup } = await mount();
+
+    const rename = value.renameActiveLearner("Neo");
+    value.updatePreference("durationSeconds", 30);
+    await rename;
+    for (let index = 0; index < 10; index++) await Promise.resolve();
+
+    expect(render().preferences).toMatchObject({ nickname: "Neo", durationSeconds: 30 });
+    const learnerPreferenceWrites = storage.setItem.mock.calls
+      .filter(([key]) => typeof key === "string" && key.startsWith("benster:learner-preferences:"));
+    expect(JSON.parse(learnerPreferenceWrites.at(-1)![1])).toMatchObject({ nickname: "Neo", durationSeconds: 30 });
     cleanup();
   });
 
   it("offers an explicit preference reset when saved preferences cannot be read", async () => {
     storage.getItem.mockResolvedValue("not json");
+    storage.getAllKeys.mockResolvedValue([
+      "benster:learner-preferences:v1:ari",
+      "unrelated-key",
+    ]);
     const { value, cleanup } = await mount();
     expect(render().loadError).toBe(true);
     expect(render().isReady).toBe(false);
     await value.resetUnreadablePreferences();
     expect(storage.removeItem).toHaveBeenCalledTimes(2);
+    expect(storage.multiRemove).toHaveBeenCalledWith(["benster:learner-preferences:v1:ari"]);
     cleanup();
   });
 });

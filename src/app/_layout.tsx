@@ -2,7 +2,7 @@ import "../global.css";
 
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { useAppFonts } from "@/lib/fonts";
@@ -17,6 +17,7 @@ SplashScreen.preventAutoHideAsync();
 function AppNavigation() {
   const router = useRouter();
   const { isReady, loadError, preferences, learners, activeLearner, profilePickerVisible, switchLearner, closeProfilePicker } = usePreferences();
+  const [profileSwitchError, setProfileSwitchError] = useState<string | null>(null);
 
   if (!isReady) {
     if (loadError) return <PreferencesRecoveryScreen />;
@@ -47,7 +48,13 @@ function AppNavigation() {
       activeLearnerId={activeLearner.id}
       learners={learners}
       visible={profilePickerVisible}
-      onChoose={(learnerId) => { void switchLearner(learnerId).finally(closeProfilePicker); }}
+      error={profileSwitchError}
+      onChoose={(learnerId) => {
+        setProfileSwitchError(null);
+        void switchLearner(learnerId).then(closeProfilePicker, () => {
+          setProfileSwitchError("Couldn’t switch learners. Please try again.");
+        });
+      }}
       onManage={() => { closeProfilePicker(); router.navigate("/settings"); }}
     />
   </>;

@@ -12,6 +12,7 @@ import { DEFAULT_PREFERENCES } from "./preferenceDefaults";
 
 const LEGACY_PREFERENCES_KEY = "math-sprint:user-preferences:v1";
 const learnerPreferencesKey = (learnerId: string) => `benster:learner-preferences:v1:${learnerId}`;
+const LEARNER_PREFERENCES_PREFIX = "benster:learner-preferences:v1:";
 
 let writeQueue = Promise.resolve();
 
@@ -78,6 +79,17 @@ export function savePreferences(preferences: UserPreferences, learnerId?: string
 
 export function deletePreferences(learnerId?: string): Promise<void> {
   const nextWrite = writeQueue.then(() => Storage.removeItem(learnerId ? learnerPreferencesKey(learnerId) : LEGACY_PREFERENCES_KEY));
+
+  writeQueue = nextWrite.catch(() => undefined);
+  return nextWrite;
+}
+
+/** Clears every learner preference when an unreadable registry leaves their IDs unknown. */
+export function deleteAllLearnerPreferences(): Promise<void> {
+  const nextWrite = writeQueue.then(async () => {
+    const learnerKeys = (await Storage.getAllKeys()).filter((key) => key.startsWith(LEARNER_PREFERENCES_PREFIX));
+    if (learnerKeys.length > 0) await Storage.multiRemove(learnerKeys);
+  });
 
   writeQueue = nextWrite.catch(() => undefined);
   return nextWrite;

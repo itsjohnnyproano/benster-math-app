@@ -1,18 +1,43 @@
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { resultsRepository } from "@/data/results/resultsRepository";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { COLORS } from "@/theme/tokens";
 
 export function PreferencesRecoveryScreen() {
   const { resetUnreadablePreferences } = usePreferences();
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState(false);
+
+  const resetSavedData = async () => {
+    if (isResetting) return;
+    setIsResetting(true);
+    setResetError(false);
+    try {
+      await resultsRepository.clearDevice();
+      await resetUnreadablePreferences();
+    } catch {
+      setResetError(true);
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   return (
     <View style={styles.screen}>
       <Text style={styles.brand}>Benster</Text>
       <Text accessibilityRole="alert" style={styles.error}>Saved preferences couldn’t be read.</Text>
-      <Text style={styles.help}>Reset them to continue. Your sprint history stays on this device.</Text>
-      <Pressable accessibilityRole="button" onPress={() => void resetUnreadablePreferences()} style={styles.button}>
-        <Text style={styles.buttonText}>Reset saved preferences</Text>
+      <Text style={styles.help}>Reset all saved data to continue. This removes learner profiles, preferences, and local practice history.</Text>
+      {resetError && <Text accessibilityRole="alert" style={styles.error}>Couldn’t reset saved data. Please try again.</Text>}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isResetting }}
+        disabled={isResetting}
+        onPress={() => void resetSavedData()}
+        style={styles.button}
+      >
+        <Text style={styles.buttonText}>{isResetting ? "Resetting…" : "Reset all saved data"}</Text>
       </Pressable>
     </View>
   );
