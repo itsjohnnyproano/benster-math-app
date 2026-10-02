@@ -360,7 +360,10 @@ export default function SettingsScreen() {
           </View>
         </SettingsContent>
       </KeyboardAvoidingView>
-      {gate.visible && <ParentalGate onResolved={gate.onResolved} />}
+      {/* A gate for the base Settings screen belongs above its content. Gates
+          requested from the full-screen learner manager render inside that
+          modal below so they are immediately visible on iPhone and iPad. */}
+      {gate.visible && !profilePickerOpen && <ParentalGate onResolved={gate.onResolved} />}
       <Modal
         visible={profilePickerOpen}
         animationType="slide"
@@ -549,6 +552,7 @@ export default function SettingsScreen() {
             </View>
             </ScrollView>
             </View>
+            {gate.visible && <ParentalGate onResolved={gate.onResolved} />}
           </SafeAreaView>
         </SafeAreaProvider>
       </Modal>
