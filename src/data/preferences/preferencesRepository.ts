@@ -1,4 +1,5 @@
 import Storage from "expo-sqlite/kv-store";
+import { isValidLearnerId } from "@/domain/learner";
 import { normalizeNickname } from "@/domain/nickname";
 
 import {
@@ -11,7 +12,14 @@ import {
 import { DEFAULT_PREFERENCES } from "./preferenceDefaults";
 
 const LEGACY_PREFERENCES_KEY = "math-sprint:user-preferences:v1";
-const learnerPreferencesKey = (learnerId: string) => `benster:learner-preferences:v1:${learnerId}`;
+function learnerPreferencesKey(learnerId: string): string {
+  if (!isValidLearnerId(learnerId)) throw new Error("Invalid learner ID");
+  return `benster:learner-preferences:v1:${learnerId}`;
+}
+
+function preferencesKey(learnerId?: string): string {
+  return learnerId === undefined ? LEGACY_PREFERENCES_KEY : learnerPreferencesKey(learnerId);
+}
 const LEARNER_PREFERENCES_PREFIX = "benster:learner-preferences:v1:";
 
 let writeQueue = Promise.resolve();
@@ -68,9 +76,10 @@ export async function loadLearnerPreferences(learnerId: string, legacyPreference
 }
 
 export function savePreferences(preferences: UserPreferences, learnerId?: string): Promise<void> {
+  const key = preferencesKey(learnerId);
   const snapshot = JSON.stringify(sanitizePreferences(preferences));
   const nextWrite = writeQueue.then(() =>
-    Storage.setItem(learnerId ? learnerPreferencesKey(learnerId) : LEGACY_PREFERENCES_KEY, snapshot),
+    Storage.setItem(key, snapshot),
   );
 
   writeQueue = nextWrite.catch(() => undefined);
@@ -78,7 +87,8 @@ export function savePreferences(preferences: UserPreferences, learnerId?: string
 }
 
 export function deletePreferences(learnerId?: string): Promise<void> {
-  const nextWrite = writeQueue.then(() => Storage.removeItem(learnerId ? learnerPreferencesKey(learnerId) : LEGACY_PREFERENCES_KEY));
+  const key = preferencesKey(learnerId);
+  const nextWrite = writeQueue.then(() => Storage.removeItem(key));
 
   writeQueue = nextWrite.catch(() => undefined);
   return nextWrite;

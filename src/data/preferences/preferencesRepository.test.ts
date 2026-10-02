@@ -4,7 +4,7 @@ const storage = vi.hoisted(() => ({ getItem: vi.fn(), setItem: vi.fn(), removeIt
 vi.mock("expo-sqlite/kv-store", () => ({ default: storage }));
 
 import { DEFAULT_PREFERENCES, resetPracticeDefaults } from "./preferenceDefaults";
-import { deletePreferences, loadPreferences, sanitizePreferences, savePreferences } from "./preferencesRepository";
+import { deletePreferences, loadLearnerPreferences, loadPreferences, sanitizePreferences, savePreferences } from "./preferencesRepository";
 
 beforeEach(() => {
   storage.getItem.mockReset().mockResolvedValue(null);
@@ -78,5 +78,16 @@ describe("preferences storage", () => {
     expect(storage.removeItem).toHaveBeenCalledWith("math-sprint:user-preferences:v1");
     expect(storage.setItem.mock.invocationCallOrder[0])
       .toBeLessThan(storage.removeItem.mock.invocationCallOrder[0]);
+  });
+
+  it("rejects invalid learner IDs before selecting learner-scoped storage", async () => {
+    const preferences = { ...DEFAULT_PREFERENCES, nickname: "Jo" };
+
+    await expect(loadLearnerPreferences("bad/id", preferences)).rejects.toThrow("Invalid learner ID");
+    expect(() => savePreferences(preferences, "bad/id")).toThrow("Invalid learner ID");
+    expect(() => deletePreferences("")).toThrow("Invalid learner ID");
+    expect(storage.getItem).not.toHaveBeenCalled();
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
   });
 });
