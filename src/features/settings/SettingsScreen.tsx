@@ -17,7 +17,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTabBarLayout } from "@/components/navigation/tabBarLayout";
 import { PracticePreferences } from "@/components/preferences/PracticePreferences";
@@ -39,6 +39,7 @@ import { useParentalGate } from "./useParentalGate";
 export default function SettingsScreen() {
   const { contentInset, isIpad } = useTabBarLayout();
   const { width, height, fontScale } = useWindowDimensions();
+  const safeAreaInsets = useSafeAreaInsets();
   const { twoColumn, maxWidth } = getSettingsLayout(isIpad, width, height, fontScale);
   const {
     preferences,
@@ -302,7 +303,7 @@ export default function SettingsScreen() {
               contentContainerStyle={[
                 styles.profileManagerContent,
                 isIpad && styles.tabletProfileManagerContent,
-                { paddingTop: isIpad ? 104 : 24 },
+                { paddingTop: isIpad ? 104 : safeAreaInsets.top + 24 },
               ]}
               showsVerticalScrollIndicator={false}
             >
