@@ -1,7 +1,12 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const hooks = vi.hoisted(() => ({
+  stateIndex: 0,
+  states: [] as unknown[],
+}));
 const gate = vi.hoisted(() => ({
+  action: null as (() => void) | null,
   onResolved: vi.fn(),
   request: vi.fn(),
   visible: true,
@@ -9,7 +14,15 @@ const gate = vi.hoisted(() => ({
 
 vi.mock("react", async (original) => ({
   ...await original<typeof import("react")>(),
-  useState: <T,>(initial: T) => [initial, vi.fn()] as const,
+  useState: <T,>(initial: T) => {
+    const index = hooks.stateIndex++;
+    if (!(index in hooks.states)) hooks.states[index] = initial;
+    return [hooks.states[index] as T, (value: T | ((current: T) => T)) => {
+      hooks.states[index] = typeof value === "function"
+        ? (value as (current: T) => T)(hooks.states[index] as T)
+        : value;
+    }] as const;
+  },
 }));
 
 vi.mock("react-native", () => ({
@@ -72,6 +85,9 @@ type ElementProps = {
   children?: ReactNode;
   onPress?: () => void;
   presentationStyle?: string;
+  transparent?: boolean;
+  visible?: boolean;
+  onDismiss?: () => void;
 };
 
 function find(node: ReactNode, type: string): ReactElement<ElementProps>[] {
@@ -82,6 +98,7 @@ function find(node: ReactNode, type: string): ReactElement<ElementProps>[] {
 }
 
 function render(onClose = vi.fn(), onOpen = vi.fn()) {
+  hooks.stateIndex = 0;
   return {
     onClose,
     onOpen,
@@ -90,9 +107,18 @@ function render(onClose = vi.fn(), onOpen = vi.fn()) {
 }
 
 beforeEach(() => {
+  hooks.stateIndex = 0;
+  hooks.states = [];
+  gate.action = null;
   gate.visible = true;
   gate.request.mockReset();
   gate.onResolved.mockReset();
+  gate.request.mockImplementation((action) => { gate.action = action; });
+  gate.onResolved.mockImplementation((approved: boolean) => {
+    const action = gate.action;
+    gate.action = null;
+    if (approved) action?.();
+  });
   vi.mocked(Alert.alert).mockReset();
 });
 
@@ -115,8 +141,7 @@ describe("Manage learners parental gate", () => {
     expect(gate.request).toHaveBeenCalledOnce();
     expect(Alert.alert).not.toHaveBeenCalled();
 
-    const action = gate.request.mock.calls[0]?.[0] as (() => void) | undefined;
-    action?.();
+    gate.onResolved(true);
     expect(Alert.alert).toHaveBeenCalledWith(
       "Delete learner?",
       expect.stringContaining("Jake"),
@@ -124,8 +149,24 @@ describe("Manage learners parental gate", () => {
     );
   });
 
-  it("keeps the manager open until parental approval is resolved for Add", () => {
-    const { tree, onClose } = render();
+  it("keeps Add closed when the parent check is cancelled", () => {
+    const onClose = vi.fn();
+    const { tree } = render(onClose);
+    const addButton = find(tree, "Pressable").find(
+      (pressable) => pressable.props.accessibilityLabel === undefined
+        && find(pressable, "Text").some((text) => text.props.children === "+ Add a learner")
+    );
+
+    addButton?.props.onPress?.();
+    gate.onResolved(false);
+    const { tree: cancelledTree } = render(onClose);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(find(cancelledTree, "Modal").find((modal) => modal.props.transparent)?.props.visible).toBe(false);
+  });
+
+  it("opens Add only after parent approval and the manager dismissal", () => {
+    const onClose = vi.fn();
+    let { tree } = render(onClose);
     const addButton = find(tree, "Pressable").find(
       (pressable) => pressable.props.accessibilityLabel === undefined
         && find(pressable, "Text").some((text) => text.props.children === "+ Add a learner")
@@ -134,9 +175,16 @@ describe("Manage learners parental gate", () => {
     addButton?.props.onPress?.();
     expect(gate.request).toHaveBeenCalledOnce();
     expect(onClose).not.toHaveBeenCalled();
+    ({ tree } = render(onClose));
+    expect(find(tree, "Modal").find((modal) => modal.props.transparent)?.props.visible).toBe(false);
 
-    const action = gate.request.mock.calls[0]?.[0] as (() => void) | undefined;
-    action?.();
+    gate.onResolved(true);
     expect(onClose).toHaveBeenCalledOnce();
+
+    ({ tree } = render(onClose));
+    const manager = find(tree, "Modal").find((modal) => modal.props.presentationStyle === "fullScreen");
+    manager?.props.onDismiss?.();
+    ({ tree } = render(onClose));
+    expect(find(tree, "Modal").find((modal) => modal.props.transparent)?.props.visible).toBe(true);
   });
 });

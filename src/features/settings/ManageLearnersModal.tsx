@@ -1,6 +1,7 @@
 import {
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -55,6 +56,8 @@ export function ManageLearnersModal({
   } = usePreferences();
   const gate = useParentalGate();
   const [addOpen, setAddOpen] = useState(false);
+  const [openAddAfterManagerDismiss, setOpenAddAfterManagerDismiss] = useState(false);
+  const [openManagerAfterAddDismiss, setOpenManagerAfterAddDismiss] = useState(false);
   const [newLearnerNickname, setNewLearnerNickname] = useState("");
   const [profileError, setProfileError] = useState<string | null>(null);
   const [pendingCleanups, setPendingCleanups] = useState<readonly PendingCleanup[]>([]);
@@ -128,6 +131,11 @@ export function ManageLearnersModal({
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={onClose}
+        onDismiss={() => {
+          if (!openAddAfterManagerDismiss) return;
+          setOpenAddAfterManagerDismiss(false);
+          setAddOpen(true);
+        }}
       >
         <SafeAreaProvider>
           <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.screen}>
@@ -315,9 +323,11 @@ export function ManageLearnersModal({
                     accessibilityRole="button"
                     onPress={() =>
                       gate.request(() => {
-                        onClose();
                         setProfileError(null);
-                        setAddOpen(true);
+                        // iOS cannot reliably present a second native modal while
+                        // this full-screen manager is still animating away.
+                        setOpenAddAfterManagerDismiss(true);
+                        onClose();
                       })
                     }
                     style={[styles.add, tablet && styles.tabletAdd]}
@@ -336,6 +346,11 @@ export function ManageLearnersModal({
         visible={addOpen}
         animationType="fade"
         onRequestClose={() => setAddOpen(false)}
+        onDismiss={() => {
+          if (!openManagerAfterAddDismiss) return;
+          setOpenManagerAfterAddDismiss(false);
+          onOpen();
+        }}
       >
         <View style={styles.backdrop}>
           <View accessibilityViewIsModal style={styles.dialog}>
@@ -372,8 +387,9 @@ export function ManageLearnersModal({
                   .then(
                     () => {
                       setNewLearnerNickname("");
+                      if (Platform.OS === "ios") setOpenManagerAfterAddDismiss(true);
                       setAddOpen(false);
-                      onOpen();
+                      if (Platform.OS !== "ios") onOpen();
                     },
                     () =>
                       setProfileError(
