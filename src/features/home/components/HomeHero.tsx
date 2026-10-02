@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   mascot: {
     position: "absolute",
-    right: -28,
+    right: -70,
     bottom: -28,
     width: 240,
     height: 225,

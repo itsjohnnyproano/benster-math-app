@@ -1,4 +1,5 @@
 import Storage from "expo-sqlite/kv-store";
+import { isValidLearnerId } from "@/domain/learner";
 import { normalizeNickname } from "@/domain/nickname";
 
 import {
@@ -10,7 +11,16 @@ import {
 
 import { DEFAULT_PREFERENCES } from "./preferenceDefaults";
 
-const PREFERENCES_KEY = "math-sprint:user-preferences:v1";
+const LEGACY_PREFERENCES_KEY = "math-sprint:user-preferences:v1";
+function learnerPreferencesKey(learnerId: string): string {
+  if (!isValidLearnerId(learnerId)) throw new Error("Invalid learner ID");
+  return `benster:learner-preferences:v1:${learnerId}`;
+}
+
+function preferencesKey(learnerId?: string): string {
+  return learnerId === undefined ? LEGACY_PREFERENCES_KEY : learnerPreferencesKey(learnerId);
+}
+const LEARNER_PREFERENCES_PREFIX = "benster:learner-preferences:v1:";
 
 let writeQueue = Promise.resolve();
 
@@ -44,10 +54,10 @@ export function sanitizePreferences(value: unknown): UserPreferences {
   };
 }
 
-export async function loadPreferences(): Promise<UserPreferences> {
+async function loadPreferencesAtKey(key: string): Promise<UserPreferences | null> {
   // An I/O failure must not masquerade as a new install and overwrite saved data.
-  const savedValue = await Storage.getItem(PREFERENCES_KEY);
-  if (!savedValue) return DEFAULT_PREFERENCES;
+  const savedValue = await Storage.getItem(key);
+  if (!savedValue) return null;
   try {
     return sanitizePreferences(JSON.parse(savedValue));
   } catch {
@@ -57,18 +67,39 @@ export async function loadPreferences(): Promise<UserPreferences> {
   }
 }
 
-export function savePreferences(preferences: UserPreferences): Promise<void> {
+export async function loadPreferences(): Promise<UserPreferences> {
+  return (await loadPreferencesAtKey(LEGACY_PREFERENCES_KEY)) ?? DEFAULT_PREFERENCES;
+}
+
+export async function loadLearnerPreferences(learnerId: string, legacyPreferences: UserPreferences): Promise<UserPreferences> {
+  return (await loadPreferencesAtKey(learnerPreferencesKey(learnerId))) ?? legacyPreferences;
+}
+
+export function savePreferences(preferences: UserPreferences, learnerId?: string): Promise<void> {
+  const key = preferencesKey(learnerId);
   const snapshot = JSON.stringify(sanitizePreferences(preferences));
   const nextWrite = writeQueue.then(() =>
-    Storage.setItem(PREFERENCES_KEY, snapshot),
+    Storage.setItem(key, snapshot),
   );
 
   writeQueue = nextWrite.catch(() => undefined);
   return nextWrite;
 }
 
-export function deletePreferences(): Promise<void> {
-  const nextWrite = writeQueue.then(() => Storage.removeItem(PREFERENCES_KEY));
+export function deletePreferences(learnerId?: string): Promise<void> {
+  const key = preferencesKey(learnerId);
+  const nextWrite = writeQueue.then(() => Storage.removeItem(key));
+
+  writeQueue = nextWrite.catch(() => undefined);
+  return nextWrite;
+}
+
+/** Clears every learner preference when an unreadable registry leaves their IDs unknown. */
+export function deleteAllLearnerPreferences(): Promise<void> {
+  const nextWrite = writeQueue.then(async () => {
+    const learnerKeys = (await Storage.getAllKeys()).filter((key) => key.startsWith(LEARNER_PREFERENCES_PREFIX));
+    if (learnerKeys.length > 0) await Storage.multiRemove(learnerKeys);
+  });
 
   writeQueue = nextWrite.catch(() => undefined);
   return nextWrite;

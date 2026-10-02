@@ -17,6 +17,7 @@ import {
 import { SprintResultsScreen } from "@/features/sprint-results/SprintResultsScreen";
 import { getAdaptiveLayout } from "@/shared/responsiveLayout";
 import { COLORS } from "@/theme/tokens";
+import { usePreferences } from "@/providers/PreferencesProvider";
 
 import { CountdownView } from "./components/CountdownView";
 import { MultipleChoiceAnswers } from "./components/MultipleChoiceAnswers";
@@ -36,6 +37,8 @@ function readBoolean(value: string | undefined) {
 export default function SprintPlayScreen() {
   const router = useRouter();
   const [sprintId] = useState(createLocalSprintId);
+  const { activeLearner } = usePreferences();
+  const [learnerId] = useState(activeLearner.id);
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
@@ -165,7 +168,7 @@ export default function SprintPlayScreen() {
       <SafeAreaView style={styles.safeArea}>
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
         <StatusBar style="dark" />
-        <SprintResultsScreen sprintId={sprintId} onDone={() => router.dismissTo("/")} result={sprintState.result} />
+        <SprintResultsScreen learnerId={learnerId} sprintId={sprintId} onDone={() => router.dismissTo("/")} result={sprintState.result} />
       </SafeAreaView>
     );
   }

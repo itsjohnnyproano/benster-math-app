@@ -10,6 +10,7 @@ import { PreferencesProvider, usePreferences } from "@/providers/PreferencesProv
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
 import { PreferencesRecoveryScreen } from "@/components/preferences/PreferencesRecoveryScreen";
 import { COLORS } from "@/theme/tokens";
+import { ProfilePickerController } from "@/features/learners/ProfilePickerController";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,7 +29,7 @@ function AppNavigation() {
     );
   }
 
-  return (
+  return <>
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={!preferences.onboardingCompleted}>
         <Stack.Screen name="onboarding" />
@@ -41,7 +42,8 @@ function AppNavigation() {
         <Stack.Screen name="sprint/play" />
       </Stack.Protected>
     </Stack>
-  );
+    <ProfilePickerController />
+  </>;
 }
 
 const styles = StyleSheet.create({

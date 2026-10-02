@@ -2,21 +2,34 @@ import { SymbolView } from "expo-symbols";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
+import { PROFILE_COLORS } from "@/theme/profileColors";
+import type { ProfileColorId } from "@/domain/learner";
 
 type HomeHeaderProps = {
   displayName: string;
+  profileInitial?: string;
+  profileColorId?: ProfileColorId;
   isTablet?: boolean;
   stacked?: boolean;
   streakDays: number | null;
   onPressStreak?: () => void;
+  onPressProfile?: () => void;
 };
 
-export function HomeHeader({ displayName, isTablet = false, stacked = false, streakDays, onPressStreak }: HomeHeaderProps) {
+export function HomeHeader({ displayName, profileInitial, profileColorId = "violet", isTablet = false, stacked = false, streakDays, onPressStreak, onPressProfile }: HomeHeaderProps) {
+  const profileColor = PROFILE_COLORS[profileColorId];
   return (
     <View style={[styles.header, stacked && styles.stackedHeader]}>
       <View style={[styles.greetingBlock, stacked && styles.stackedGreetingBlock]}>
-        <Text maxFontSizeMultiplier={1.3} style={[styles.greeting, isTablet && styles.tabletGreeting]}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
-        <Text maxFontSizeMultiplier={1.4} style={[styles.subtitle, isTablet && styles.tabletSubtitle]}>Ready to practice?</Text>
+        <View style={styles.greetingLine}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Choose learner profile" onPress={onPressProfile} style={({ pressed }) => [styles.profileAvatar, { backgroundColor: profileColor.background }, isTablet && styles.tabletProfileAvatar, pressed && styles.pressed]}>
+            <Text style={[styles.profileInitial, { color: profileColor.foreground }, isTablet && styles.tabletProfileInitial]}>{(profileInitial || "L").slice(0, 1).toUpperCase()}</Text>
+          </Pressable>
+          <View style={styles.greetingCopy}>
+            <Text adjustsFontSizeToFit maxFontSizeMultiplier={1.2} minimumFontScale={0.78} numberOfLines={1} style={[styles.greeting, isTablet && styles.tabletGreeting]}>{displayName ? `Hey, ${displayName}!` : "Hey there!"}</Text>
+            <Text adjustsFontSizeToFit maxFontSizeMultiplier={1.1} minimumFontScale={0.82} numberOfLines={1} style={[styles.subtitle, isTablet && styles.tabletSubtitle]}>Ready to practice?</Text>
+          </View>
+        </View>
       </View>
 
       <Pressable
@@ -49,6 +62,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   greetingBlock: { flex: 1 },
+  greetingLine: { flexDirection: "row", alignItems: "center", gap: 10 },
+  greetingCopy: { flex: 1, minWidth: 0 },
   stackedHeader: { flexDirection: "column", gap: 16 },
   stackedGreetingBlock: { flex: 0, width: "100%" },
   greeting: {
@@ -59,13 +74,17 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   tabletGreeting: { fontSize: 40, lineHeight: 50 },
+  profileAvatar: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
+  tabletProfileAvatar: { width: 60, height: 60, borderRadius: 30 },
+  profileInitial: { fontFamily: "NunitoSans_700Bold", fontSize: 22 },
+  tabletProfileInitial: { fontSize: 25 },
   tabletStreakText: { fontSize: 17 },
   subtitle: {
-    marginTop: 1,
+    marginTop: -2,
     color: COLORS.secondary,
     fontFamily: "NunitoSans_600SemiBold",
-    fontSize: 17,
-    lineHeight: 23,
+    fontSize: 16,
+    lineHeight: 21,
   },
   tabletSubtitle: { fontSize: 21, lineHeight: 29 },
   streakPill: {

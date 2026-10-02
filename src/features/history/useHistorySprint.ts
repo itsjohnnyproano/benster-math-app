@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { resultsRepository } from "@/data/results/resultsRepository";
 import { isValidSprintId } from "@/data/results/createResultsRepository";
 import type { SavedSprint } from "@/domain/results";
+import { usePreferences } from "@/providers/PreferencesProvider";
 
 type State =
   | { status: "loading" }
@@ -12,6 +13,7 @@ type State =
   | { status: "error" };
 
 export function useHistorySprint(sprintId: string | null) {
+  const { activeLearner } = usePreferences();
   const [state, setState] = useState<State>({ status: "loading" });
   const request = useRef(0);
   const busy = useRef(false);
@@ -26,7 +28,7 @@ export function useHistorySprint(sprintId: string | null) {
     const requestId = ++request.current;
     busy.current = true;
     setState({ status: "loading" });
-    resultsRepository.get(sprintId).then(
+    resultsRepository.get(activeLearner.id, sprintId).then(
       (record) => {
         if (request.current !== requestId) return;
         busy.current = false;
@@ -38,7 +40,7 @@ export function useHistorySprint(sprintId: string | null) {
         setState({ status: "error" });
       },
     );
-  }, [sprintId]);
+  }, [activeLearner.id, sprintId]);
 
   useFocusEffect(useCallback(() => {
     load();

@@ -10,6 +10,7 @@ import {
   type SprintDurationSeconds,
   type SprintMode,
 } from "@/domain/sprint";
+import { LEGACY_LEARNER_ID, isValidLearnerId } from "@/domain/learner";
 
 type SqlValue = string | number | null;
 export interface ResultsDatabase {
@@ -32,7 +33,7 @@ export type PersonalBests = Partial<Record<SprintMode, number>>;
 export type HistoryCursor = Readonly<{ completedAtMs: number; id: string }>;
 export type HistoryPage = Readonly<{ records: SavedSprint[]; nextCursor: HistoryCursor | null }>;
 
-const DATABASE_SCHEMA_VERSION = 2;
+const DATABASE_SCHEMA_VERSION = 3;
 const SPRINT_ID_PATTERN = /^[a-zA-Z0-9-]{1,128}$/;
 const SPRINT_MODE_SQL_LIST = SPRINT_MODES.map((mode) => `'${mode}'`).join(",");
 
@@ -41,6 +42,29 @@ export function isValidSprintId(value: unknown): value is string {
 }
 
 const CREATE_TABLES = `
+  CREATE TABLE sprints (
+    id TEXT PRIMARY KEY NOT NULL,
+    learner_id TEXT NOT NULL,
+    schema_version INTEGER NOT NULL,
+    mode TEXT NOT NULL CHECK (mode IN (${SPRINT_MODE_SQL_LIST})),
+    duration_seconds INTEGER NOT NULL CHECK (duration_seconds IN (30,60,90,120)),
+    completed_at_ms INTEGER NOT NULL,
+    result_json TEXT NOT NULL,
+    previous_best INTEGER,
+    updated_best INTEGER,
+    best_status TEXT NOT NULL
+  );
+  CREATE TABLE personal_bests (
+    learner_id TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    duration_seconds INTEGER NOT NULL,
+    correct_count INTEGER NOT NULL CHECK (correct_count >= 0),
+    sprint_id TEXT NOT NULL REFERENCES sprints(id),
+    PRIMARY KEY (learner_id, mode, duration_seconds)
+  );
+`;
+const CREATE_INDEX = "CREATE INDEX sprints_completed ON sprints(learner_id, completed_at_ms DESC);";
+const CREATE_V2_TABLES = `
   CREATE TABLE sprints (
     id TEXT PRIMARY KEY NOT NULL,
     schema_version INTEGER NOT NULL,
@@ -60,18 +84,32 @@ const CREATE_TABLES = `
     PRIMARY KEY (mode, duration_seconds)
   );
 `;
-const CREATE_INDEX = "CREATE INDEX sprints_completed ON sprints(completed_at_ms DESC);";
+const CREATE_V2_INDEX = "CREATE INDEX sprints_completed ON sprints(completed_at_ms DESC);";
 const SCHEMA = `${CREATE_TABLES}${CREATE_INDEX}
   PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};`;
 
 const MIGRATE_V1_TO_V2 = `
   ALTER TABLE sprints RENAME TO sprints_v1;
   ALTER TABLE personal_bests RENAME TO personal_bests_v1;
-  ${CREATE_TABLES}
+  ${CREATE_V2_TABLES}
   INSERT INTO sprints SELECT * FROM sprints_v1;
   INSERT INTO personal_bests SELECT * FROM personal_bests_v1;
   DROP TABLE personal_bests_v1;
   DROP TABLE sprints_v1;
+  ${CREATE_V2_INDEX}
+  PRAGMA user_version = 2;
+`;
+
+const MIGRATE_V2_TO_V3 = `
+  ALTER TABLE sprints RENAME TO sprints_v2;
+  ALTER TABLE personal_bests RENAME TO personal_bests_v2;
+  ${CREATE_TABLES}
+  INSERT INTO sprints (id, learner_id, schema_version, mode, duration_seconds, completed_at_ms, result_json, previous_best, updated_best, best_status)
+    SELECT id, '${LEGACY_LEARNER_ID}', schema_version, mode, duration_seconds, completed_at_ms, result_json, previous_best, updated_best, best_status FROM sprints_v2;
+  INSERT INTO personal_bests (learner_id, mode, duration_seconds, correct_count, sprint_id)
+    SELECT '${LEGACY_LEARNER_ID}', mode, duration_seconds, correct_count, sprint_id FROM personal_bests_v2;
+  DROP TABLE personal_bests_v2;
+  DROP TABLE sprints_v2;
   ${CREATE_INDEX}
   PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};
 `;
@@ -128,6 +166,9 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
         await applySchemaUpdate(candidate, SCHEMA);
       } else if (version.user_version === 1) {
         await applySchemaUpdate(candidate, MIGRATE_V1_TO_V2);
+        await applySchemaUpdate(candidate, MIGRATE_V2_TO_V3);
+      } else if (version.user_version === 2) {
+        await applySchemaUpdate(candidate, MIGRATE_V2_TO_V3);
       }
       database = candidate;
       return candidate;
@@ -138,11 +179,12 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
   }
 
   return {
-    listCompletionTimes(): Promise<number[]> {
+    listCompletionTimes(learnerId = LEGACY_LEARNER_ID): Promise<number[]> {
+      if (!isValidLearnerId(learnerId)) return Promise.reject(new Error("Invalid learner ID"));
       return serialize(async () => {
         const db = await getDatabase();
         const rows = await db.getAllAsync<{ completed_at_ms: number }>(
-          "SELECT completed_at_ms FROM sprints ORDER BY completed_at_ms", [],
+          "SELECT completed_at_ms FROM sprints WHERE learner_id = ? ORDER BY completed_at_ms", [learnerId],
         );
         return rows.map(({ completed_at_ms: timestamp }) => {
           if (!isValidTimestamp(timestamp)) {
@@ -153,9 +195,11 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       });
     },
 
-    list(options: { mode?: SprintMode; cursor?: HistoryCursor; limit?: number } = {}): Promise<HistoryPage> {
+    list(learnerIdOrOptions: string | { mode?: SprintMode; cursor?: HistoryCursor; limit?: number } = LEGACY_LEARNER_ID, providedOptions: { mode?: SprintMode; cursor?: HistoryCursor; limit?: number } = {}): Promise<HistoryPage> {
+      const learnerId = typeof learnerIdOrOptions === "string" ? learnerIdOrOptions : LEGACY_LEARNER_ID;
+      const options = typeof learnerIdOrOptions === "string" ? providedOptions : learnerIdOrOptions;
       const { mode, cursor, limit = 20 } = options;
-      if ((mode !== undefined && !isSprintMode(mode))
+      if (!isValidLearnerId(learnerId) || (mode !== undefined && !isSprintMode(mode))
         || !Number.isSafeInteger(limit) || limit < 1 || limit > 100
         || (cursor && (!Number.isSafeInteger(cursor.completedAtMs) || cursor.completedAtMs < 0
           || !isValidSprintId(cursor.id)))) {
@@ -165,6 +209,7 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       // breaks timestamp ties; filtering happens in SQLite before the limit.
       const conditions: string[] = [];
       const params: SqlValue[] = [];
+      conditions.push("learner_id = ?"); params.push(learnerId);
       if (mode) { conditions.push("mode = ?"); params.push(mode); }
       if (cursor) {
         conditions.push("(completed_at_ms < ? OR (completed_at_ms = ? AND id < ?))");
@@ -187,9 +232,12 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       });
     },
 
-    save(id: string, result: SprintResult): Promise<SavedSprint> {
+    save(learnerIdOrId: string, idOrResult: string | SprintResult, providedResult?: SprintResult): Promise<SavedSprint> {
+      const learnerId = providedResult ? learnerIdOrId : LEGACY_LEARNER_ID;
+      const id = providedResult ? idOrResult as string : learnerIdOrId;
+      const result = providedResult ?? idOrResult as SprintResult;
       // timestamp/random IDs are identities only; never interpolate them into SQL.
-      if (!isValidSprintId(id)) return Promise.reject(new Error("Invalid sprint ID"));
+      if (!isValidLearnerId(learnerId) || !isValidSprintId(id)) return Promise.reject(new Error("Invalid sprint ID or learner ID"));
       try { assertSprintResult(result); } catch (error) { return Promise.reject(error); }
       const resultJson = JSON.stringify(result);
       const snapshot: SprintResult = JSON.parse(resultJson);
@@ -198,7 +246,7 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
         const db = await getDatabase();
         await db.execAsync("BEGIN IMMEDIATE");
         try {
-          const existing = await db.getFirstAsync<ResultRow>("SELECT * FROM sprints WHERE id = ?", [id]);
+          const existing = await db.getFirstAsync<ResultRow>("SELECT * FROM sprints WHERE id = ? AND learner_id = ?", [id, learnerId]);
           if (existing) {
             if (existing.result_json !== resultJson) throw new Error("Sprint ID already belongs to a different result");
             const saved = readResult(existing);
@@ -208,24 +256,24 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
 
           const { mode, durationSeconds } = snapshot.configuration;
           const previous = await db.getFirstAsync<{ correct_count: number }>(
-            "SELECT correct_count FROM personal_bests WHERE mode = ? AND duration_seconds = ?",
-            [mode, durationSeconds],
+            "SELECT correct_count FROM personal_bests WHERE learner_id = ? AND mode = ? AND duration_seconds = ?",
+            [learnerId, mode, durationSeconds],
           );
           const previousScore = previous?.correct_count ?? null;
           checkBest(previousScore);
           const personalBest = calculatePersonalBest(snapshot, previousScore);
           await db.runAsync(
-            `INSERT INTO sprints (id, schema_version, mode, duration_seconds, completed_at_ms,
-              result_json, previous_best, updated_best, best_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, RESULT_SCHEMA_VERSION, mode, durationSeconds, snapshot.completedAtMs,
+            `INSERT INTO sprints (id, learner_id, schema_version, mode, duration_seconds, completed_at_ms,
+              result_json, previous_best, updated_best, best_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, learnerId, RESULT_SCHEMA_VERSION, mode, durationSeconds, snapshot.completedAtMs,
               resultJson, personalBest.previous, personalBest.updated, personalBest.status],
           );
           if (personalBest.status === "first" || personalBest.status === "new") {
             await db.runAsync(
-              `INSERT INTO personal_bests (mode, duration_seconds, correct_count, sprint_id)
-                VALUES (?, ?, ?, ?) ON CONFLICT(mode, duration_seconds) DO UPDATE SET
+              `INSERT INTO personal_bests (learner_id, mode, duration_seconds, correct_count, sprint_id)
+                VALUES (?, ?, ?, ?, ?) ON CONFLICT(learner_id, mode, duration_seconds) DO UPDATE SET
                 correct_count = excluded.correct_count, sprint_id = excluded.sprint_id`,
-              [mode, durationSeconds, snapshot.correctCount, id],
+              [learnerId, mode, durationSeconds, snapshot.correctCount, id],
             );
           }
           await db.execAsync("COMMIT");
@@ -242,20 +290,25 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       });
     },
 
-    get(id: string): Promise<SavedSprint | null> {
-      if (!isValidSprintId(id)) return Promise.reject(new Error("Invalid sprint ID"));
+    get(learnerIdOrId: string, providedId?: string): Promise<SavedSprint | null> {
+      const learnerId = providedId ? learnerIdOrId : LEGACY_LEARNER_ID;
+      const id = providedId ?? learnerIdOrId;
+      if (!isValidLearnerId(learnerId) || !isValidSprintId(id)) return Promise.reject(new Error("Invalid sprint ID or learner ID"));
       return serialize(async () => {
         const db = await getDatabase();
-        const row = await db.getFirstAsync<ResultRow>("SELECT * FROM sprints WHERE id = ?", [id]);
+        const row = await db.getFirstAsync<ResultRow>("SELECT * FROM sprints WHERE id = ? AND learner_id = ?", [id, learnerId]);
         return row ? readResult(row) : null;
       });
     },
 
-    getPersonalBests(duration: SprintDurationSeconds): Promise<PersonalBests> {
+    getPersonalBests(learnerIdOrDuration: string | SprintDurationSeconds, providedDuration?: SprintDurationSeconds): Promise<PersonalBests> {
+      const learnerId = providedDuration === undefined ? LEGACY_LEARNER_ID : learnerIdOrDuration as string;
+      const duration = providedDuration ?? learnerIdOrDuration as SprintDurationSeconds;
+      if (!isValidLearnerId(learnerId)) return Promise.reject(new Error("Invalid learner ID"));
       return serialize(async () => {
         const db = await getDatabase();
         const rows = await db.getAllAsync<{ mode: string; correct_count: number }>(
-          "SELECT mode, correct_count FROM personal_bests WHERE duration_seconds = ?", [duration],
+          "SELECT mode, correct_count FROM personal_bests WHERE learner_id = ? AND duration_seconds = ?", [learnerId, duration],
         );
         const bests: PersonalBests = {};
         for (const row of rows) {
@@ -267,12 +320,33 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       });
     },
 
-    clearAll(): Promise<void> {
+    clearAll(learnerId = LEGACY_LEARNER_ID): Promise<void> {
+      if (!isValidLearnerId(learnerId)) return Promise.reject(new Error("Invalid learner ID"));
       return serialize(async () => {
         const db = await getDatabase();
         await db.execAsync("BEGIN IMMEDIATE");
         try {
           // Delete dependents first because foreign keys are enforced.
+          await db.runAsync("DELETE FROM personal_bests WHERE learner_id = ?", [learnerId]);
+          await db.runAsync("DELETE FROM sprints WHERE learner_id = ?", [learnerId]);
+          await db.execAsync("COMMIT");
+        } catch (error) {
+          try {
+            await db.execAsync("ROLLBACK");
+          } catch {
+            database = null;
+            await db.closeAsync().catch(() => undefined);
+          }
+          throw error;
+        }
+      });
+    },
+
+    clearDevice(): Promise<void> {
+      return serialize(async () => {
+        const db = await getDatabase();
+        await db.execAsync("BEGIN IMMEDIATE");
+        try {
           await db.execAsync("DELETE FROM personal_bests; DELETE FROM sprints;");
           await db.execAsync("COMMIT");
         } catch (error) {

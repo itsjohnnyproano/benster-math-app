@@ -27,7 +27,7 @@ import { usePracticeStreak } from "./usePracticeStreak";
 let cleanup: (() => void) | undefined;
 function focus() {
   harness.stateIndex = 0;
-  const hook = usePracticeStreak();
+  const hook = usePracticeStreak("learner-test");
   cleanup = harness.focus!();
   return hook;
 }

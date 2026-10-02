@@ -21,19 +21,22 @@ export default function HomeScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const { contentInset } = useTabBarLayout();
-  const streak = usePracticeStreak();
-  const { preferences, isReady } = usePreferences();
-  const personalBests = usePersonalBests(preferences.durationSeconds, isReady);
+  const { preferences, isReady, activeLearner, openProfilePicker } = usePreferences();
+  const streak = usePracticeStreak(activeLearner.id);
+  const personalBests = usePersonalBests(activeLearner.id, preferences.durationSeconds, isReady);
   const layout = getAdaptiveLayout(width, height);
   const isTablet = layout !== "phone";
   const isLandscapeTablet = layout === "tablet-landscape";
   const header = (
     <HomeHeader
       displayName={preferences.nickname}
+      profileInitial={activeLearner.nickname}
+      profileColorId={activeLearner.colorId}
       isTablet={isTablet}
       stacked={isLandscapeTablet}
       streakDays={streak.data?.currentStreak ?? null}
       onPressStreak={() => router.push("/streak")}
+      onPressProfile={openProfilePicker}
     />
   );
 
