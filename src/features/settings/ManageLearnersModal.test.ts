@@ -11,6 +11,11 @@ const gate = vi.hoisted(() => ({
   request: vi.fn(),
   visible: true,
 }));
+const dependencies = vi.hoisted(() => ({ addLearner: vi.fn() }));
+const platform = vi.hoisted(() => ({
+  OS: "ios",
+  select: (values: { default?: unknown }) => values.default,
+}));
 
 vi.mock("react", async (original) => ({
   ...await original<typeof import("react")>(),
@@ -28,7 +33,7 @@ vi.mock("react", async (original) => ({
 vi.mock("react-native", () => ({
   Alert: { alert: vi.fn() },
   Modal: "Modal",
-  Platform: { select: (values: { default?: unknown }) => values.default },
+  Platform: platform,
   Pressable: "Pressable",
   ScrollView: "ScrollView",
   StyleSheet: { create: <T,>(styles: T) => styles },
@@ -68,7 +73,7 @@ vi.mock("@/providers/PreferencesProvider", () => ({
       createdAtMs: 1,
     },
     switchLearner: vi.fn(),
-    addLearner: vi.fn(),
+    addLearner: dependencies.addLearner,
     removeLearner: vi.fn(),
     retryRemovedLearnerPreferencesCleanup: vi.fn(),
     updateLearnerColor: vi.fn(),
@@ -88,6 +93,8 @@ type ElementProps = {
   transparent?: boolean;
   visible?: boolean;
   onDismiss?: () => void;
+  disabled?: boolean;
+  accessibilityState?: { disabled?: boolean };
 };
 
 function find(node: ReactNode, type: string): ReactElement<ElementProps>[] {
@@ -109,10 +116,13 @@ function render(onClose = vi.fn(), onOpen = vi.fn()) {
 beforeEach(() => {
   hooks.stateIndex = 0;
   hooks.states = [];
+  platform.OS = "ios";
   gate.action = null;
   gate.visible = true;
   gate.request.mockReset();
   gate.onResolved.mockReset();
+  dependencies.addLearner.mockReset();
+  dependencies.addLearner.mockResolvedValue(undefined);
   gate.request.mockImplementation((action) => { gate.action = action; });
   gate.onResolved.mockImplementation((approved: boolean) => {
     const action = gate.action;
@@ -186,5 +196,48 @@ describe("Manage learners parental gate", () => {
     manager?.props.onDismiss?.();
     ({ tree } = render(onClose));
     expect(find(tree, "Modal").find((modal) => modal.props.transparent)?.props.visible).toBe(true);
+  });
+
+  it("opens Add immediately after approval on Android", () => {
+    platform.OS = "android";
+    const onClose = vi.fn();
+    let { tree } = render(onClose);
+    const addButton = find(tree, "Pressable").find(
+      (pressable) => find(pressable, "Text").some((text) => text.props.children === "+ Add a learner")
+    );
+
+    addButton?.props.onPress?.();
+    gate.onResolved(true);
+    ({ tree } = render(onClose));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(find(tree, "Modal").find((modal) => modal.props.transparent)?.props.visible).toBe(true);
+  });
+
+  it("does not allow the Add dialog to be cancelled while its save is pending", () => {
+    let resolveAdd: (() => void) | undefined;
+    dependencies.addLearner.mockImplementation(() => new Promise<void>((resolve) => { resolveAdd = resolve; }));
+    const onClose = vi.fn();
+    let { tree } = render(onClose);
+    const addProfileButton = find(tree, "Pressable").find(
+      (pressable) => find(pressable, "Text").some((text) => text.props.children === "+ Add a learner")
+    );
+
+    addProfileButton?.props.onPress?.();
+    gate.onResolved(true);
+    ({ tree } = render(onClose));
+    find(tree, "Modal").find((modal) => modal.props.presentationStyle === "fullScreen")?.props.onDismiss?.();
+    ({ tree } = render(onClose));
+    const submit = find(tree, "Pressable").find(
+      (pressable) => find(pressable, "Text").some((text) => text.props.children === "Add learner")
+    );
+
+    submit?.props.onPress?.();
+    ({ tree } = render(onClose));
+    const cancel = find(tree, "Pressable").find(
+      (pressable) => find(pressable, "Text").some((text) => text.props.children === "Cancel")
+    );
+    expect(cancel?.props.disabled).toBe(true);
+    expect(cancel?.props.accessibilityState).toEqual({ disabled: true });
+    resolveAdd?.();
   });
 });

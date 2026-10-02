@@ -326,8 +326,9 @@ export function ManageLearnersModal({
                         setProfileError(null);
                         // iOS cannot reliably present a second native modal while
                         // this full-screen manager is still animating away.
-                        setOpenAddAfterManagerDismiss(true);
+                        if (Platform.OS === "ios") setOpenAddAfterManagerDismiss(true);
                         onClose();
+                        if (Platform.OS !== "ios") setAddOpen(true);
                       })
                     }
                     style={[styles.add, tablet && styles.tabletAdd]}
@@ -345,7 +346,9 @@ export function ManageLearnersModal({
         transparent
         visible={addOpen}
         animationType="fade"
-        onRequestClose={() => setAddOpen(false)}
+        onRequestClose={() => {
+          if (!isAdding) setAddOpen(false);
+        }}
         onDismiss={() => {
           if (!openManagerAfterAddDismiss) return;
           setOpenManagerAfterAddDismiss(false);
@@ -411,8 +414,12 @@ export function ManageLearnersModal({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setAddOpen(false)}
-              style={styles.cancel}
+              disabled={isAdding}
+              accessibilityState={{ disabled: isAdding }}
+              onPress={() => {
+                if (!isAdding) setAddOpen(false);
+              }}
+              style={[styles.cancel, isAdding && styles.disabled]}
             >
               <Text style={styles.link}>Cancel</Text>
             </Pressable>
@@ -557,5 +564,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingVertical: 10,
   },
+  disabled: { opacity: 0.45 },
   pressed: { opacity: 0.7 },
 });
