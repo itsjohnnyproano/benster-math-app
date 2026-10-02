@@ -106,22 +106,29 @@ export default function SettingsScreen() {
   const [saveSection, setSaveSection] = useState<"nickname" | "practice">("practice");
   const deleteLearner = async (learnerId: string) => {
     setProfileError(null);
+    let localPreferencesCleared: boolean;
     try {
       // Remove the profile first. Its history is only cleared after the
       // registry update succeeds, so a failed profile mutation cannot leave a
       // visible learner with missing results.
-      await removeLearner(learnerId);
+      ({ localPreferencesCleared } = await removeLearner(learnerId));
     } catch {
       setProfileError("Couldn’t remove this learner. Please try again.");
       return;
     }
 
+    let historyCleared = true;
     try {
       await resultsRepository.clearAll(learnerId);
-      setProfilePickerOpen(false);
     } catch {
+      historyCleared = false;
+    }
+
+    if (localPreferencesCleared && historyCleared) {
+      setProfilePickerOpen(false);
+    } else {
       setProfileError(
-        "The learner was removed, but some old history could not be cleared. Delete all saved data from Settings to remove it."
+        "The learner was removed, but some local data could not be cleared. It will not appear in the app."
       );
     }
   };

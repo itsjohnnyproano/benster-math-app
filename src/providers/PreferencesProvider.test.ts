@@ -152,6 +152,74 @@ describe("onboarding preference commit", () => {
     cleanup();
   });
 
+  it("preserves a color change made alongside a learner rename", async () => {
+    storage.getItem
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify({
+        activeLearnerId: LEGACY_LEARNER_ID,
+        learners: [{ id: LEGACY_LEARNER_ID, nickname: "Jo", colorId: "sky", createdAtMs: 0 }],
+      }))
+      .mockResolvedValueOnce(null);
+    const { value, cleanup } = await mount();
+
+    await Promise.all([
+      value.updateLearnerColor(LEGACY_LEARNER_ID, "coral"),
+      value.renameActiveLearner("Neo"),
+    ]);
+
+    expect(render().learners).toMatchObject([
+      { id: LEGACY_LEARNER_ID, nickname: "Neo", colorId: "coral" },
+    ]);
+    cleanup();
+  });
+
+  it("preserves a color change made alongside switching learners", async () => {
+    storage.getItem
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify({
+        activeLearnerId: LEGACY_LEARNER_ID,
+        learners: [
+          { id: LEGACY_LEARNER_ID, nickname: "Jo", colorId: "sky", createdAtMs: 0 },
+          { id: "ari", nickname: "Ari", colorId: "coral", createdAtMs: 1 },
+        ],
+      }))
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    const { value, cleanup } = await mount();
+
+    await Promise.all([
+      value.updateLearnerColor(LEGACY_LEARNER_ID, "violet"),
+      value.switchLearner("ari"),
+    ]);
+
+    expect(render().activeLearner.id).toBe("ari");
+    expect(render().learners.find((learner: { id: string }) => learner.id === LEGACY_LEARNER_ID)).toMatchObject({
+      id: LEGACY_LEARNER_ID,
+      colorId: "violet",
+    });
+    cleanup();
+  });
+
+  it("keeps the registry removal when its preference cleanup fails", async () => {
+    storage.getItem
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify({
+        activeLearnerId: LEGACY_LEARNER_ID,
+        learners: [
+          { id: LEGACY_LEARNER_ID, nickname: "Jo", colorId: "sky", createdAtMs: 0 },
+          { id: "ari", nickname: "Ari", colorId: "coral", createdAtMs: 1 },
+        ],
+      }))
+      .mockResolvedValueOnce(null);
+    const { value, cleanup } = await mount();
+    storage.removeItem.mockRejectedValueOnce(new Error("Full"));
+
+    await expect(value.removeLearner("ari")).resolves.toEqual({ localPreferencesCleared: false });
+
+    expect(render().learners.map((learner: { id: string }) => learner.id)).toEqual([LEGACY_LEARNER_ID]);
+    cleanup();
+  });
+
   it("offers an explicit preference reset when saved preferences cannot be read", async () => {
     storage.getItem.mockResolvedValue("not json");
     const { value, cleanup } = await mount();

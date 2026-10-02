@@ -25,7 +25,7 @@ type PreferencesContextValue = {
   switchLearner: (learnerId: string) => Promise<void>;
   addLearner: (nickname: string) => Promise<void>;
   updateLearnerColor: (learnerId: string, colorId: ProfileColorId) => Promise<void>;
-  removeLearner: (learnerId: string) => Promise<void>;
+  removeLearner: (learnerId: string) => Promise<{ localPreferencesCleared: boolean }>;
   profilePickerVisible: boolean;
   openProfilePicker: () => void;
   closeProfilePicker: () => void;
@@ -48,10 +48,12 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
   const registryRef = useRef<LearnerRegistry | null>(null);
   const mounted = useRef(false);
   const saveRevision = useRef(0);
-  const learnerMutationQueue = useRef(Promise.resolve());
+  const learnerMutationQueue = useRef<Promise<void> | null>(null);
 
   const serializeLearnerMutation = <Value,>(operation: () => Promise<Value>) => {
-    const pending = learnerMutationQueue.current.then(operation, operation);
+    const pending = learnerMutationQueue.current
+      ? learnerMutationQueue.current.then(operation, operation)
+      : operation();
     learnerMutationQueue.current = pending.then(() => undefined, () => undefined);
     return pending;
   };
@@ -96,23 +98,24 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
       setPreferences(sanitized);
       persist(sanitized);
     };
-    const saveActiveName = async (nextPreferences: UserPreferences) => {
+    const saveLearnerName = (learnerId: string, nextPreferences: UserPreferences) => serializeLearnerMutation(async () => {
       const current = registryRef.current;
-      if (!current) return;
+      const learner = current?.learners.find(({ id }) => id === learnerId);
+      if (!current || !learner) throw new Error("Unknown learner profile");
       if (isDuplicateNickname(nextPreferences.nickname, current.learners
-        .filter(({ id }) => id !== activeLearner.id)
+        .filter(({ id }) => id !== learnerId)
         .map(({ nickname }) => nickname))) {
         throw new Error("A learner already uses that nickname");
       }
       const revision = ++saveRevision.current;
       const nextRegistry: LearnerRegistry = {
         ...current,
-        learners: current.learners.map((learner) => learner.id === activeLearner.id
-          ? { ...learner, nickname: nextPreferences.nickname } : learner),
+        learners: current.learners.map((currentLearner) => currentLearner.id === learnerId
+          ? { ...currentLearner, nickname: nextPreferences.nickname } : currentLearner),
       };
       setSaveStatus("saving");
       try {
-        await savePreferences(nextPreferences, activeLearner.id);
+        await savePreferences(nextPreferences, learner.id);
         await saveLearnerRegistry(nextRegistry);
         if (mounted.current && revision === saveRevision.current) {
           registryRef.current = nextRegistry;
@@ -125,7 +128,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         if (mounted.current && revision === saveRevision.current) setSaveStatus("error");
         throw error;
       }
-    };
+    });
     return {
       preferences,
       learners: registry.learners,
@@ -146,9 +149,11 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
       retrySave: () => { if (isReady) persist(preferencesRef.current); },
       completeOnboarding: async (nickname) => {
         if (!isReady) throw new Error("Preferences are not ready");
-        await saveActiveName(sanitizePreferences({ ...preferencesRef.current, nickname, onboardingCompleted: true }));
+        const learnerId = registryRef.current?.activeLearnerId;
+        if (!learnerId) throw new Error("Learner profiles are not ready");
+        await saveLearnerName(learnerId, sanitizePreferences({ ...preferencesRef.current, nickname, onboardingCompleted: true }));
       },
-      deleteAllPreferences: async () => {
+      deleteAllPreferences: () => serializeLearnerMutation(async () => {
         if (!isReady) throw new Error("Preferences are not ready");
         const revision = ++saveRevision.current;
         setSaveStatus("saving");
@@ -172,22 +177,29 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
           if (mounted.current && revision === saveRevision.current) setSaveStatus("error");
           throw error;
         }
-      },
+      }),
       resetPracticePreferences: () => apply(resetPracticeDefaults(preferencesRef.current)),
       updatePreference: (key, nextValue) => {
         const next = sanitizePreferences({ ...preferencesRef.current, [key]: nextValue });
-        if (key === "nickname") void saveActiveName(next).catch(() => undefined);
-        else apply(next);
+        const learnerId = registryRef.current?.activeLearnerId;
+        if (key === "nickname") {
+          if (learnerId) void saveLearnerName(learnerId, next).catch(() => undefined);
+          return;
+        }
+        apply(next);
       },
       renameActiveLearner: async (nickname) => {
         if (!isReady) throw new Error("Preferences are not ready");
-        await saveActiveName(sanitizePreferences({ ...preferencesRef.current, nickname }));
+        const learnerId = registryRef.current?.activeLearnerId;
+        if (!learnerId) throw new Error("Learner profiles are not ready");
+        await saveLearnerName(learnerId, sanitizePreferences({ ...preferencesRef.current, nickname }));
       },
-      switchLearner: async (learnerId) => {
-        if (!isReady || learnerId === activeLearner.id) return;
+      switchLearner: (learnerId) => serializeLearnerMutation(async () => {
+        if (!isReady) throw new Error("Preferences are not ready");
         const current = registryRef.current;
         const learner = current?.learners.find(({ id }) => id === learnerId);
         if (!current || !learner) throw new Error("Unknown learner profile");
+        if (learnerId === current.activeLearnerId) return;
         setIsReady(false);
         try {
           const nextRegistry = { ...current, activeLearnerId: learner.id };
@@ -204,7 +216,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
           if (mounted.current) { setIsReady(true); setSaveStatus("error"); }
           throw error;
         }
-      },
+      }),
       addLearner: (nickname) => serializeLearnerMutation(async () => {
         if (!isReady) throw new Error("Preferences are not ready");
         const current = registryRef.current;
@@ -240,18 +252,25 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         const remaining = current?.learners.filter((learner) => learner.id !== learnerId) ?? [];
         if (!current || remaining.length === current.learners.length) throw new Error("Unknown learner profile");
         if (remaining.length === 0) throw new Error("At least one learner profile is required");
-        const nextActive = learnerId === current.activeLearnerId ? remaining[0] : activeLearner;
+        const nextActive = learnerId === current.activeLearnerId
+          ? remaining[0]
+          : current.learners.find(({ id }) => id === current.activeLearnerId)!;
         const nextRegistry: LearnerRegistry = { activeLearnerId: nextActive.id, learners: remaining };
-        const nextPreferences = nextActive.id === activeLearner.id
+        const nextPreferences = nextActive.id === current.activeLearnerId
           ? preferencesRef.current
           : await loadLearnerPreferences(nextActive.id, { ...DEFAULT_PREFERENCES, onboardingCompleted: true, nickname: nextActive.nickname });
-        await deletePreferences(learnerId);
         await saveLearnerRegistry(nextRegistry);
         if (mounted.current) {
           registryRef.current = nextRegistry;
           preferencesRef.current = nextPreferences;
           setRegistry(nextRegistry);
           setPreferences(nextPreferences);
+        }
+        try {
+          await deletePreferences(learnerId);
+          return { localPreferencesCleared: true };
+        } catch {
+          return { localPreferencesCleared: false };
         }
       }),
       profilePickerVisible,
