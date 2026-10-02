@@ -52,16 +52,24 @@ export function isDuplicateLearnerDisplayName(
   const candidateKey = candidateLabel.toLocaleLowerCase();
 
   return learners.some((learner) => learner.id !== learnerId
-    && learnerDisplayName(learner, learners).toLocaleLowerCase() === candidateKey);
+    && [learner.nickname, learner.defaultName]
+      .filter(Boolean)
+      .some((name) => name.toLocaleLowerCase() === candidateKey));
 }
 
 export function nextAvailableLearnerDefaultName(
   learners: readonly Pick<Learner, "id" | "nickname" | "defaultName">[],
 ): string {
-  const labels = new Set(learners.map((learner) => learnerDisplayName(learner, learners).toLocaleLowerCase()));
+  // Fallback names remain reserved even while a nickname is displayed. This
+  // keeps clearing an optional nickname safe and prevents future collisions.
+  const reservedNames = new Set(
+    learners.flatMap((learner) => [learner.nickname, learner.defaultName])
+      .filter(Boolean)
+      .map((name) => name.toLocaleLowerCase()),
+  );
   for (let number = 1; ; number += 1) {
     const candidate = `Learner ${number}`;
-    if (!labels.has(candidate.toLocaleLowerCase())) return candidate;
+    if (!reservedNames.has(candidate.toLocaleLowerCase())) return candidate;
   }
 }
 

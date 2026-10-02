@@ -45,6 +45,15 @@ describe("local learner identity", () => {
     expect(isDuplicateLearnerDisplayName("", learners, undefined, "Learner 2")).toBe(true);
   });
 
+  it("reserves a nicknamed learner's hidden fallback name", () => {
+    const learners = [
+      { id: "learner-one", nickname: "Jo", defaultName: "Learner 1", colorId: "violet" as const, createdAtMs: 1 },
+    ];
+
+    expect(nextAvailableLearnerDefaultName(learners)).toBe("Learner 2");
+    expect(isDuplicateLearnerDisplayName("", learners, undefined, "Learner 1")).toBe(true);
+  });
+
   it("keeps an unnamed learner's fallback name stable after an earlier learner is removed", () => {
     const learners = [
       { id: "learner-one", nickname: "", defaultName: "Learner 1", colorId: "violet" as const, createdAtMs: 1 },

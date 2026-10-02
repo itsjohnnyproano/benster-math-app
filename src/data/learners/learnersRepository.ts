@@ -44,7 +44,9 @@ export function sanitizeLearnerRegistry(value: unknown, legacyNickname = ""): Le
   // unnamed learner's label never changes when a sibling is removed.
   const learnersWithDefaultNames = uniqueLearners.reduce<Learner[]>((learners, learner) => [
     ...learners,
-    { ...learner, defaultName: learner.defaultName || nextAvailableLearnerDefaultName(learners) },
+    // Include the complete old registry when choosing a migration label so
+    // future named learners reserve their labels before any fallback is set.
+    { ...learner, defaultName: learner.defaultName || nextAvailableLearnerDefaultName([...uniqueLearners, ...learners]) },
   ], []);
   const activeLearnerId = learnersWithDefaultNames.some(({ id }) => id === candidate.activeLearnerId)
     ? candidate.activeLearnerId as string

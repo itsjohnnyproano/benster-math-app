@@ -46,4 +46,19 @@ describe("learner registry", () => {
     expect(sanitizeLearnerRegistry({ ...registry, learners: registry.learners.slice(1) }).learners[0].defaultName)
       .toBe("Learner 2");
   });
+
+  it("reserves later nicknames while migrating missing fallback labels", () => {
+    const registry = sanitizeLearnerRegistry({
+      activeLearnerId: "learner-three",
+      learners: [
+        { id: "learner-one", nickname: "Jo", createdAtMs: 1 },
+        { id: "learner-two", nickname: "", createdAtMs: 2 },
+        { id: "learner-three", nickname: "Learner 1", createdAtMs: 3 },
+      ],
+    });
+
+    expect(registry.learners.map(({ defaultName }) => defaultName)).toEqual(["Learner 2", "Learner 3", "Learner 4"]);
+    expect(registry.learners.map(({ nickname, defaultName }) => nickname || defaultName))
+      .toEqual(["Jo", "Learner 3", "Learner 1"]);
+  });
 });
