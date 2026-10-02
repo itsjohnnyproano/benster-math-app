@@ -31,6 +31,7 @@ export default function HomeScreen() {
     <HomeHeader
       displayName={preferences.nickname}
       profileInitial={activeLearner.nickname}
+      profileColorId={activeLearner.colorId}
       isTablet={isTablet}
       stacked={isLandscapeTablet}
       streakDays={streak.data?.currentStreak ?? null}

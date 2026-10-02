@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeNickname } from "./nickname";
+import { isDuplicateNickname, normalizeNickname } from "./nickname";
 
 describe("nickname", () => {
   it("allows blank values and collapses whitespace", () => {
@@ -13,5 +13,16 @@ describe("nickname", () => {
   it("limits length without splitting surrogate pairs", () => {
     expect(normalizeNickname("a".repeat(30))).toHaveLength(20);
     expect(Array.from(normalizeNickname("🐧".repeat(21)))).toHaveLength(20);
+  });
+});
+
+describe("duplicate profile nicknames", () => {
+  it("treats case and whitespace variants as the same profile label", () => {
+    expect(isDuplicateNickname("  JOCIE  ", ["Jocie"])).toBe(true);
+    expect(isDuplicateNickname("Jocie", ["Jess"])).toBe(false);
+  });
+
+  it("allows blank nicknames because their generated learner labels remain distinct", () => {
+    expect(isDuplicateNickname("", [""])).toBe(false);
   });
 });

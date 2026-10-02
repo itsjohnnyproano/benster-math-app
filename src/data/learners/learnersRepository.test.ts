@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const storage = vi.hoisted(() => ({ getItem: vi.fn(), setItem: vi.fn(), removeItem: vi.fn() }));
 vi.mock("expo-sqlite/kv-store", () => ({ default: storage }));
 
+import { defaultProfileColorId } from "@/domain/learner";
 import { loadLearnerRegistry, sanitizeLearnerRegistry } from "./learnersRepository";
 
 beforeEach(() => {
@@ -15,7 +16,7 @@ describe("learner registry", () => {
   it("creates one legacy learner for an existing device and preserves its nickname", async () => {
     await expect(loadLearnerRegistry("Jo")).resolves.toEqual({
       activeLearnerId: "legacy-learner",
-      learners: [{ id: "legacy-learner", nickname: "Jo", createdAtMs: 0 }],
+      learners: [{ id: "legacy-learner", nickname: "Jo", colorId: defaultProfileColorId("legacy-learner"), createdAtMs: 0 }],
     });
   });
 

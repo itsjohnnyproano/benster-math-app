@@ -28,6 +28,7 @@ const storage = vi.hoisted(() => ({ getItem: vi.fn(), setItem: vi.fn(), removeIt
 vi.mock("expo-sqlite/kv-store", () => ({ default: storage }));
 
 import { DEFAULT_PREFERENCES } from "@/data/preferences/preferenceDefaults";
+import { defaultProfileColorId, LEGACY_LEARNER_ID } from "@/domain/learner";
 import { PreferencesProvider } from "./PreferencesProvider";
 
 function render() {
@@ -110,7 +111,22 @@ describe("onboarding preference commit", () => {
     await value.completeOnboarding("Jo");
     await render().deleteAllPreferences();
     expect(render().preferences).toEqual(DEFAULT_PREFERENCES);
+    expect(render().activeLearner.colorId).toBe(defaultProfileColorId(LEGACY_LEARNER_ID));
     expect(storage.removeItem).toHaveBeenCalledTimes(3);
+    cleanup();
+  });
+
+  it("serializes rapid learner additions so both profiles remain in the registry", async () => {
+    storage.getItem
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify({
+        activeLearnerId: LEGACY_LEARNER_ID,
+        learners: [{ id: LEGACY_LEARNER_ID, nickname: "Jo", colorId: "sky", createdAtMs: 0 }],
+      }))
+      .mockResolvedValueOnce(null);
+    const { value, cleanup } = await mount();
+    await Promise.all([value.addLearner("Ari"), value.addLearner("Bea")]);
+    expect(render().learners.map((learner: { nickname: string }) => learner.nickname)).toEqual(["Jo", "Ari", "Bea"]);
     cleanup();
   });
 

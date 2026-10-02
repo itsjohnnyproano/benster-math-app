@@ -3,6 +3,7 @@ import Storage from "expo-sqlite/kv-store";
 import {
   LEGACY_LEARNER_ID,
   MAX_LOCAL_LEARNERS,
+  defaultProfileColorId,
   sanitizeLearner,
   type Learner,
 } from "@/domain/learner";
@@ -20,7 +21,7 @@ let writeQueue = Promise.resolve();
 function defaultRegistry(nickname: string): LearnerRegistry {
   return {
     activeLearnerId: LEGACY_LEARNER_ID,
-    learners: [{ id: LEGACY_LEARNER_ID, nickname: normalizeNickname(nickname), createdAtMs: 0 }],
+    learners: [{ id: LEGACY_LEARNER_ID, nickname: normalizeNickname(nickname), colorId: defaultProfileColorId(LEGACY_LEARNER_ID), createdAtMs: 0 }],
   };
 }
 

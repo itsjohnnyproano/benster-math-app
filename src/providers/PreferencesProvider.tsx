@@ -3,8 +3,8 @@ import { createContext, type PropsWithChildren, useContext, useEffect, useMemo, 
 import { deleteLearnerRegistry, loadLearnerRegistry, saveLearnerRegistry, type LearnerRegistry } from "@/data/learners/learnersRepository";
 import { DEFAULT_PREFERENCES, resetPracticeDefaults } from "@/data/preferences/preferenceDefaults";
 import { deletePreferences, loadLearnerPreferences, loadPreferences, savePreferences, sanitizePreferences } from "@/data/preferences/preferencesRepository";
-import { createLearnerId, LEGACY_LEARNER_ID, MAX_LOCAL_LEARNERS, type Learner } from "@/domain/learner";
-import { normalizeNickname } from "@/domain/nickname";
+import { createLearnerId, defaultProfileColorId, LEGACY_LEARNER_ID, MAX_LOCAL_LEARNERS, nextAvailableProfileColorId, type Learner, type ProfileColorId } from "@/domain/learner";
+import { isDuplicateNickname, normalizeNickname } from "@/domain/nickname";
 import type { UserPreferences } from "@/domain/sprint";
 
 type PreferencesContextValue = {
@@ -21,8 +21,10 @@ type PreferencesContextValue = {
   completeOnboarding: (nickname: string) => Promise<void>;
   resetPracticePreferences: () => void;
   updatePreference: <Key extends keyof UserPreferences>(key: Key, value: UserPreferences[Key]) => void;
+  renameActiveLearner: (nickname: string) => Promise<void>;
   switchLearner: (learnerId: string) => Promise<void>;
   addLearner: (nickname: string) => Promise<void>;
+  updateLearnerColor: (learnerId: string, colorId: ProfileColorId) => Promise<void>;
   removeLearner: (learnerId: string) => Promise<void>;
   profilePickerVisible: boolean;
   openProfilePicker: () => void;
@@ -35,7 +37,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [registry, setRegistry] = useState<LearnerRegistry>({
     activeLearnerId: LEGACY_LEARNER_ID,
-    learners: [{ id: LEGACY_LEARNER_ID, nickname: "", createdAtMs: 0 }],
+    learners: [{ id: LEGACY_LEARNER_ID, nickname: "", colorId: defaultProfileColorId(LEGACY_LEARNER_ID), createdAtMs: 0 }],
   });
   const [isReady, setIsReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -46,6 +48,13 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
   const registryRef = useRef<LearnerRegistry | null>(null);
   const mounted = useRef(false);
   const saveRevision = useRef(0);
+  const learnerMutationQueue = useRef(Promise.resolve());
+
+  const serializeLearnerMutation = <Value,>(operation: () => Promise<Value>) => {
+    const pending = learnerMutationQueue.current.then(operation, operation);
+    learnerMutationQueue.current = pending.then(() => undefined, () => undefined);
+    return pending;
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -90,6 +99,11 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
     const saveActiveName = async (nextPreferences: UserPreferences) => {
       const current = registryRef.current;
       if (!current) return;
+      if (isDuplicateNickname(nextPreferences.nickname, current.learners
+        .filter(({ id }) => id !== activeLearner.id)
+        .map(({ nickname }) => nickname))) {
+        throw new Error("A learner already uses that nickname");
+      }
       const revision = ++saveRevision.current;
       const nextRegistry: LearnerRegistry = {
         ...current,
@@ -146,7 +160,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
           if (mounted.current && revision === saveRevision.current) {
             const nextRegistry: LearnerRegistry = {
               activeLearnerId: LEGACY_LEARNER_ID,
-              learners: [{ id: LEGACY_LEARNER_ID, nickname: "", createdAtMs: 0 }],
+              learners: [{ id: LEGACY_LEARNER_ID, nickname: "", colorId: defaultProfileColorId(LEGACY_LEARNER_ID), createdAtMs: 0 }],
             };
             registryRef.current = nextRegistry;
             preferencesRef.current = DEFAULT_PREFERENCES;
@@ -162,8 +176,12 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
       resetPracticePreferences: () => apply(resetPracticeDefaults(preferencesRef.current)),
       updatePreference: (key, nextValue) => {
         const next = sanitizePreferences({ ...preferencesRef.current, [key]: nextValue });
-        if (key === "nickname") void saveActiveName(next);
+        if (key === "nickname") void saveActiveName(next).catch(() => undefined);
         else apply(next);
+      },
+      renameActiveLearner: async (nickname) => {
+        if (!isReady) throw new Error("Preferences are not ready");
+        await saveActiveName(sanitizePreferences({ ...preferencesRef.current, nickname }));
       },
       switchLearner: async (learnerId) => {
         if (!isReady || learnerId === activeLearner.id) return;
@@ -187,17 +205,34 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
           throw error;
         }
       },
-      addLearner: async (nickname) => {
+      addLearner: (nickname) => serializeLearnerMutation(async () => {
         if (!isReady) throw new Error("Preferences are not ready");
         const current = registryRef.current;
         if (!current) throw new Error("Learner profiles are not ready");
         if (current.learners.length >= MAX_LOCAL_LEARNERS) throw new Error(`You can add up to ${MAX_LOCAL_LEARNERS} learners on this device`);
+        if (isDuplicateNickname(nickname, current.learners.map(({ nickname: existingNickname }) => existingNickname))) {
+          throw new Error("A learner already uses that nickname");
+        }
         const createdAtMs = Date.now();
-        const learner: Learner = { id: createLearnerId(createdAtMs), nickname: normalizeNickname(nickname), createdAtMs };
+        const learner: Learner = { id: createLearnerId(createdAtMs), nickname: normalizeNickname(nickname), colorId: nextAvailableProfileColorId(current.learners), createdAtMs };
         await savePreferences({ ...DEFAULT_PREFERENCES, onboardingCompleted: true, nickname: learner.nickname }, learner.id);
         const nextRegistry = { ...current, learners: [...current.learners, learner] };
         await saveLearnerRegistry(nextRegistry);
         if (mounted.current) { registryRef.current = nextRegistry; setRegistry(nextRegistry); }
+      }),
+      updateLearnerColor: async (learnerId, colorId) => {
+        if (!isReady) throw new Error("Preferences are not ready");
+        const current = registryRef.current;
+        if (!current?.learners.some(({ id }) => id === learnerId)) throw new Error("Unknown learner profile");
+        const nextRegistry: LearnerRegistry = {
+          ...current,
+          learners: current.learners.map((learner) => learner.id === learnerId ? { ...learner, colorId } : learner),
+        };
+        await saveLearnerRegistry(nextRegistry);
+        if (mounted.current) {
+          registryRef.current = nextRegistry;
+          setRegistry(nextRegistry);
+        }
       },
       removeLearner: async (learnerId) => {
         if (!isReady) throw new Error("Preferences are not ready");
