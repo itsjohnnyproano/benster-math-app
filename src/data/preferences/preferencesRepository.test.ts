@@ -41,9 +41,25 @@ describe("preferences storage", () => {
   });
 
   it("resets only practice settings, preserving the nickname and unrelated preferences", () => {
-    const original = { ...DEFAULT_PREFERENCES, nickname: "Jo", darkModeEnabled: true, durationSeconds: 90 as const, inputStyle: "typed" as const, cardLayout: "vertical" as const, levelUpEnabled: false };
+    const original = {
+      ...DEFAULT_PREFERENCES,
+      nickname: "Jo",
+      darkModeEnabled: true,
+      durationSeconds: 90 as const,
+      inputStyle: "typed" as const,
+      cardLayout: "vertical" as const,
+      levelUpEnabled: false,
+      additionRange: 50,
+      subtractionRange: 100,
+      multiplicationTables: [6, 7],
+      divisionTables: [8, 9],
+      multiplicationOtherFactorMax: 40,
+      divisionQuotientMax: 30,
+    } satisfies typeof DEFAULT_PREFERENCES;
     expect(resetPracticeDefaults(original)).toEqual({ ...DEFAULT_PREFERENCES, nickname: "Jo", darkModeEnabled: true });
     expect(original.durationSeconds).toBe(90);
+    expect(original.additionRange).toBe(50);
+    expect(original.multiplicationTables).toEqual([6, 7]);
   });
 
   it("uses defaults for missing preferences and surfaces malformed data or I/O failure", async () => {

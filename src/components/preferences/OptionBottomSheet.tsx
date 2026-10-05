@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "@/theme/tokens";
@@ -30,10 +30,11 @@ const IPAD_SELECTION_CLOSE_DURATION_MS = 90;
 type OptionBottomSheetProps = {
   visible: boolean;
   title: string;
-  selectedValue: OptionValue;
-  options: readonly PreferenceOption[];
   onClose: () => void;
-  onSelect: (value: OptionValue) => void;
+  selectedValue?: OptionValue;
+  options?: readonly PreferenceOption[];
+  onSelect?: (value: OptionValue) => void;
+  children?: ReactNode;
 };
 
 function LayoutPreview({ layout }: { layout: CardLayout }) {
@@ -79,11 +80,12 @@ export function OptionBottomSheet({
   options,
   onClose,
   onSelect,
+  children,
 }: OptionBottomSheetProps) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const isIpad = Platform.OS === "ios" && getAdaptiveLayout(width, height) !== "phone";
-  const hasPreviews = options.some((option) => option.preview);
+  const hasPreviews = options?.some((option) => option.preview) ?? false;
   const [isClosing, setIsClosing] = useState(false);
   const backdropOpacity = useAnimatedValue(0);
   const sheetTranslateY = useAnimatedValue(SHEET_HIDDEN_OFFSET);
@@ -194,7 +196,7 @@ export function OptionBottomSheet({
             </View>
 
             <View style={[styles.optionList, hasPreviews && styles.previewList]}>
-              {options.map((option) => {
+              {children ?? options?.map((option) => {
                 const isSelected = selectedValue === option.value;
 
                 return (
@@ -206,7 +208,7 @@ export function OptionBottomSheet({
                     disabled={isClosing}
                     onPress={() =>
                       animateOut(
-                        () => onSelect(option.value),
+                        () => onSelect?.(option.value),
                         isIpad ? IPAD_SELECTION_CLOSE_DURATION_MS : CLOSE_DURATION_MS
                       )
                     }

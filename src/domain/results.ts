@@ -4,6 +4,7 @@ import {
   MATH_OPERATORS,
   type SprintResult,
 } from "./math-engine";
+import { isFactNumberLimit, isPracticeNumberRange, sanitizeFactTables, type FactTable } from "./practiceSelection";
 import { isCardLayout, isInputStyle, isSprintDuration, isSprintMode } from "./sprint";
 
 export const RESULT_SCHEMA_VERSION = 1;
@@ -68,6 +69,23 @@ export function assertSprintResult(value: unknown): asserts value is SprintResul
   if (!isSprintMode(config.mode) || !isSprintDuration(config.durationSeconds)
     || !isInputStyle(config.inputStyle) || !isCardLayout(config.cardLayout)
     || typeof config.levelUpEnabled !== "boolean") return fail();
+  if (config.range !== undefined
+    && (!isPracticeNumberRange(config.range)
+      || (config.mode !== "addition" && config.mode !== "subtraction"))) return fail();
+  let selectedTables: FactTable[] | undefined;
+  if (config.tables !== undefined) {
+    if (!Array.isArray(config.tables)) return fail();
+    const tables = sanitizeFactTables(config.tables);
+    if (!tables || tables.length === 0 || tables.length !== config.tables.length
+      || (config.mode !== "multiplication" && config.mode !== "division")) return fail();
+    selectedTables = tables;
+  }
+  const factNumberLimit = isFactNumberLimit(config.factNumberLimit)
+    ? config.factNumberLimit
+    : undefined;
+  if (config.factNumberLimit !== undefined
+    && (factNumberLimit === undefined
+      || (config.mode !== "multiplication" && config.mode !== "division"))) return fail();
   if (!isCount(value.attemptedCount) || !isCount(value.correctCount)
     || value.correctCount > value.attemptedCount || !isCount(value.bestStreak)
     || value.bestStreak > value.correctCount || !isLevel(value.finalLevel)
@@ -95,14 +113,35 @@ export function assertSprintResult(value: unknown): asserts value is SprintResul
       || answer.elapsedMs !== answer.answeredAtMs - question.presentedAtMs) return fail();
     if (!isMathOperation(question.operation)) return fail();
     const operation = question.operation;
-    const expected = calculateCorrectAnswer(operation, question.leftOperand, question.rightOperand);
+    const leftOperand = question.leftOperand;
+    const rightOperand = question.rightOperand;
+    const correctAnswer = question.correctAnswer;
+    const expected = calculateCorrectAnswer(operation, leftOperand, rightOperand);
     if (!Number.isSafeInteger(expected) || expected < 0
-      || expected !== question.correctAnswer || question.operator !== MATH_OPERATORS[operation]
+      || expected !== correctAnswer || question.operator !== MATH_OPERATORS[operation]
       || (config.mode !== "mixed" && config.mode !== question.operation)
       || answer.isCorrect !== (answer.submittedAnswer === expected)
       || !Array.isArray(question.choices) || question.choices.length !== 4
       || !question.choices.every(isCount) || new Set(question.choices).size !== 4
       || !question.choices.includes(expected)) return fail();
+    if (config.range !== undefined
+      && (operation === "addition"
+        ? leftOperand + rightOperand > config.range
+        : leftOperand > config.range || rightOperand > config.range)) return fail();
+    if (selectedTables !== undefined && !selectedTables.some((table) =>
+      table === (operation === "division" ? rightOperand : leftOperand)
+      || table === rightOperand,
+    )) return fail();
+    if (factNumberLimit !== undefined
+      && (operation === "division"
+        ? correctAnswer > factNumberLimit
+          || (selectedTables === undefined && rightOperand > factNumberLimit)
+        : selectedTables === undefined
+          ? leftOperand > factNumberLimit || rightOperand > factNumberLimit
+          : !selectedTables.some((table) =>
+            (leftOperand === table && rightOperand <= factNumberLimit)
+            || (rightOperand === table && leftOperand <= factNumberLimit),
+          ))) return fail();
     correctCount += Number(answer.isCorrect);
     streak = answer.isCorrect ? streak + 1 : 0;
     bestStreak = Math.max(bestStreak, streak);

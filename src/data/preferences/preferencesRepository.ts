@@ -1,6 +1,7 @@
 import Storage from "expo-sqlite/kv-store";
 import { isValidLearnerId } from "@/domain/learner";
 import { normalizeNickname } from "@/domain/nickname";
+import { isFactNumberLimit, isPracticeNumberRange, sanitizeFactTables } from "@/domain/practiceSelection";
 
 import {
   isCardLayout,
@@ -51,6 +52,12 @@ export function sanitizePreferences(value: unknown): UserPreferences {
       typeof candidate.darkModeEnabled === "boolean"
         ? candidate.darkModeEnabled
         : DEFAULT_PREFERENCES.darkModeEnabled,
+    additionRange: isPracticeNumberRange(candidate.additionRange) ? candidate.additionRange : null,
+    subtractionRange: isPracticeNumberRange(candidate.subtractionRange) ? candidate.subtractionRange : null,
+    multiplicationTables: sanitizeFactTables(candidate.multiplicationTables),
+    divisionTables: sanitizeFactTables(candidate.divisionTables),
+    multiplicationOtherFactorMax: isFactNumberLimit(candidate.multiplicationOtherFactorMax) ? candidate.multiplicationOtherFactorMax : null,
+    divisionQuotientMax: isFactNumberLimit(candidate.divisionQuotientMax) ? candidate.divisionQuotientMax : null,
   };
 }
 

@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
 import { createSprint, getRemainingMs, submitAnswer, tickSprint, type SprintState } from "@/domain/math-engine";
 import { createLocalSprintId } from "@/domain/results";
+import { parseFactNumberLimit, parseFactTables, parsePracticeNumberRange } from "@/domain/practiceSelection";
 import {
   isCardLayout,
   isInputStyle,
@@ -48,16 +49,26 @@ export default function SprintPlayScreen() {
     inputStyle?: string;
     cardLayout?: string;
     levelUpEnabled?: string;
+    range?: string;
+    tables?: string;
+    factNumberLimit?: string;
   }>();
-  const [configuration] = useState<SprintConfiguration>(() =>
-    Object.freeze({
-      mode: isSprintMode(params.mode) ? params.mode : "addition",
+  const [configuration] = useState<SprintConfiguration>(() => {
+    const mode = isSprintMode(params.mode) ? params.mode : "addition";
+    const range = parsePracticeNumberRange(params.range);
+    const tables = parseFactTables(params.tables);
+    const factNumberLimit = parseFactNumberLimit(params.factNumberLimit);
+    return Object.freeze({
+      mode,
       durationSeconds: parseSprintDuration(params.durationSeconds) ?? 60,
       inputStyle: isInputStyle(params.inputStyle) ? params.inputStyle : "multiple-choice",
       cardLayout: isCardLayout(params.cardLayout) ? params.cardLayout : "horizontal",
       levelUpEnabled: readBoolean(params.levelUpEnabled),
-    })
-  );
+      ...((mode === "addition" || mode === "subtraction") && range ? { range } : {}),
+      ...((mode === "multiplication" || mode === "division") && tables ? { tables } : {}),
+      ...((mode === "multiplication" || mode === "division") && factNumberLimit ? { factNumberLimit } : {}),
+    });
+  });
   const [countdown, setCountdown] = useState(3);
   const [sprintState, setSprintState] = useState<SprintState | null>(null);
   const [remainingMs, setRemainingMs] = useState(configuration.durationSeconds * 1000);

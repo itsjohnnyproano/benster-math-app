@@ -6,6 +6,7 @@ import {
 } from "@/domain/results";
 import {
   isSprintMode,
+  getPracticeSelectionKey,
   SPRINT_MODES,
   type SprintDurationSeconds,
   type SprintMode,
@@ -33,7 +34,7 @@ export type PersonalBests = Partial<Record<SprintMode, number>>;
 export type HistoryCursor = Readonly<{ completedAtMs: number; id: string }>;
 export type HistoryPage = Readonly<{ records: SavedSprint[]; nextCursor: HistoryCursor | null }>;
 
-const DATABASE_SCHEMA_VERSION = 3;
+const DATABASE_SCHEMA_VERSION = 4;
 const SPRINT_ID_PATTERN = /^[a-zA-Z0-9-]{1,128}$/;
 const SPRINT_MODE_SQL_LIST = SPRINT_MODES.map((mode) => `'${mode}'`).join(",");
 
@@ -58,9 +59,10 @@ const CREATE_TABLES = `
     learner_id TEXT NOT NULL,
     mode TEXT NOT NULL,
     duration_seconds INTEGER NOT NULL,
+    practice_key TEXT NOT NULL,
     correct_count INTEGER NOT NULL CHECK (correct_count >= 0),
     sprint_id TEXT NOT NULL REFERENCES sprints(id),
-    PRIMARY KEY (learner_id, mode, duration_seconds)
+    PRIMARY KEY (learner_id, mode, duration_seconds, practice_key)
   );
 `;
 const CREATE_INDEX = "CREATE INDEX sprints_completed ON sprints(learner_id, completed_at_ms DESC);";
@@ -84,6 +86,28 @@ const CREATE_V2_TABLES = `
     PRIMARY KEY (mode, duration_seconds)
   );
 `;
+const CREATE_V3_TABLES = `
+  CREATE TABLE sprints (
+    id TEXT PRIMARY KEY NOT NULL,
+    learner_id TEXT NOT NULL,
+    schema_version INTEGER NOT NULL,
+    mode TEXT NOT NULL CHECK (mode IN (${SPRINT_MODE_SQL_LIST})),
+    duration_seconds INTEGER NOT NULL CHECK (duration_seconds IN (30,60,90,120)),
+    completed_at_ms INTEGER NOT NULL,
+    result_json TEXT NOT NULL,
+    previous_best INTEGER,
+    updated_best INTEGER,
+    best_status TEXT NOT NULL
+  );
+  CREATE TABLE personal_bests (
+    learner_id TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    duration_seconds INTEGER NOT NULL,
+    correct_count INTEGER NOT NULL CHECK (correct_count >= 0),
+    sprint_id TEXT NOT NULL REFERENCES sprints(id),
+    PRIMARY KEY (learner_id, mode, duration_seconds)
+  );
+`;
 const CREATE_V2_INDEX = "CREATE INDEX sprints_completed ON sprints(completed_at_ms DESC);";
 const SCHEMA = `${CREATE_TABLES}${CREATE_INDEX}
   PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};`;
@@ -103,7 +127,7 @@ const MIGRATE_V1_TO_V2 = `
 const MIGRATE_V2_TO_V3 = `
   ALTER TABLE sprints RENAME TO sprints_v2;
   ALTER TABLE personal_bests RENAME TO personal_bests_v2;
-  ${CREATE_TABLES}
+  ${CREATE_V3_TABLES}
   INSERT INTO sprints (id, learner_id, schema_version, mode, duration_seconds, completed_at_ms, result_json, previous_best, updated_best, best_status)
     SELECT id, '${LEGACY_LEARNER_ID}', schema_version, mode, duration_seconds, completed_at_ms, result_json, previous_best, updated_best, best_status FROM sprints_v2;
   INSERT INTO personal_bests (learner_id, mode, duration_seconds, correct_count, sprint_id)
@@ -111,6 +135,23 @@ const MIGRATE_V2_TO_V3 = `
   DROP TABLE personal_bests_v2;
   DROP TABLE sprints_v2;
   ${CREATE_INDEX}
+  PRAGMA user_version = 3;
+`;
+
+const MIGRATE_V3_TO_V4 = `
+  ALTER TABLE personal_bests RENAME TO personal_bests_v3;
+  CREATE TABLE personal_bests (
+    learner_id TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    duration_seconds INTEGER NOT NULL,
+    practice_key TEXT NOT NULL,
+    correct_count INTEGER NOT NULL CHECK (correct_count >= 0),
+    sprint_id TEXT NOT NULL REFERENCES sprints(id),
+    PRIMARY KEY (learner_id, mode, duration_seconds, practice_key)
+  );
+  INSERT INTO personal_bests (learner_id, mode, duration_seconds, practice_key, correct_count, sprint_id)
+    SELECT learner_id, mode, duration_seconds, 'normal', correct_count, sprint_id FROM personal_bests_v3;
+  DROP TABLE personal_bests_v3;
   PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};
 `;
 
@@ -167,8 +208,12 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       } else if (version.user_version === 1) {
         await applySchemaUpdate(candidate, MIGRATE_V1_TO_V2);
         await applySchemaUpdate(candidate, MIGRATE_V2_TO_V3);
+        await applySchemaUpdate(candidate, MIGRATE_V3_TO_V4);
       } else if (version.user_version === 2) {
         await applySchemaUpdate(candidate, MIGRATE_V2_TO_V3);
+        await applySchemaUpdate(candidate, MIGRATE_V3_TO_V4);
+      } else if (version.user_version === 3) {
+        await applySchemaUpdate(candidate, MIGRATE_V3_TO_V4);
       }
       database = candidate;
       return candidate;
@@ -255,9 +300,10 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
           }
 
           const { mode, durationSeconds } = snapshot.configuration;
+          const practiceKey = getPracticeSelectionKey(snapshot.configuration);
           const previous = await db.getFirstAsync<{ correct_count: number }>(
-            "SELECT correct_count FROM personal_bests WHERE learner_id = ? AND mode = ? AND duration_seconds = ?",
-            [learnerId, mode, durationSeconds],
+            "SELECT correct_count FROM personal_bests WHERE learner_id = ? AND mode = ? AND duration_seconds = ? AND practice_key = ?",
+            [learnerId, mode, durationSeconds, practiceKey],
           );
           const previousScore = previous?.correct_count ?? null;
           checkBest(previousScore);
@@ -270,10 +316,10 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
           );
           if (personalBest.status === "first" || personalBest.status === "new") {
             await db.runAsync(
-              `INSERT INTO personal_bests (learner_id, mode, duration_seconds, correct_count, sprint_id)
-                VALUES (?, ?, ?, ?, ?) ON CONFLICT(learner_id, mode, duration_seconds) DO UPDATE SET
+              `INSERT INTO personal_bests (learner_id, mode, duration_seconds, practice_key, correct_count, sprint_id)
+                VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(learner_id, mode, duration_seconds, practice_key) DO UPDATE SET
                 correct_count = excluded.correct_count, sprint_id = excluded.sprint_id`,
-              [learnerId, mode, durationSeconds, snapshot.correctCount, id],
+              [learnerId, mode, durationSeconds, practiceKey, snapshot.correctCount, id],
             );
           }
           await db.execAsync("COMMIT");
@@ -308,7 +354,7 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       return serialize(async () => {
         const db = await getDatabase();
         const rows = await db.getAllAsync<{ mode: string; correct_count: number }>(
-          "SELECT mode, correct_count FROM personal_bests WHERE learner_id = ? AND duration_seconds = ?", [learnerId, duration],
+          "SELECT mode, correct_count FROM personal_bests WHERE learner_id = ? AND duration_seconds = ? AND practice_key = 'normal'", [learnerId, duration],
         );
         const bests: PersonalBests = {};
         for (const row of rows) {
