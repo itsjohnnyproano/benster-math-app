@@ -1,12 +1,61 @@
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { Tabs, type BottomTabBarProps } from "expo-router/js-tabs";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useState } from "react";
-import { AccessibilityInfo, Animated, Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
-import { IPAD_TAB_BAR_HEIGHT, IPAD_TAB_SCENE_OFFSET, TAB_BAR_HEIGHT, useTabBarLayout } from "./tabBarLayout";
+import {
+  AccessibilityInfo,
+  Animated,
+  Keyboard,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+
+import { TAB_BAR_HEIGHT, useTabBarLayout } from "./tabBarLayout";
 
 export default function MainTabs() {
-  const { isIpad } = useTabBarLayout();
+  if (Platform.OS === "ios") return <IOSNativeTabs />;
+
+  return <JavascriptTabs />;
+}
+
+function IOSNativeTabs() {
+  return (
+    <NativeTabs
+      backBehavior="initialRoute"
+      iconColor={{ default: COLORS.navInactive, selected: COLORS.primary }}
+      labelStyle={{ fontFamily: "NunitoSans_700Bold", fontSize: 11 }}
+      tintColor={COLORS.primary}
+    >
+      <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "house", selected: "house.fill" }}
+          md={{ default: "home", selected: "home" }}
+        />
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="history" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "clock.arrow.circlepath", selected: "clock.arrow.circlepath" }}
+          md={{ default: "history", selected: "history" }}
+        />
+        <NativeTabs.Trigger.Label>History</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="settings" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "gearshape", selected: "gearshape.fill" }}
+          md={{ default: "settings", selected: "settings" }}
+        />
+        <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
+  );
+}
+
+function JavascriptTabs() {
   const reduceMotionEnabled = useReduceMotionEnabled();
 
   return (
@@ -29,17 +78,15 @@ export default function MainTabs() {
                   inputRange: [-1, 0, 1],
                   outputRange: [0.96, 1, 0.96],
                 }),
-                transform: [
-                  {
-                    scale: current.progress.interpolate({
-                      inputRange: [-1, 0, 1],
-                      outputRange: [0.99, 1, 0.99],
-                    }),
-                  },
-                ],
+                transform: [{
+                  scale: current.progress.interpolate({
+                    inputRange: [-1, 0, 1],
+                    outputRange: [0.99, 1, 0.99],
+                  }),
+                }],
               },
             }),
-        sceneStyle: { backgroundColor: COLORS.background, paddingTop: isIpad ? IPAD_TAB_SCENE_OFFSET : 0 },
+        sceneStyle: { backgroundColor: COLORS.background },
       }}
     >
       <Tabs.Screen
@@ -102,9 +149,15 @@ function useReduceMotionEnabled() {
   return enabled;
 }
 
-function FloatingTabBar({ state, descriptors, navigation, reduceMotionEnabled }: BottomTabBarProps & { reduceMotionEnabled: boolean }) {
-  const { bottom, isIpad, top } = useTabBarLayout();
+function FloatingTabBar({
+  descriptors,
+  navigation,
+  reduceMotionEnabled,
+  state,
+}: BottomTabBarProps & { reduceMotionEnabled: boolean }) {
+  const { bottom } = useTabBarLayout();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+
   useEffect(() => {
     const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
     const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
@@ -113,10 +166,12 @@ function FloatingTabBar({ state, descriptors, navigation, reduceMotionEnabled }:
       hide.remove();
     };
   }, []);
+
   if (keyboardVisible) return null;
+
   return (
-    <View pointerEvents="box-none" style={[styles.barFrame, isIpad ? { top } : { bottom }]}>
-      <View accessibilityRole="tablist" style={[styles.bar, isIpad && styles.ipadBar, CARD_SHADOW]}>
+    <View pointerEvents="box-none" style={[styles.barFrame, { bottom }]}>
+      <View accessibilityRole="tablist" style={[styles.bar, CARD_SHADOW]}>
         {state.routes.map((route, index) => {
           const focused = state.index === index;
           const options = descriptors[route.key].options;
@@ -132,15 +187,15 @@ function FloatingTabBar({ state, descriptors, navigation, reduceMotionEnabled }:
                 if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
               }}
               onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
-              style={({ pressed }) => [styles.item, isIpad && styles.ipadItem, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.item, pressed && styles.pressed]}
             >
-              <SelectionBackground focused={focused} isIpad={isIpad} reduceMotionEnabled={reduceMotionEnabled} />
-              {options.tabBarIcon?.({ focused, color, size: isIpad ? 20 : 24 })}
+              <SelectionBackground focused={focused} reduceMotionEnabled={reduceMotionEnabled} />
+              {options.tabBarIcon?.({ focused, color, size: 24 })}
               <Text
+                adjustsFontSizeToFit
                 maxFontSizeMultiplier={1.15}
                 numberOfLines={1}
-                adjustsFontSizeToFit
-                style={[styles.label, isIpad && styles.ipadLabel, { color }]}
+                style={[styles.label, { color }]}
               >
                 {options.title ?? route.name}
               </Text>
@@ -152,7 +207,13 @@ function FloatingTabBar({ state, descriptors, navigation, reduceMotionEnabled }:
   );
 }
 
-function SelectionBackground({ focused, isIpad, reduceMotionEnabled }: { focused: boolean; isIpad: boolean; reduceMotionEnabled: boolean }) {
+function SelectionBackground({
+  focused,
+  reduceMotionEnabled,
+}: {
+  focused: boolean;
+  reduceMotionEnabled: boolean;
+}) {
   const [opacity] = useState(() => new Animated.Value(focused ? 1 : 0));
 
   useEffect(() => {
@@ -175,7 +236,6 @@ function SelectionBackground({ focused, isIpad, reduceMotionEnabled }: { focused
       style={[
         StyleSheet.absoluteFill,
         styles.selectionBackground,
-        isIpad && styles.ipadSelectionBackground,
         { opacity },
       ]}
     />
@@ -196,7 +256,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     backgroundColor: COLORS.card,
   },
-  ipadBar: { maxWidth: 420, minHeight: IPAD_TAB_BAR_HEIGHT, padding: 4, borderRadius: 28 },
   item: {
     flex: 1,
     minHeight: TAB_BAR_HEIGHT - 14,
@@ -206,16 +265,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  ipadItem: {
-    minHeight: IPAD_TAB_BAR_HEIGHT - 8,
-    flexDirection: "row",
-    gap: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-  },
   selectionBackground: { borderRadius: 28, backgroundColor: COLORS.primarySoft },
-  ipadSelectionBackground: { borderRadius: 22 },
   pressed: { opacity: 0.7 },
   label: { fontFamily: "NunitoSans_700Bold", fontSize: 12, marginTop: 2 },
-  ipadLabel: { marginTop: 0, fontSize: 13 },
 });
