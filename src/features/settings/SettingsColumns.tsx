@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView as NativeSafeAreaView } from "react-native-screens/experimental";
+
 import { SETTINGS_COLUMN_GAP } from "./settingsLayout";
 
 export function SettingsColumns({ nickname, children, bottomInset }: {
@@ -8,23 +10,41 @@ export function SettingsColumns({ nickname, children, bottomInset }: {
   return (
     <View style={styles.columns}>
       <Column bottomInset={bottomInset}>{nickname}</Column>
-      <Column bottomInset={bottomInset}>{children}</Column>
+      <Column bottomInset={bottomInset} needsNativeBottomInset>{children}</Column>
     </View>
   );
 }
 
-function Column({ children, bottomInset }: { children: ReactNode; bottomInset: number }) {
+function Column({
+  children,
+  bottomInset,
+  needsNativeBottomInset = false,
+}: {
+  children: ReactNode;
+  bottomInset: number;
+  needsNativeBottomInset?: boolean;
+}) {
+  const scroll = (
+    <ScrollView
+      style={styles.scroll}
+      bounces={false}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={[styles.content, { paddingBottom: Math.max(bottomInset, 24) }]}
+      showsVerticalScrollIndicator={false}
+    >
+      {children}
+    </ScrollView>
+  );
+
+  // NativeTabs automatically adjusts its first scroll view. The second settings
+  // pane scrolls independently, so it needs its own native tab-bar safe area.
+  if (needsNativeBottomInset && Platform.OS === "ios") {
+    return <NativeSafeAreaView edges={{ bottom: true }} style={styles.column}>{scroll}</NativeSafeAreaView>;
+  }
+
   return (
     <View style={styles.column}>
-      <ScrollView
-        style={styles.scroll}
-        bounces={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.content, { paddingBottom: Math.max(bottomInset, 24) }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-      </ScrollView>
+      {scroll}
     </View>
   );
 }

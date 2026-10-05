@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.jp4labs.benster",
+      "userInterfaceStyle": "light",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

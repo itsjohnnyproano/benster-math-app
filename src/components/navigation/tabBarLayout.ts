@@ -3,9 +3,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getAdaptiveLayout } from "@/shared/responsiveLayout";
 
-export const TAB_BAR_HEIGHT = 72;
-export const IPAD_TAB_BAR_HEIGHT = 52;
-export const IPAD_TAB_SCENE_OFFSET = IPAD_TAB_BAR_HEIGHT + 12;
+export const TAB_BAR_HEIGHT = 64;
 
 export function useTabBarLayout() {
   const insets = useSafeAreaInsets();
@@ -16,7 +14,9 @@ export function useTabBarLayout() {
 
   return {
     bottom,
-    contentInset: isIpad ? bottom + 16 : TAB_BAR_HEIGHT + bottom + 16,
+    // NativeTabs adjusts the first scroll container for the system tab layout on iOS.
+    // Android and web use the JavaScript floating bar, so they still need its clearance.
+    contentInset: Platform.OS === "ios" ? 0 : TAB_BAR_HEIGHT + bottom + 16,
     isIpad,
     top,
   };
