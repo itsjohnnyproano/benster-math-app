@@ -1,3 +1,5 @@
+import type { FactNumberLimit, FactTable, PracticeNumberRange } from "./practiceSelection";
+
 export const SPRINT_MODES = [
   "addition",
   "subtraction",
@@ -24,6 +26,12 @@ export type UserPreferences = {
   cardLayout: CardLayout;
   levelUpEnabled: boolean;
   darkModeEnabled: boolean;
+  additionRange: PracticeNumberRange | null;
+  subtractionRange: PracticeNumberRange | null;
+  multiplicationTables: FactTable[] | null;
+  divisionTables: FactTable[] | null;
+  multiplicationOtherFactorMax: FactNumberLimit | null;
+  divisionQuotientMax: FactNumberLimit | null;
 };
 
 export type SprintConfiguration = Readonly<{
@@ -32,7 +40,26 @@ export type SprintConfiguration = Readonly<{
   inputStyle: InputStyle;
   cardLayout: CardLayout;
   levelUpEnabled: boolean;
+  range?: PracticeNumberRange;
+  tables?: readonly FactTable[];
+  factNumberLimit?: FactNumberLimit;
 }>;
+
+/**
+ * Personal bests are comparable only when the learner practiced the same
+ * explicitly selected facts. A missing selection is the legacy Normal sprint.
+ */
+export function getPracticeSelectionKey(configuration: SprintConfiguration) {
+  if (configuration.range !== undefined) return `range:${configuration.range}`;
+  if (configuration.tables !== undefined || configuration.factNumberLimit !== undefined) {
+    const tables = configuration.tables
+      ? [...configuration.tables].sort((left, right) => left - right).join(",")
+      : "normal";
+    const limit = configuration.factNumberLimit ?? "adaptive";
+    return `tables:${tables}|limit:${limit}`;
+  }
+  return "normal";
+}
 
 export function isSprintMode(value: unknown): value is SprintMode {
   return SPRINT_MODES.includes(value as SprintMode);

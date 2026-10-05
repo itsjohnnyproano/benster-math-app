@@ -7,6 +7,7 @@ import {
   type QuestionGenerationInput,
   type RandomSource,
 } from "./types";
+import type { FactNumberLimit, FactTable, PracticeNumberRange } from "@/domain/practiceSelection";
 
 const ADDITION_MAX: Record<DifficultyLevel, number> = {
   1: 10,
@@ -39,19 +40,41 @@ function createOperands(
   difficultyLevel: DifficultyLevel,
   levelUpEnabled: boolean,
   random: RandomSource,
+  range?: PracticeNumberRange,
+  tables?: readonly FactTable[],
+  factNumberLimit?: FactNumberLimit,
 ) {
   if (operation === "multiplication" || operation === "division") {
-    const max = levelUpEnabled ? TIMES_TABLE_MAX[difficultyLevel] : TIMES_TABLE_MAX[4];
-    const firstFactor = randomInteger(1, max, random);
-    const secondFactor = randomInteger(1, max, random);
-    return operation === "division"
-      ? [firstFactor * secondFactor, secondFactor] as const
-      : [firstFactor, secondFactor] as const;
+    const max = factNumberLimit ?? (levelUpEnabled ? TIMES_TABLE_MAX[difficultyLevel] : TIMES_TABLE_MAX[4]);
+
+    // No selection means this is the original adaptive sprint path.
+    if (!tables || tables.length === 0) {
+      const firstFactor = randomInteger(1, max, random);
+      const secondFactor = randomInteger(1, max, random);
+      return operation === "division"
+        ? [firstFactor * secondFactor, secondFactor] as const
+        : [firstFactor, secondFactor] as const;
+    }
+
+    const selectedTable = tables[randomInteger(0, tables.length - 1, random)];
+    const otherFactor = randomInteger(1, max, random);
+    if (operation === "division") {
+      return [selectedTable * otherFactor, selectedTable] as const;
+    }
+
+    return random() < 0.5
+      ? [selectedTable, otherFactor] as const
+      : [otherFactor, selectedTable] as const;
   }
 
-  const max = ADDITION_MAX[difficultyLevel];
+  // Normal Sprint keeps the established progression to 100 when Level Up is
+  // enabled. Without Level Up it remains a quiet core-facts set through 12.
+  // A selected range is focused practice, so addition stays within that sum.
+  const max = range ?? (levelUpEnabled ? ADDITION_MAX[difficultyLevel] : 12);
   const first = randomInteger(0, max, random);
-  const second = randomInteger(0, max, random);
+  const second = operation === "addition" && (range !== undefined || !levelUpEnabled)
+    ? randomInteger(0, max - first, random)
+    : randomInteger(0, max, random);
 
   if (operation === "subtraction") {
     return [Math.max(first, second), Math.min(first, second)] as const;
@@ -132,6 +155,9 @@ export function generateQuestion({
   difficultyLevel,
   questionId,
   presentedAtMs,
+  range,
+  tables,
+  factNumberLimit,
   random = Math.random,
 }: QuestionGenerationInput): MathQuestion {
   const operation = chooseOperation(mode, random);
@@ -140,6 +166,9 @@ export function generateQuestion({
     difficultyLevel,
     levelUpEnabled,
     random,
+    range,
+    tables,
+    factNumberLimit,
   );
   const correctAnswer = calculateCorrectAnswer(
     operation,

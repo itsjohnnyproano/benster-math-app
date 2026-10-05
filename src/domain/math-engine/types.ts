@@ -1,4 +1,5 @@
 import type { SprintConfiguration, SprintMode } from "@/domain/sprint";
+import type { FactNumberLimit, FactTable, PracticeNumberRange } from "@/domain/practiceSelection";
 
 export const OPERATIONS = ["addition", "subtraction", "multiplication", "division"] as const;
 export type MathOperation = (typeof OPERATIONS)[number];
@@ -80,4 +81,7 @@ export type QuestionGenerationInput = Readonly<{
   questionId: number;
   presentedAtMs: number;
   random?: RandomSource;
+  range?: PracticeNumberRange;
+  tables?: readonly FactTable[];
+  factNumberLimit?: FactNumberLimit;
 }>;

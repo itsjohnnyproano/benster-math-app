@@ -5,12 +5,13 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from "react-native";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "@/theme/tokens";
@@ -30,10 +31,11 @@ const IPAD_SELECTION_CLOSE_DURATION_MS = 90;
 type OptionBottomSheetProps = {
   visible: boolean;
   title: string;
-  selectedValue: OptionValue;
-  options: readonly PreferenceOption[];
   onClose: () => void;
-  onSelect: (value: OptionValue) => void;
+  selectedValue?: OptionValue;
+  options?: readonly PreferenceOption[];
+  onSelect?: (value: OptionValue) => void;
+  children?: ReactNode;
 };
 
 function LayoutPreview({ layout }: { layout: CardLayout }) {
@@ -79,11 +81,16 @@ export function OptionBottomSheet({
   options,
   onClose,
   onSelect,
+  children,
 }: OptionBottomSheetProps) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const isIpad = Platform.OS === "ios" && getAdaptiveLayout(width, height) !== "phone";
-  const hasPreviews = options.some((option) => option.preview);
+  const contentMaxHeight = Math.max(
+    240,
+    height - insets.top - insets.bottom - (isIpad ? 164 : 140),
+  );
+  const hasPreviews = options?.some((option) => option.preview) ?? false;
   const [isClosing, setIsClosing] = useState(false);
   const backdropOpacity = useAnimatedValue(0);
   const sheetTranslateY = useAnimatedValue(SHEET_HIDDEN_OFFSET);
@@ -193,69 +200,88 @@ export function OptionBottomSheet({
               )}
             </View>
 
-            <View style={[styles.optionList, hasPreviews && styles.previewList]}>
-              {options.map((option) => {
-                const isSelected = selectedValue === option.value;
+            {children ? (
+              <ScrollView
+                bounces={false}
+                contentContainerStyle={styles.customContent}
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: contentMaxHeight }}
+              >
+                {children}
+              </ScrollView>
+            ) : (
+              <ScrollView
+                bounces={false}
+                contentContainerStyle={[
+                  styles.optionList,
+                  hasPreviews && styles.previewList,
+                ]}
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: contentMaxHeight }}
+              >
+                {options?.map((option) => {
+                  const isSelected = selectedValue === option.value;
 
-                return (
-                  <Pressable
-                    accessibilityLabel={`${option.label}${isSelected ? ", selected" : ""}`}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: isSelected }}
-                    key={option.value}
-                    disabled={isClosing}
-                    onPress={() =>
-                      animateOut(
-                        () => onSelect(option.value),
-                        isIpad ? IPAD_SELECTION_CLOSE_DURATION_MS : CLOSE_DURATION_MS
-                      )
-                    }
-                    style={({ pressed }) => [
-                      styles.option,
-                      hasPreviews && styles.previewOption,
-                      isSelected && styles.selectedOption,
-                      pressed && styles.pressedOption,
-                    ]}
-                  >
-                    {option.preview && <LayoutPreview layout={option.preview} />}
-                    <View
-                      style={[
-                        styles.optionCopy,
-                        hasPreviews && styles.previewOptionCopy,
+                  return (
+                    <Pressable
+                      accessibilityLabel={`${option.label}${isSelected ? ", selected" : ""}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: isSelected }}
+                      key={option.value}
+                      disabled={isClosing}
+                      onPress={() =>
+                        animateOut(
+                          () => onSelect?.(option.value),
+                          isIpad ? IPAD_SELECTION_CLOSE_DURATION_MS : CLOSE_DURATION_MS,
+                        )
+                      }
+                      style={({ pressed }) => [
+                        styles.option,
+                        hasPreviews && styles.previewOption,
+                        isSelected && styles.selectedOption,
+                        pressed && styles.pressedOption,
                       ]}
                     >
-                      <Text
+                      {option.preview && <LayoutPreview layout={option.preview} />}
+                      <View
                         style={[
-                          styles.optionLabel,
-                          isSelected && styles.selectedLabel,
+                          styles.optionCopy,
+                          hasPreviews && styles.previewOptionCopy,
                         ]}
                       >
-                        {option.label}
-                      </Text>
-                      {option.description && (
-                        <Text style={styles.optionDescription}>
-                          {option.description}
+                        <Text
+                          style={[
+                            styles.optionLabel,
+                            isSelected && styles.selectedLabel,
+                          ]}
+                        >
+                          {option.label}
                         </Text>
-                      )}
-                    </View>
-                    <View
-                      style={[
-                        styles.selectionCircle,
-                        isSelected && styles.selectedCircle,
-                      ]}
-                    >
-                      {isSelected && (
-                        <SymbolView
-                          name={{ ios: "checkmark", android: "check", web: "check" }}
-                          size={15}
-                          tintColor={COLORS.card}
-                        />
-                      )}
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
+                        {option.description && (
+                          <Text style={styles.optionDescription}>
+                            {option.description}
+                          </Text>
+                        )}
+                      </View>
+                      <View
+                        style={[
+                          styles.selectionCircle,
+                          isSelected && styles.selectedCircle,
+                        ]}
+                      >
+                        {isSelected && (
+                          <SymbolView
+                            name={{ ios: "checkmark", android: "check", web: "check" }}
+                            size={15}
+                            tintColor={COLORS.card}
+                          />
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
           </Pressable>
         </Animated.View>
       </Pressable>
@@ -331,6 +357,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   optionList: { gap: 9 },
+  customContent: { gap: 14, paddingBottom: 8 },
   previewList: { flexDirection: "row" },
   combinedPreviewContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
   combinedHorizontalProblem: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 13 },

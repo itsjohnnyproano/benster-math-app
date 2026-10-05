@@ -6,31 +6,59 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions,
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { isSprintMode } from "@/domain/sprint";
+import type { FactNumberLimit, FactTable, PracticeNumberRange } from "@/domain/practiceSelection";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 import { PracticePreferences } from "@/components/preferences/PracticePreferences";
 import { formatDurationSubtitle } from "@/shared/formatSprintDuration";
 import { SetupHeader } from "./components/SetupHeader";
+import { PracticeChoicePicker } from "./components/PracticeChoicePicker";
 import { getSetupLayout } from "./setupLayout";
 
 export default function SprintSetupScreen() {
   const router = useRouter();
   const { width, height, fontScale } = useWindowDimensions();
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
-  const { preferences, isReady } = usePreferences();
+  const { preferences, isReady, updatePreference } = usePreferences();
   const [isStarting, setIsStarting] = useState(false);
   const mode = isSprintMode(modeParam) ? modeParam : "addition";
+  const [range, setRange] = useState<PracticeNumberRange | null>(null);
+  const [tables, setTables] = useState<FactTable[] | null>(null);
+  const [factNumberLimit, setFactNumberLimit] = useState<FactNumberLimit | null>(null);
   const { tablet: isTablet, twoColumn: isLandscapeTablet, maxWidth } = getSetupLayout(width, height, Platform.OS, fontScale);
 
   useFocusEffect(
     useCallback(() => {
       setIsStarting(false);
-    }, [])
+      setRange(mode === "addition" ? preferences.additionRange : mode === "subtraction" ? preferences.subtractionRange : null);
+      setTables(mode === "multiplication" ? preferences.multiplicationTables : mode === "division" ? preferences.divisionTables : null);
+      setFactNumberLimit(mode === "multiplication" ? preferences.multiplicationOtherFactorMax : mode === "division" ? preferences.divisionQuotientMax : null);
+    }, [mode, preferences.additionRange, preferences.divisionQuotientMax, preferences.divisionTables, preferences.multiplicationOtherFactorMax, preferences.multiplicationTables, preferences.subtractionRange])
   );
 
+  const updateRange = (nextRange: PracticeNumberRange | null) => {
+    setRange(nextRange);
+    if (mode === "addition") updatePreference("additionRange", nextRange);
+    if (mode === "subtraction") updatePreference("subtractionRange", nextRange);
+  };
+
+  const updateTables = (nextTables: FactTable[] | null) => {
+    setTables(nextTables);
+    if (mode === "multiplication") updatePreference("multiplicationTables", nextTables);
+    if (mode === "division") updatePreference("divisionTables", nextTables);
+  };
+
+  const updateFactNumberLimit = (nextLimit: FactNumberLimit | null) => {
+    setFactNumberLimit(nextLimit);
+    if (mode === "multiplication") updatePreference("multiplicationOtherFactorMax", nextLimit);
+    if (mode === "division") updatePreference("divisionQuotientMax", nextLimit);
+  };
+
+  const canStart = !((mode === "multiplication" || mode === "division") && tables !== null && tables.length === 0);
+
   const startSprint = () => {
-    if (!isReady || isStarting) return;
+    if (!isReady || isStarting || !canStart) return;
     setIsStarting(true);
 
     router.push({
@@ -41,6 +69,9 @@ export default function SprintSetupScreen() {
         inputStyle: preferences.inputStyle,
         cardLayout: preferences.cardLayout,
         levelUpEnabled: String(preferences.levelUpEnabled),
+        ...(range !== null ? { range: String(range) } : {}),
+        ...(tables !== null ? { tables: tables.join(",") } : {}),
+        ...(factNumberLimit !== null ? { factNumberLimit: String(factNumberLimit) } : {}),
       },
     });
   };
@@ -61,6 +92,17 @@ export default function SprintSetupScreen() {
 
           <View style={[styles.setupBody, isLandscapeTablet && styles.landscapeBody]}>
             <View style={[styles.preferenceList, isLandscapeTablet && styles.landscapePreferenceList]}>
+              <PracticeChoicePicker
+                disabled={!isReady}
+                mode={mode}
+                range={range}
+                tables={tables}
+                factNumberLimit={factNumberLimit}
+                tablet={isTablet}
+                onRangeChange={updateRange}
+                onTablesChange={updateTables}
+                onFactNumberLimitChange={updateFactNumberLimit}
+              />
               <PracticePreferences showSaveStatus={false} tablet={isTablet} />
             </View>
 
@@ -77,14 +119,14 @@ export default function SprintSetupScreen() {
               <Pressable
                 accessibilityLabel="Start Sprint"
                 accessibilityRole="button"
-                accessibilityState={{ disabled: !isReady || isStarting }}
-                disabled={!isReady || isStarting}
+                accessibilityState={{ disabled: !isReady || isStarting || !canStart }}
+                disabled={!isReady || isStarting || !canStart}
                 onPress={startSprint}
                 style={({ pressed }) => [
                   styles.startButton,
                   isTablet && styles.tabletStartButton,
                   CARD_SHADOW,
-                  (!isReady || isStarting) && styles.disabledButton,
+                  (!isReady || isStarting || !canStart) && styles.disabledButton,
                   pressed && styles.pressedButton,
                 ]}
               >

@@ -67,6 +67,95 @@ describe("question generation", () => {
     expect(Number.isInteger(question.correctAnswer)).toBe(true);
   });
 
+  it("keeps an explicit multiplication table in every selected question", () => {
+    const question = generateQuestion({
+      mode: "multiplication",
+      levelUpEnabled: false,
+      difficultyLevel: 1,
+      questionId: 1,
+      presentedAtMs: 0,
+      tables: [7],
+      random: () => 0.999999,
+    });
+    expect([question.leftOperand, question.rightOperand]).toContain(7);
+    expect(question.correctAnswer).toBe(84);
+  });
+
+  it("uses the selected divisor for division table practice", () => {
+    const question = generateQuestion({
+      mode: "division",
+      levelUpEnabled: false,
+      difficultyLevel: 1,
+      questionId: 1,
+      presentedAtMs: 0,
+      tables: [6],
+      random: () => 0.999999,
+    });
+    expect(question.leftOperand).toBe(72);
+    expect(question.rightOperand).toBe(6);
+    expect(question.correctAnswer).toBe(12);
+  });
+
+  it("uses the selected number limit for the other multiplication factor", () => {
+    const question = generateQuestion({
+      mode: "multiplication",
+      levelUpEnabled: false,
+      difficultyLevel: 1,
+      questionId: 1,
+      presentedAtMs: 0,
+      tables: [6],
+      factNumberLimit: 3,
+      random: () => 0.999999,
+    });
+    expect([question.leftOperand, question.rightOperand]).toContain(6);
+    expect([question.leftOperand, question.rightOperand]).toContain(3);
+  });
+
+  it("uses the selected number limit for division quotients", () => {
+    const question = generateQuestion({
+      mode: "division",
+      levelUpEnabled: false,
+      difficultyLevel: 1,
+      questionId: 1,
+      presentedAtMs: 0,
+      tables: [7],
+      factNumberLimit: 3,
+      random: () => 0.999999,
+    });
+    expect(question.leftOperand).toBe(21);
+    expect(question.rightOperand).toBe(7);
+    expect(question.correctAnswer).toBe(3);
+  });
+
+  it("keeps selected addition problems within the chosen sum", () => {
+    const question = generateQuestion({
+      mode: "addition",
+      levelUpEnabled: true,
+      difficultyLevel: 1,
+      questionId: 1,
+      presentedAtMs: 0,
+      range: 100,
+      random: () => 0.999999,
+    });
+    expect(question.leftOperand).toBe(100);
+    expect(question.rightOperand).toBe(0);
+    expect(question.leftOperand + question.rightOperand).toBeLessThanOrEqual(100);
+  });
+
+  it("keeps Normal addition progression through 100", () => {
+    const question = generateQuestion({
+      mode: "addition",
+      levelUpEnabled: true,
+      difficultyLevel: 4,
+      questionId: 1,
+      presentedAtMs: 0,
+      random: () => 0.999999,
+    });
+    expect(question.leftOperand).toBe(100);
+    expect(question.rightOperand).toBe(100);
+    expect(question.correctAnswer).toBe(200);
+  });
+
   it("selects every operation in mixed mode", () => {
     const operations = [0, 0.3, 0.6, 0.9].map(
       (operationChoice, index) =>
@@ -183,7 +272,7 @@ describe("sprint state", () => {
   });
 
   it.each(["addition", "subtraction"] as const)(
-    "keeps %s at 0–10 when Level Up is off, including Mixed mode",
+    "keeps %s within the core facts through 12 when Level Up is off, including Mixed mode",
     (operation) => {
       for (const mode of [operation, "mixed"] as const) {
         const random = () => sequenceRandom([
@@ -193,10 +282,10 @@ describe("sprint state", () => {
         let state = createSprint({ ...CONFIGURATION, mode, levelUpEnabled: false }, 0, random());
         for (let index = 0; index < 6; index += 1) {
           expect(state.currentQuestion.operation).toBe(operation);
-          expect(state.currentQuestion.leftOperand).toBe(10);
+          expect(state.currentQuestion.leftOperand).toBe(12);
           expect(state.currentQuestion.rightOperand).toBe(0);
-          expect(state.currentQuestion.correctAnswer).toBe(10);
-          const next = submitAnswer(state, 10, index + 1, random());
+          expect(state.currentQuestion.correctAnswer).toBe(12);
+          const next = submitAnswer(state, 12, index + 1, random());
           if (next.status !== "active") throw new Error("Sprint ended early");
           state = next;
         }

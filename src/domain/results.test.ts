@@ -34,6 +34,24 @@ describe("results", () => {
     expect(() => assertSprintResult(invalid)).toThrow();
   });
 
+  it("rejects a saved multiplication result whose other factor exceeds its selected limit", () => {
+    const result = makeResult(1, 1, {
+      mode: "multiplication",
+      tables: [2],
+      factNumberLimit: 3,
+    });
+    const invalid = JSON.parse(JSON.stringify(result));
+    const answer = invalid.answeredQuestions[0];
+    answer.question.leftOperand = 2;
+    answer.question.rightOperand = 99;
+    answer.question.correctAnswer = 198;
+    answer.question.choices = [198, 197, 199, 200];
+    answer.submittedAnswer = 198;
+    answer.isCorrect = true;
+
+    expect(() => assertSprintResult(invalid)).toThrow();
+  });
+
   it("handles first, improved, tied and lower personal bests", () => {
     const result = makeResult(3);
     expect(calculatePersonalBest(result, null).status).toBe("first");

@@ -69,7 +69,7 @@ describe("SQLite results repository", () => {
     const divisionResult = makeResult(4, 5, { mode: "division" });
     expect((await repo.save("division", divisionResult)).personalBest.status).toBe("first");
     expect(await repo.getPersonalBests(30)).toEqual({ addition: 3, division: 4 });
-    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(3);
+    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(4);
   });
 
   it("migrates v2 records into the original local learner without losing personal bests", async () => {
@@ -202,6 +202,15 @@ describe("SQLite results repository", () => {
     expect(await repo.getPersonalBests(120)).toEqual({ addition: 5 });
     const changed = await repo.save("d", makeResult(4, 5, { inputStyle: "multiple-choice", cardLayout: "vertical" }));
     expect(changed.personalBest).toEqual({ previous: 3, updated: 4, status: "new" });
+  });
+
+  it("keeps table-specific personal bests separate from Normal sprints", async () => {
+    const { adapter } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save("normal", makeResult(3, 5, { mode: "multiplication" }));
+    const selected = await repo.save("table-six", makeResult(4, 5, { mode: "multiplication", tables: [6] }));
+    expect(selected.personalBest).toEqual({ previous: null, updated: 4, status: "first" });
+    expect(await repo.getPersonalBests(30)).toEqual({ multiplication: 3 });
   });
 
   it("records zero attempts without establishing or replacing a best", async () => {
