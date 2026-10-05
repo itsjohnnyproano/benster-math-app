@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SymbolView } from "expo-symbols";
 import { Slider as NativeSlider } from "@expo/ui/community/slider";
 
@@ -436,36 +436,29 @@ export function PracticeChoicePicker({
         title={label}
         visible={visible}
       >
-        <ScrollView
-          bounces={false}
-          contentContainerStyle={styles.sheetContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {isRangeMode
-            ? <RangeChoices
-                key={`${visible}-${range ?? "normal"}`}
-                mode={mode}
-                range={range}
-                onChange={onRangeChange}
-                onDone={() => setVisible(false)}
-              />
-            : <TableChoices
-                key={`${visible}-${tables?.join(",") ?? "normal"}-${factNumberLimit ?? "adaptive"}`}
-                mode={mode}
-                tables={tables}
-                factNumberLimit={factNumberLimit}
-                onChange={onTablesChange}
-                onFactNumberLimitChange={onFactNumberLimitChange}
-                onDone={() => setVisible(false)}
-              />}
-        </ScrollView>
+        {isRangeMode
+          ? <RangeChoices
+              key={`${visible}-${range ?? "normal"}`}
+              mode={mode}
+              range={range}
+              onChange={onRangeChange}
+              onDone={() => setVisible(false)}
+            />
+          : <TableChoices
+              key={`${visible}-${tables?.join(",") ?? "normal"}-${factNumberLimit ?? "adaptive"}`}
+              mode={mode}
+              tables={tables}
+              factNumberLimit={factNumberLimit}
+              onChange={onTablesChange}
+              onFactNumberLimitChange={onFactNumberLimitChange}
+              onDone={() => setVisible(false)}
+            />}
       </OptionBottomSheet>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetContent: { gap: 14, paddingBottom: 8 },
   sheetSubtitle: {
     color: COLORS.secondary,
     fontFamily: "NunitoSans_400Regular",

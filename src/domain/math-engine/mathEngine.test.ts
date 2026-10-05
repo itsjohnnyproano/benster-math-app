@@ -142,6 +142,20 @@ describe("question generation", () => {
     expect(question.leftOperand + question.rightOperand).toBeLessThanOrEqual(100);
   });
 
+  it("keeps Normal addition progression through 100", () => {
+    const question = generateQuestion({
+      mode: "addition",
+      levelUpEnabled: true,
+      difficultyLevel: 4,
+      questionId: 1,
+      presentedAtMs: 0,
+      random: () => 0.999999,
+    });
+    expect(question.leftOperand).toBe(100);
+    expect(question.rightOperand).toBe(100);
+    expect(question.correctAnswer).toBe(200);
+  });
+
   it("selects every operation in mixed mode", () => {
     const operations = [0, 0.3, 0.6, 0.9].map(
       (operationChoice, index) =>

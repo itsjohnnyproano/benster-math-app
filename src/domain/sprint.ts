@@ -52,7 +52,9 @@ export type SprintConfiguration = Readonly<{
 export function getPracticeSelectionKey(configuration: SprintConfiguration) {
   if (configuration.range !== undefined) return `range:${configuration.range}`;
   if (configuration.tables !== undefined || configuration.factNumberLimit !== undefined) {
-    const tables = configuration.tables?.join(",") ?? "normal";
+    const tables = configuration.tables
+      ? [...configuration.tables].sort((left, right) => left - right).join(",")
+      : "normal";
     const limit = configuration.factNumberLimit ?? "adaptive";
     return `tables:${tables}|limit:${limit}`;
   }

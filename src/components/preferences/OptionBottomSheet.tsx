@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -85,6 +86,10 @@ export function OptionBottomSheet({
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const isIpad = Platform.OS === "ios" && getAdaptiveLayout(width, height) !== "phone";
+  const contentMaxHeight = Math.max(
+    240,
+    height - insets.top - insets.bottom - (isIpad ? 164 : 140),
+  );
   const hasPreviews = options?.some((option) => option.preview) ?? false;
   const [isClosing, setIsClosing] = useState(false);
   const backdropOpacity = useAnimatedValue(0);
@@ -195,8 +200,18 @@ export function OptionBottomSheet({
               )}
             </View>
 
-            <View style={[styles.optionList, hasPreviews && styles.previewList]}>
-              {children ?? options?.map((option) => {
+            {children ? (
+              <ScrollView
+                bounces={false}
+                contentContainerStyle={styles.customContent}
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: contentMaxHeight }}
+              >
+                {children}
+              </ScrollView>
+            ) : (
+              <View style={[styles.optionList, hasPreviews && styles.previewList, { maxHeight: contentMaxHeight }]}>
+                {options?.map((option) => {
                 const isSelected = selectedValue === option.value;
 
                 return (
@@ -256,8 +271,9 @@ export function OptionBottomSheet({
                     </View>
                   </Pressable>
                 );
-              })}
-            </View>
+                })}
+              </View>
+            )}
           </Pressable>
         </Animated.View>
       </Pressable>
@@ -333,6 +349,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   optionList: { gap: 9 },
+  customContent: { gap: 14, paddingBottom: 8 },
   previewList: { flexDirection: "row" },
   combinedPreviewContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
   combinedHorizontalProblem: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 13 },

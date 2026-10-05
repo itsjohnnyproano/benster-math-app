@@ -9,11 +9,11 @@ import {
 } from "./types";
 import type { FactNumberLimit, FactTable, PracticeNumberRange } from "@/domain/practiceSelection";
 
-const CORE_FACT_MAX: Record<DifficultyLevel, number> = {
-  1: 5,
-  2: 8,
-  3: 10,
-  4: 12,
+const ADDITION_MAX: Record<DifficultyLevel, number> = {
+  1: 10,
+  2: 20,
+  3: 50,
+  4: 100,
 };
 
 const TIMES_TABLE_MAX: Record<DifficultyLevel, number> = {
@@ -67,9 +67,12 @@ function createOperands(
       : [otherFactor, selectedTable] as const;
   }
 
-  const max = range ?? (levelUpEnabled ? CORE_FACT_MAX[difficultyLevel] : CORE_FACT_MAX[4]);
+  // Normal Sprint keeps the established progression to 100 when Level Up is
+  // enabled. Without Level Up it remains a quiet core-facts set through 12.
+  // A selected range is focused practice, so addition stays within that sum.
+  const max = range ?? (levelUpEnabled ? ADDITION_MAX[difficultyLevel] : 12);
   const first = randomInteger(0, max, random);
-  const second = operation === "addition"
+  const second = operation === "addition" && (range !== undefined || !levelUpEnabled)
     ? randomInteger(0, max - first, random)
     : randomInteger(0, max, random);
 
