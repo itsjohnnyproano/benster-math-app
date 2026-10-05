@@ -210,69 +210,77 @@ export function OptionBottomSheet({
                 {children}
               </ScrollView>
             ) : (
-              <View style={[styles.optionList, hasPreviews && styles.previewList, { maxHeight: contentMaxHeight }]}>
+              <ScrollView
+                bounces={false}
+                contentContainerStyle={[
+                  styles.optionList,
+                  hasPreviews && styles.previewList,
+                ]}
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: contentMaxHeight }}
+              >
                 {options?.map((option) => {
-                const isSelected = selectedValue === option.value;
+                  const isSelected = selectedValue === option.value;
 
-                return (
-                  <Pressable
-                    accessibilityLabel={`${option.label}${isSelected ? ", selected" : ""}`}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: isSelected }}
-                    key={option.value}
-                    disabled={isClosing}
-                    onPress={() =>
-                      animateOut(
-                        () => onSelect?.(option.value),
-                        isIpad ? IPAD_SELECTION_CLOSE_DURATION_MS : CLOSE_DURATION_MS
-                      )
-                    }
-                    style={({ pressed }) => [
-                      styles.option,
-                      hasPreviews && styles.previewOption,
-                      isSelected && styles.selectedOption,
-                      pressed && styles.pressedOption,
-                    ]}
-                  >
-                    {option.preview && <LayoutPreview layout={option.preview} />}
-                    <View
-                      style={[
-                        styles.optionCopy,
-                        hasPreviews && styles.previewOptionCopy,
+                  return (
+                    <Pressable
+                      accessibilityLabel={`${option.label}${isSelected ? ", selected" : ""}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: isSelected }}
+                      key={option.value}
+                      disabled={isClosing}
+                      onPress={() =>
+                        animateOut(
+                          () => onSelect?.(option.value),
+                          isIpad ? IPAD_SELECTION_CLOSE_DURATION_MS : CLOSE_DURATION_MS,
+                        )
+                      }
+                      style={({ pressed }) => [
+                        styles.option,
+                        hasPreviews && styles.previewOption,
+                        isSelected && styles.selectedOption,
+                        pressed && styles.pressedOption,
                       ]}
                     >
-                      <Text
+                      {option.preview && <LayoutPreview layout={option.preview} />}
+                      <View
                         style={[
-                          styles.optionLabel,
-                          isSelected && styles.selectedLabel,
+                          styles.optionCopy,
+                          hasPreviews && styles.previewOptionCopy,
                         ]}
                       >
-                        {option.label}
-                      </Text>
-                      {option.description && (
-                        <Text style={styles.optionDescription}>
-                          {option.description}
+                        <Text
+                          style={[
+                            styles.optionLabel,
+                            isSelected && styles.selectedLabel,
+                          ]}
+                        >
+                          {option.label}
                         </Text>
-                      )}
-                    </View>
-                    <View
-                      style={[
-                        styles.selectionCircle,
-                        isSelected && styles.selectedCircle,
-                      ]}
-                    >
-                      {isSelected && (
-                        <SymbolView
-                          name={{ ios: "checkmark", android: "check", web: "check" }}
-                          size={15}
-                          tintColor={COLORS.card}
-                        />
-                      )}
-                    </View>
-                  </Pressable>
-                );
+                        {option.description && (
+                          <Text style={styles.optionDescription}>
+                            {option.description}
+                          </Text>
+                        )}
+                      </View>
+                      <View
+                        style={[
+                          styles.selectionCircle,
+                          isSelected && styles.selectedCircle,
+                        ]}
+                      >
+                        {isSelected && (
+                          <SymbolView
+                            name={{ ios: "checkmark", android: "check", web: "check" }}
+                            size={15}
+                            tintColor={COLORS.card}
+                          />
+                        )}
+                      </View>
+                    </Pressable>
+                  );
                 })}
-              </View>
+              </ScrollView>
             )}
           </Pressable>
         </Animated.View>
