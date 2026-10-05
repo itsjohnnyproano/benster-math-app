@@ -14,7 +14,9 @@ export function useTabBarLayout() {
 
   return {
     bottom,
-    contentInset: Platform.OS === "ios" ? TAB_BAR_HEIGHT + bottom : TAB_BAR_HEIGHT + bottom + 16,
+    // NativeTabs adjusts the first scroll container for the system tab layout on iOS.
+    // Android and web use the JavaScript floating bar, so they still need its clearance.
+    contentInset: Platform.OS === "ios" ? 0 : TAB_BAR_HEIGHT + bottom + 16,
     isIpad,
     top,
   };

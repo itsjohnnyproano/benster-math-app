@@ -30,21 +30,21 @@ function IOSNativeTabs() {
       labelStyle={{ fontFamily: "NunitoSans_700Bold", fontSize: 11 }}
       tintColor={COLORS.primary}
     >
-      <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
+      <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon
           sf={{ default: "house", selected: "house.fill" }}
           md={{ default: "home", selected: "home" }}
         />
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="history" disableAutomaticContentInsets>
+      <NativeTabs.Trigger name="history">
         <NativeTabs.Trigger.Icon
           sf={{ default: "clock.arrow.circlepath", selected: "clock.arrow.circlepath" }}
           md={{ default: "history", selected: "history" }}
         />
         <NativeTabs.Trigger.Label>History</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="settings" disableAutomaticContentInsets>
+      <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Icon
           sf={{ default: "gearshape", selected: "gearshape.fill" }}
           md={{ default: "settings", selected: "settings" }}
