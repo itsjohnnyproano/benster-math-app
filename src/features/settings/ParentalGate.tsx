@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { AccessibilityInfo, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputInstance, View } from "react-native";
 import { useAnimatedValue } from "@/shared/useAnimatedValue";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createParentalChallenge, isParentalAnswerCorrect } from "@/domain/parentalGate";
@@ -15,7 +15,7 @@ export function ParentalGate({ onResolved }: { onResolved: (approved: boolean) =
   const closing = useRef(false);
   const approved = useRef(false);
   const delivered = useRef(false);
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   const shake = useAnimatedValue(0);
   const reduceMotion = useRef(true);
 
