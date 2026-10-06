@@ -1,6 +1,6 @@
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { Tabs, type BottomTabBarProps } from "expo-router/js-tabs";
-import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { NativeTabs } from "expo-router/native-tabs";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useState } from "react";
 import {
@@ -63,7 +63,6 @@ function JavascriptTabs() {
       tabBar={(props) => <FloatingTabBar {...props} reduceMotionEnabled={reduceMotionEnabled} />}
       backBehavior="initialRoute"
       detachInactiveScreens={false}
-      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         animation: reduceMotionEnabled ? "none" : "fade",
@@ -151,7 +150,8 @@ function useReduceMotionEnabled() {
 
 function FloatingTabBar({
   descriptors,
-  navigation,
+  emitter,
+  navigateToTab,
   reduceMotionEnabled,
   state,
 }: BottomTabBarProps & { reduceMotionEnabled: boolean }) {
@@ -183,10 +183,10 @@ function FloatingTabBar({
               accessibilityLabel={options.title ?? route.name}
               accessibilityState={{ selected: focused }}
               onPress={() => {
-                const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-                if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+                const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+                if (!focused && !event.defaultPrevented) navigateToTab(route.key);
               }}
-              onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
+              onLongPress={() => emitter.emit({ type: "tabLongPress", target: route.key })}
               style={({ pressed }) => [styles.item, pressed && styles.pressed]}
             >
               <SelectionBackground focused={focused} reduceMotionEnabled={reduceMotionEnabled} />

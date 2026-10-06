@@ -13,7 +13,7 @@ export function useIntroAdvance(ready: boolean, onComplete: () => void) {
       if (timer !== undefined) clearTimeout(timer);
       timer = undefined;
     };
-    const schedule = (state: string | null) => {
+    const schedule = (state: string | null | undefined) => {
       clear();
       if (state === "active") timer = setTimeout(onComplete, INTRO_DURATION_MS);
     };

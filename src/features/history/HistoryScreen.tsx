@@ -106,7 +106,7 @@ export default function HistoryScreen() {
                 : history.hasMore ? <Action label="Load more sprints" onPress={history.loadMore} />
                   : <Text style={styles.stateBody}>Every sprint is a step forward.</Text>}
           </View>
-        ) : null}
+        ) : undefined}
       />
     </SafeAreaView>
   );
