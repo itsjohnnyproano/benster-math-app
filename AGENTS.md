@@ -8,10 +8,10 @@ Preserve the established visual language and user flow unless the user explicitl
 
 ## Technology
 
-- Expo SDK 57, React Native 0.86, React 19, TypeScript in strict mode, and Expo Router.
-- Before writing or modifying any application code, consult the relevant pages in the exact [Expo SDK 57 documentation](https://docs.expo.dev/versions/v57.0.0/). Do not rely on memory or substitute documentation for another SDK version. Pay particular attention when changing Expo APIs, dependencies, app configuration, native behavior, routing, builds, or supported-device behavior.
+- Expo SDK 58, React Native 0.88, React 19, TypeScript in strict mode, and Expo Router.
+- Before writing or modifying any application code, consult the relevant pages in the exact [Expo SDK 58 documentation](https://docs.expo.dev/versions/v58.0.0/). Do not rely on memory or substitute documentation for another SDK version. Pay particular attention when changing Expo APIs, dependencies, app configuration, native behavior, routing, builds, or supported-device behavior.
 - Vitest provides unit and repository tests. SQLite stores completed sprint records; `expo-sqlite/kv-store` stores preferences.
-- NativeWind is installed but the current UI primarily uses React Native `StyleSheet`. Do not migrate styling systems unless explicitly requested.
+- The UI uses React Native `StyleSheet` and design tokens in `src/theme`. Do not migrate styling systems unless explicitly requested.
 
 ## Architecture boundaries
 
