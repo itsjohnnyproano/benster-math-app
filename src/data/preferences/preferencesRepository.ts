@@ -6,6 +6,7 @@ import { isFactNumberLimit, isPracticeNumberRange, sanitizeFactTables } from "@/
 import {
   isCardLayout,
   isInputStyle,
+  isOnboardingGoal,
   isSprintDuration,
   type UserPreferences,
 } from "@/domain/sprint";
@@ -34,6 +35,12 @@ export function sanitizePreferences(value: unknown): UserPreferences {
 
   return {
     onboardingCompleted: candidate.onboardingCompleted === true,
+    // Existing installs had access before the introductory free sprint existed.
+    firstFreeSprintCompleted: candidate.firstFreeSprintCompleted !== false,
+    // Existing installs completed the old onboarding before this celebration
+    // existed. Do not surprise them with it after their next saved sprint.
+    firstResultCelebrationSeen: candidate.firstResultCelebrationSeen !== false,
+    onboardingGoal: isOnboardingGoal(candidate.onboardingGoal) ? candidate.onboardingGoal : null,
     nickname: normalizeNickname(candidate.nickname),
     durationSeconds: isSprintDuration(candidate.durationSeconds)
       ? candidate.durationSeconds

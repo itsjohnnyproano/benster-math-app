@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
@@ -13,13 +13,18 @@ import { RESULT_PRESENTATION } from "./resultPresentation";
 import { formatResponseTime } from "@/shared/formatResponseTime";
 import { CARD_LAYOUT_LABELS } from "@/components/preferences/practiceOptions";
 import { getResultsLayout } from "./resultsLayout";
+import { usePreferences } from "@/providers/PreferencesProvider";
+import { FirstResultCelebration } from "@/features/onboarding/FirstResultCelebration";
 
 type Props = { learnerId: string; sprintId: string; result: SprintResult; onDone: () => void };
 
 export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Props) {
+  const { preferences, completeFirstFreeSprint } = usePreferences();
   const { width, height, fontScale } = useWindowDimensions();
   const { isTablet, isTwoColumn, contentMaxWidth } = getResultsLayout(width, height, Platform.OS, fontScale);
   const save = useSavedSprint(learnerId, sprintId, result);
+  const [showFirstResultCelebration, setShowFirstResultCelebration] = useState(false);
+  const recordingFirstFreeSprint = useRef(false);
   const encouragement = RESULT_PRESENTATION[getResultOutcome(result)];
   const { configuration } = result;
   const duration = formatDurationLabel(configuration.durationSeconds);
@@ -40,6 +45,24 @@ export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Pro
     });
     return () => subscription.remove();
   }, [save.status, onDone, leaveWithoutSaving]);
+
+  const isFirstSavedSprint = save.status === "saved" && !preferences.firstResultCelebrationSeen;
+  const isFirstFreeSprint = save.status === "saved" && !preferences.firstFreeSprintCompleted;
+
+  useEffect(() => {
+    if (!isFirstFreeSprint || recordingFirstFreeSprint.current) return;
+
+    recordingFirstFreeSprint.current = true;
+    void completeFirstFreeSprint().catch(() => {
+      // Keep the intro sprint available if its local completion marker cannot
+      // be saved; the provider exposes the storage failure for recovery.
+      recordingFirstFreeSprint.current = false;
+    });
+  }, [completeFirstFreeSprint, isFirstFreeSprint]);
+
+  if (showFirstResultCelebration && save.status === "saved") {
+    return <FirstResultCelebration correctCount={result.correctCount} />;
+  }
 
   return (
     <View style={styles.screen}>
@@ -98,7 +121,7 @@ export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Pro
           </View>
         </View>
 
-        <AnswerReview answers={result.answeredQuestions} />
+        <AnswerReview answers={result.answeredQuestions} defaultExpanded={isFirstSavedSprint} />
         <View style={styles.details}>
           <Text style={styles.detailsText}>
             {configuration.inputStyle === "typed" ? "Typed answers" : "Multiple choice"} · {CARD_LAYOUT_LABELS[configuration.cardLayout]} cards
@@ -111,13 +134,13 @@ export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Pro
       <View style={[styles.footer, isTablet && styles.tabletFooter]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Done, return home"
+          accessibilityLabel={isFirstSavedSprint ? "Continue to your first-sprint celebration" : "Done, return home"}
           accessibilityState={{ disabled: save.status !== "saved" }}
           disabled={save.status !== "saved"}
-          onPress={onDone}
+          onPress={isFirstSavedSprint ? () => setShowFirstResultCelebration(true) : onDone}
           style={({ pressed }) => [styles.doneButton, isTablet && styles.tabletDoneButton, save.status !== "saved" && styles.disabled, pressed && styles.pressed]}
         >
-          <Text style={styles.doneText}>{save.status === "saving" ? "Saving…" : "Done"}</Text>
+          <Text style={styles.doneText}>{save.status === "saving" ? "Saving…" : isFirstSavedSprint ? "Continue" : "Done"}</Text>
         </Pressable>
         {save.status === "error" && (
           <Pressable accessibilityRole="button" onPress={leaveWithoutSaving} style={styles.leaveButton}>

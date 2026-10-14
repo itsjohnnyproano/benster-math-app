@@ -1,11 +1,23 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AnswerReviewRow } from "@/components/sprints/AnswerReviewRow";
 import type { AnsweredQuestion } from "@/domain/math-engine";
 import { COLORS } from "@/theme/tokens";
 
-export function AnswerReview({ answers }: { answers: readonly AnsweredQuestion[] }) {
-  const [expanded, setExpanded] = useState(false);
+export function AnswerReview({ answers, defaultExpanded = false }: { answers: readonly AnsweredQuestion[]; defaultExpanded?: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const hasAppliedDefault = useRef(defaultExpanded);
+
+  // Sprint results render while the record is still saving. The first-sprint
+  // celebration turns this default on only after that save completes, so apply
+  // the one-time default transition without overriding a learner's later tap.
+  useEffect(() => {
+    if (defaultExpanded && !hasAppliedDefault.current) {
+      hasAppliedDefault.current = true;
+      setExpanded(true);
+    }
+  }, [defaultExpanded]);
+
   const incorrectCount = answers.filter((answer) => !answer.isCorrect).length;
   if (answers.length === 0) return null;
 

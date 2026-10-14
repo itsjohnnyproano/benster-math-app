@@ -73,7 +73,7 @@ describe("onboarding preference commit", () => {
     await Promise.resolve();
     resolve();
     await pending;
-    expect(render().preferences).toEqual({ ...DEFAULT_PREFERENCES, nickname: "Jo", onboardingCompleted: true });
+    expect(render().preferences).toEqual({ ...DEFAULT_PREFERENCES, nickname: "Jo", durationSeconds: 30, onboardingCompleted: true, firstFreeSprintCompleted: false, firstResultCelebrationSeen: false });
     expect(storage.setItem).toHaveBeenCalledTimes(2);
     cleanup();
   });
@@ -94,6 +94,37 @@ describe("onboarding preference commit", () => {
     const { value, cleanup } = await mount();
     await value.completeOnboarding("");
     expect(render().preferences).toMatchObject({ nickname: "", durationSeconds: 30, cardLayout: "both", onboardingCompleted: true });
+    cleanup();
+  });
+
+  it("saves the selected answer style, sprint length, and card layout", async () => {
+    const { value, cleanup } = await mount();
+    await value.completeOnboarding("Jo", {
+      durationSeconds: 120,
+      inputStyle: "typed",
+      cardLayout: "both",
+      onboardingGoal: "speed",
+    });
+    expect(render().preferences).toMatchObject({
+      nickname: "Jo",
+      durationSeconds: 120,
+      inputStyle: "typed",
+      cardLayout: "both",
+      onboardingGoal: "speed",
+      onboardingCompleted: true,
+    });
+    cleanup();
+  });
+
+  it("records the introductory sprint and keeps the first-result celebration pending", async () => {
+    const { value, cleanup } = await mount();
+    await value.completeOnboarding("Jo");
+    expect(render().preferences.firstFreeSprintCompleted).toBe(false);
+    expect(render().preferences.firstResultCelebrationSeen).toBe(false);
+    await render().completeFirstFreeSprint();
+    expect(render().preferences.firstFreeSprintCompleted).toBe(true);
+    await render().completeFirstResultCelebration();
+    expect(render().preferences.firstResultCelebrationSeen).toBe(true);
     cleanup();
   });
 

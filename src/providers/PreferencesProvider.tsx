@@ -18,7 +18,9 @@ type PreferencesContextValue = {
   resetUnreadablePreferences: () => Promise<void>;
   retrySave: () => void;
   deleteAllPreferences: () => Promise<void>;
-  completeOnboarding: (nickname: string) => Promise<void>;
+  completeOnboarding: (nickname: string, setup?: Pick<UserPreferences, "durationSeconds" | "inputStyle" | "cardLayout" | "onboardingGoal">) => Promise<void>;
+  completeFirstFreeSprint: () => Promise<void>;
+  completeFirstResultCelebration: () => Promise<void>;
   resetPracticePreferences: () => void;
   updatePreference: <Key extends keyof UserPreferences>(key: Key, value: UserPreferences[Key]) => void;
   renameActiveLearner: (nickname: string) => Promise<void>;
@@ -176,15 +178,42 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         }
       },
       retrySave: () => { if (isReady) persist(preferencesRef.current); },
-      completeOnboarding: async (nickname) => {
+      completeOnboarding: async (nickname, setup) => {
         if (!isReady) throw new Error("Preferences are not ready");
         const learnerId = registryRef.current?.activeLearnerId;
         if (!learnerId) throw new Error("Learner profiles are not ready");
+        // The guided first sprint is deliberately short. Learners can change
+        // these selections at any time after onboarding.
+        const nextPreferences = sanitizePreferences({
+          ...preferencesRef.current,
+          nickname,
+          durationSeconds: setup?.durationSeconds ?? 30,
+          inputStyle: setup?.inputStyle ?? preferencesRef.current.inputStyle,
+          cardLayout: setup?.cardLayout ?? preferencesRef.current.cardLayout,
+          onboardingGoal: setup?.onboardingGoal ?? preferencesRef.current.onboardingGoal,
+          onboardingCompleted: true,
+          firstFreeSprintCompleted: false,
+          firstResultCelebrationSeen: false,
+        });
         await saveLearnerName(
           learnerId,
-          sanitizePreferences({ ...preferencesRef.current, nickname, onboardingCompleted: true }),
-          ["nickname", "onboardingCompleted"],
+          nextPreferences,
+          ["nickname", "durationSeconds", "inputStyle", "cardLayout", "onboardingGoal", "onboardingCompleted", "firstFreeSprintCompleted", "firstResultCelebrationSeen"],
         );
+      },
+      completeFirstFreeSprint: async () => {
+        if (!isReady) throw new Error("Preferences are not ready");
+        const learnerId = registryRef.current?.activeLearnerId;
+        if (!learnerId) throw new Error("Learner profiles are not ready");
+        const next = sanitizePreferences({ ...preferencesRef.current, firstFreeSprintCompleted: true });
+        await saveLearnerName(learnerId, next, ["firstFreeSprintCompleted"]);
+      },
+      completeFirstResultCelebration: async () => {
+        if (!isReady) throw new Error("Preferences are not ready");
+        const next = sanitizePreferences({ ...preferencesRef.current, firstResultCelebrationSeen: true });
+        const learnerId = registryRef.current?.activeLearnerId;
+        if (!learnerId) throw new Error("Learner profiles are not ready");
+        await saveLearnerName(learnerId, next, ["firstResultCelebrationSeen"]);
       },
       deleteAllPreferences: () => serializeLearnerMutation(async () => {
         if (!isReady) throw new Error("Preferences are not ready");
@@ -236,7 +265,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         setIsReady(false);
         try {
           const nextRegistry = { ...current, activeLearnerId: learner.id };
-          const nextPreferences = await loadLearnerPreferences(learner.id, { ...DEFAULT_PREFERENCES, onboardingCompleted: true, nickname: learner.nickname });
+          const nextPreferences = await loadLearnerPreferences(learner.id, { ...DEFAULT_PREFERENCES, onboardingCompleted: true, firstFreeSprintCompleted: true, firstResultCelebrationSeen: true, nickname: learner.nickname });
           await saveLearnerRegistry(nextRegistry);
           if (mounted.current) {
             registryRef.current = nextRegistry;
@@ -267,7 +296,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
           colorId: nextAvailableProfileColorId(current.learners),
           createdAtMs,
         };
-        await savePreferences({ ...DEFAULT_PREFERENCES, onboardingCompleted: true, nickname: learner.nickname }, learner.id);
+        await savePreferences({ ...DEFAULT_PREFERENCES, onboardingCompleted: true, firstFreeSprintCompleted: true, firstResultCelebrationSeen: true, nickname: learner.nickname }, learner.id);
         const nextRegistry = { ...current, learners: [...current.learners, learner] };
         await saveLearnerRegistry(nextRegistry);
         if (mounted.current) { registryRef.current = nextRegistry; setRegistry(nextRegistry); }
@@ -298,7 +327,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         const nextRegistry: LearnerRegistry = { activeLearnerId: nextActive.id, learners: remaining };
         const nextPreferences = nextActive.id === current.activeLearnerId
           ? preferencesRef.current
-          : await loadLearnerPreferences(nextActive.id, { ...DEFAULT_PREFERENCES, onboardingCompleted: true, nickname: nextActive.nickname });
+          : await loadLearnerPreferences(nextActive.id, { ...DEFAULT_PREFERENCES, onboardingCompleted: true, firstFreeSprintCompleted: true, firstResultCelebrationSeen: true, nickname: nextActive.nickname });
         await saveLearnerRegistry(nextRegistry);
         if (mounted.current) {
           registryRef.current = nextRegistry;

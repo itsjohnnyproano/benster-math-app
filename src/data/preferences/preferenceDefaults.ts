@@ -2,6 +2,9 @@ import type { UserPreferences } from "@/domain/sprint";
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   onboardingCompleted: false,
+  firstFreeSprintCompleted: false,
+  firstResultCelebrationSeen: false,
+  onboardingGoal: null,
   nickname: "",
   durationSeconds: 60,
   inputStyle: "multiple-choice",

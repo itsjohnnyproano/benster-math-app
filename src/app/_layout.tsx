@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { useAppFonts } from "@/lib/fonts";
 import { PreferencesProvider, usePreferences } from "@/providers/PreferencesProvider";
+import { SubscriptionProvider } from "@/providers/SubscriptionProvider";
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
 import { PreferencesRecoveryScreen } from "@/components/preferences/PreferencesRecoveryScreen";
 import { COLORS } from "@/theme/tokens";
@@ -30,7 +31,7 @@ function AppNavigation() {
   return <>
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={!preferences.onboardingCompleted}>
-        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
       </Stack.Protected>
       <Stack.Protected guard={preferences.onboardingCompleted}>
         <Stack.Screen name="(tabs)" />
@@ -38,6 +39,7 @@ function AppNavigation() {
         <Stack.Screen name="history/[sprintId]" />
         <Stack.Screen name="sprint/setup" />
         <Stack.Screen name="sprint/play" />
+        <Stack.Screen name="subscription" />
       </Stack.Protected>
     </Stack>
     <ProfilePickerController />
@@ -64,7 +66,9 @@ export default function RootLayout() {
 
   return (
     <PreferencesProvider>
-      <AppNavigation />
+      <SubscriptionProvider>
+        <AppNavigation />
+      </SubscriptionProvider>
     </PreferencesProvider>
   );
 }

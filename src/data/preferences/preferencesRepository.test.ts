@@ -15,9 +15,10 @@ beforeEach(() => {
 describe("preferences storage", () => {
   it("defaults old installs to onboarding without removing an existing nickname", () => {
     expect(sanitizePreferences({ nickname: "Jo", durationSeconds: 30 })).toEqual({
-      ...DEFAULT_PREFERENCES, nickname: "Jo", durationSeconds: 30,
+      ...DEFAULT_PREFERENCES, nickname: "Jo", durationSeconds: 30, firstFreeSprintCompleted: true, firstResultCelebrationSeen: true,
     });
-    expect(sanitizePreferences({ onboardingCompleted: "true" }).onboardingCompleted).toBe(false);
+    expect(sanitizePreferences({ onboardingCompleted: "true", onboardingGoal: "not-a-goal" }))
+      .toMatchObject({ onboardingCompleted: false, onboardingGoal: null });
   });
 
   it("persists onboarding completion and preserves it when resetting practice defaults", async () => {
@@ -30,11 +31,11 @@ describe("preferences storage", () => {
 
   it("loads old preferences without losing choices when nickname is absent", async () => {
     storage.getItem.mockResolvedValue(JSON.stringify({ durationSeconds: 90, inputStyle: "typed", cardLayout: "vertical", levelUpEnabled: false, darkModeEnabled: false }));
-    expect(await loadPreferences()).toEqual({ ...DEFAULT_PREFERENCES, nickname: "", durationSeconds: 90, inputStyle: "typed", cardLayout: "vertical", levelUpEnabled: false, darkModeEnabled: false });
+    expect(await loadPreferences()).toEqual({ ...DEFAULT_PREFERENCES, nickname: "", durationSeconds: 90, inputStyle: "typed", cardLayout: "vertical", levelUpEnabled: false, darkModeEnabled: false, firstFreeSprintCompleted: true, firstResultCelebrationSeen: true });
   });
 
   it("persists and reloads the nickname and all practice preferences", async () => {
-    const preferences = { ...DEFAULT_PREFERENCES, nickname: "Jo", durationSeconds: 120 as const, cardLayout: "both" as const };
+    const preferences = { ...DEFAULT_PREFERENCES, nickname: "Jo", durationSeconds: 120 as const, cardLayout: "both" as const, onboardingGoal: "speed" as const };
     await savePreferences(preferences);
     storage.getItem.mockResolvedValue(storage.setItem.mock.calls[0][1]);
     expect(await loadPreferences()).toEqual(preferences);
@@ -72,7 +73,7 @@ describe("preferences storage", () => {
   });
 
   it("sanitizes invalid fields and restricts the saved nickname", () => {
-    expect(sanitizePreferences({ nickname: "  Jo\n  ", durationSeconds: 17, inputStyle: "invalid" })).toEqual({ ...DEFAULT_PREFERENCES, nickname: "Jo" });
+    expect(sanitizePreferences({ nickname: "  Jo\n  ", durationSeconds: 17, inputStyle: "invalid" })).toEqual({ ...DEFAULT_PREFERENCES, nickname: "Jo", firstFreeSprintCompleted: true, firstResultCelebrationSeen: true });
   });
 
   it("snapshots queued writes and recovers after a failed save", async () => {

@@ -1,10 +1,11 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
+import { ONBOARDING_GOAL_DETAILS } from "@/config/onboardingGoals";
 import { createSprint, getRemainingMs, submitAnswer, tickSprint, type SprintState } from "@/domain/math-engine";
 import { createLocalSprintId } from "@/domain/results";
 import { parseFactNumberLimit, parseFactTables, parsePracticeNumberRange } from "@/domain/practiceSelection";
@@ -19,6 +20,7 @@ import { SprintResultsScreen } from "@/features/sprint-results/SprintResultsScre
 import { getAdaptiveLayout } from "@/shared/responsiveLayout";
 import { COLORS } from "@/theme/tokens";
 import { usePreferences } from "@/providers/PreferencesProvider";
+import { useSubscription } from "@/providers/SubscriptionProvider";
 
 import { CountdownView } from "./components/CountdownView";
 import { MultipleChoiceAnswers } from "./components/MultipleChoiceAnswers";
@@ -30,6 +32,7 @@ import { createSprintClock } from "./sprintClock";
 import type { AnswerFeedback } from "./types";
 
 const FEEDBACK_DURATION_MS = 650;
+const LEVEL_UP_NOTICE_DURATION_MS = 1_800;
 
 function readBoolean(value: string | undefined) {
   return value === "true";
@@ -38,7 +41,8 @@ function readBoolean(value: string | undefined) {
 export default function SprintPlayScreen() {
   const router = useRouter();
   const [sprintId] = useState(createLocalSprintId);
-  const { activeLearner } = usePreferences();
+  const { activeLearner, preferences } = usePreferences();
+  const { isPremium, status: subscriptionStatus } = useSubscription();
   const [learnerId] = useState(activeLearner.id);
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -74,7 +78,9 @@ export default function SprintPlayScreen() {
   const [remainingMs, setRemainingMs] = useState(configuration.durationSeconds * 1000);
   const [typedAnswer, setTypedAnswer] = useState("");
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null);
+  const [levelUpNotice, setLevelUpNotice] = useState<string | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const levelUpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submissionLockedRef = useRef(false);
   const clockRef = useRef<ReturnType<typeof createSprintClock> | null>(null);
   const modeDetails = SPRINT_MODE_DETAILS[configuration.mode];
@@ -86,6 +92,8 @@ export default function SprintPlayScreen() {
     configuration.inputStyle,
     adaptiveLayout
   );
+  const subscriptionCheckPending = preferences.firstFreeSprintCompleted && subscriptionStatus === "loading";
+  const requiresPremium = preferences.firstFreeSprintCompleted && subscriptionStatus === "ready" && !isPremium;
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -120,9 +128,14 @@ export default function SprintPlayScreen() {
   useEffect(
     () => () => {
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+      if (levelUpTimeoutRef.current) clearTimeout(levelUpTimeoutRef.current);
     },
     []
   );
+
+  useEffect(() => {
+    if (requiresPremium) router.replace("/subscription");
+  }, [requiresPremium, router]);
 
   const submit = useCallback(
     (submittedAnswer: number) => {
@@ -145,31 +158,73 @@ export default function SprintPlayScreen() {
 
       feedbackTimeoutRef.current = setTimeout(() => {
         const nextQuestionPresentedAtMs = clock.now();
-        setSprintState(
-          submitAnswer(sprintState, submittedAnswer, answeredAtMs, Math.random, nextQuestionPresentedAtMs)
+        const nextState = submitAnswer(
+          sprintState,
+          submittedAnswer,
+          answeredAtMs,
+          Math.random,
+          nextQuestionPresentedAtMs
         );
+        setSprintState(nextState);
+        if (
+          nextState.status === "active"
+          && nextState.difficultyLevel > sprintState.difficultyLevel
+        ) {
+          if (levelUpTimeoutRef.current) clearTimeout(levelUpTimeoutRef.current);
+          setLevelUpNotice(
+            preferences.onboardingGoal
+              ? ONBOARDING_GOAL_DETAILS[preferences.onboardingGoal].levelUpMessage
+              : "The next questions are a little harder."
+          );
+          levelUpTimeoutRef.current = setTimeout(() => {
+            setLevelUpNotice(null);
+            levelUpTimeoutRef.current = null;
+          }, LEVEL_UP_NOTICE_DURATION_MS);
+        }
         setTypedAnswer("");
         setFeedback(null);
         submissionLockedRef.current = false;
         feedbackTimeoutRef.current = null;
       }, FEEDBACK_DURATION_MS);
     },
-    [sprintState]
+    [preferences.onboardingGoal, sprintState]
   );
 
+  const leaveSprint = () => {
+    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    if (levelUpTimeoutRef.current) clearTimeout(levelUpTimeoutRef.current);
+    feedbackTimeoutRef.current = null;
+    levelUpTimeoutRef.current = null;
+    submissionLockedRef.current = false;
+    // Onboarding replaces its route with the sprint, so it has no previous
+    // navigator entry to pop. A root replacement also works for later sprints.
+    router.replace("/");
+  };
+
   const closeSprint = () => {
-    Alert.alert("Leave this sprint?", "Your current progress won’t be saved.", [
+    Alert.alert("End this sprint?", "Your current progress won’t be saved. You can start another sprint anytime.", [
       { text: "Keep going", style: "cancel" },
-      { text: "Leave", style: "destructive", onPress: () => router.back() },
+      { text: "End sprint", style: "destructive", onPress: leaveSprint },
     ]);
   };
+
+  if (subscriptionCheckPending || requiresPremium) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.subscriptionLoading}>
+          <ActivityIndicator color={COLORS.primary} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (countdown > 0 || !sprintState) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <Stack.Screen options={{ headerShown: false }} />
         <StatusBar style="dark" />
-        <CountdownView count={countdown} modeTitle={modeDetails.title} onClose={() => router.back()} />
+        <CountdownView count={countdown} modeTitle={modeDetails.title} onClose={leaveSprint} />
       </SafeAreaView>
     );
   }
@@ -271,6 +326,12 @@ export default function SprintPlayScreen() {
             Level {sprintState.difficultyLevel}
             {configuration.levelUpEnabled ? " · Level Up on" : ""}
           </Text>
+          {levelUpNotice && (
+            <View accessibilityLiveRegion="polite" style={styles.levelUpToast}>
+              <Text style={styles.levelUpToastTitle}>Level Up!</Text>
+              <Text style={styles.levelUpToastBody}>{levelUpNotice}</Text>
+            </View>
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -299,6 +360,23 @@ const styles = StyleSheet.create({
   },
   // Let the keypad reach the safe-area edges without widening the header.
   playArea: { flex: 1, marginHorizontal: -24 },
+  subscriptionLoading: { flex: 1, alignItems: "center", justifyContent: "center" },
+  levelUpToast: {
+    position: "absolute",
+    zIndex: 1,
+    top: 14,
+    left: 36,
+    right: 36,
+    alignItems: "center",
+    borderRadius: 16,
+    backgroundColor: "#FFF2CC",
+    borderWidth: 1,
+    borderColor: "#F5C95F",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  levelUpToastTitle: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 16, lineHeight: 21 },
+  levelUpToastBody: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 13, lineHeight: 18, textAlign: "center", marginTop: 1 },
   questionArea: { flex: 1, minHeight: 0, alignItems: "center", justifyContent: "center" },
   prompt: {
     color: COLORS.secondary,
