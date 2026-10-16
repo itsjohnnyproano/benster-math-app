@@ -1,6 +1,10 @@
 import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
-import { getSubscriptionAccess } from "@/data/subscription/revenueCatSubscription";
+import {
+  getSubscriptionAccess,
+  initializeSubscriptionService,
+  subscribeToSubscriptionAccess,
+} from "@/data/subscription/revenueCatSubscription";
 
 type SubscriptionStatus = "loading" | "ready" | "unavailable" | "error";
 
@@ -36,6 +40,24 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
     mounted.current = true;
+    if (!initializeSubscriptionService()) {
+      // Keep the state transition asynchronous so this effect only wires the
+      // external service and does not trigger a synchronous render cascade.
+      void Promise.resolve().then(() => {
+        if (active) setStatus("unavailable");
+      });
+      return () => {
+        active = false;
+        mounted.current = false;
+      };
+    }
+
+    const unsubscribe = subscribeToSubscriptionAccess((premium) => {
+      if (!active) return;
+      setIsPremium(premium);
+      setStatus("ready");
+    });
+
     // Start the asynchronous RevenueCat read after subscription. This avoids a
     // synchronous effect-driven render while still refreshing at app launch.
     void Promise.resolve().then(async () => {
@@ -44,6 +66,7 @@ export function SubscriptionProvider({ children }: PropsWithChildren) {
     return () => {
       active = false;
       mounted.current = false;
+      unsubscribe?.();
     };
   }, [refreshSubscription]);
 

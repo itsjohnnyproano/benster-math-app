@@ -29,6 +29,7 @@ import { QuestionCard } from "./components/QuestionCard";
 import { SprintHeader } from "./components/SprintHeader";
 import { getGameplayLayout, resolveQuestionCardLayout } from "./gameplayLayout";
 import { createSprintClock } from "./sprintClock";
+import { getSprintSubscriptionGate } from "./subscriptionGate";
 import type { AnswerFeedback } from "./types";
 
 const FEEDBACK_DURATION_MS = 650;
@@ -92,8 +93,12 @@ export default function SprintPlayScreen() {
     configuration.inputStyle,
     adaptiveLayout
   );
-  const subscriptionCheckPending = preferences.firstFreeSprintCompleted && subscriptionStatus === "loading";
-  const requiresPremium = preferences.firstFreeSprintCompleted && subscriptionStatus === "ready" && !isPremium;
+  const { subscriptionCheckPending, requiresPremium } = getSprintSubscriptionGate({
+    firstFreeSprintCompleted: preferences.firstFreeSprintCompleted,
+    isPremium,
+    sprintCompleted: sprintState?.status === "completed",
+    subscriptionStatus,
+  });
 
   useEffect(() => {
     if (countdown <= 0) return;

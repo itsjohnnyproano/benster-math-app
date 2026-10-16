@@ -56,6 +56,7 @@ export default function SubscriptionTrialScreen() {
   const unavailable = status === "unavailable";
   const busyStatus = status === "purchasing" || status === "restoring";
   const subscriptionActive = status === "active" || isPremium;
+  const purchaseActionDisabled = busyStatus || unavailable || (!selectedOffer && !subscriptionActive);
   const goal = preferences.onboardingGoal;
 
   const run = async (kind: "purchase" | "restore") => {
@@ -65,10 +66,10 @@ export default function SubscriptionTrialScreen() {
     setStatus(kind === "purchase" ? "purchasing" : "restoring");
 
     try {
-      const premium = kind === "purchase"
+      const purchase = kind === "purchase"
         ? await purchaseSubscription(selectedOffer!)
-        : await restoreSubscriptionPurchases();
-      if (premium) {
+        : { premium: await restoreSubscriptionPurchases() };
+      if (purchase.premium) {
         // purchasePackage already returned current CustomerInfo. Refresh the
         // shared gate too, but never make a completed purchase look inactive
         // merely because that follow-up cache read failed.
@@ -85,104 +86,144 @@ export default function SubscriptionTrialScreen() {
     }
   };
 
+  if (subscriptionActive) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <StatusBar style="dark" />
+        <View style={styles.layout}>
+          <View style={styles.successContent}>
+            <Image
+              source={require("../../../assets/mascot/penguin-celebrate.png")}
+              contentFit="contain"
+              style={styles.successMascot}
+              accessible={false}
+            />
+            <View accessible accessibilityRole="image" accessibilityLabel="Premium is active" style={styles.successMark}>
+              <Text style={styles.successMarkText}>✓</Text>
+            </View>
+            <Text accessibilityRole="header" style={styles.successTitle}>You’re all set!</Text>
+            <Text accessibilityRole="status" style={styles.successSubtitle}>Benster Premium is active.</Text>
+            <Text style={styles.successBody}>
+              Unlimited sprints and progress are ready on this device.
+            </Text>
+          </View>
+          <View style={styles.successFooter}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.dismissTo("/")}
+              style={({ pressed }) => [styles.button, styles.successButton, pressed && styles.disabled]}
+            >
+              <Text style={styles.buttonText}>Continue to Benster</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Image
-          source={require("../../../assets/mascot/penguin-thumbs-up2.png")}
-          contentFit="contain"
-          style={styles.mascot}
-          accessible={false}
-        />
-        <Text accessibilityRole="header" style={styles.title}>
-          More little wins,{"\n"}every day.
-        </Text>
-        <Text style={styles.body}>
-          {goal
-            ? `Keep building ${ONBOARDING_GOAL_DETAILS[goal].trialLabel} with unlimited math sprints.`
-            : "Unlimited math sprints and progress for your family."}
-        </Text>
-
-        <View style={styles.benefits}>
-          <Text style={styles.benefit}>Unlimited practice</Text>
-          <Text style={styles.benefit}>Personal progress for each learner</Text>
-          <Text style={styles.benefit}>Practice anywhere, even offline</Text>
-        </View>
-
-        {status === "loading" && <Text style={styles.note}>Checking available plans…</Text>}
-        {status === "ready" && selectedOffer && (
-          <OfferChoices
-            offers={offers}
-            selectedOffer={selectedOffer}
-            onSelect={setSelectedOfferId}
+      <View style={styles.layout}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Image
+            source={require("../../../assets/mascot/penguin-thumbs-up2.png")}
+            contentFit="contain"
+            style={styles.mascot}
+            accessible={false}
           />
-        )}
-        {unavailable && (
-          <Text accessibilityRole="alert" style={styles.note}>
-            The yearly 7-day trial and monthly plan aren’t available yet. Please check back after Premium is configured.
+          <Text accessibilityRole="header" style={styles.title}>
+            More little wins,{"\n"}every day.
           </Text>
-        )}
-        {subscriptionActive && (
-          <Text accessibilityRole="status" style={styles.active}>
-            Premium is active on this device.
+          <Text style={styles.body}>
+            {goal
+              ? ONBOARDING_GOAL_DETAILS[goal].paywallMessage
+              : "Unlimited math sprints and progress for your family."}
           </Text>
-        )}
-        {status === "error" && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            That didn’t go through. Please try again or restore purchases.
-          </Text>
-        )}
 
-        <Text style={styles.commitment}>Subscription billed and managed by Apple. Cancel anytime.</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{
-            disabled: !selectedOffer || busyStatus || unavailable || subscriptionActive,
-            busy: busyStatus,
-          }}
-          disabled={!selectedOffer || busyStatus || unavailable || subscriptionActive}
-          onPress={() => void run("purchase")}
-          style={({ pressed }) => [
-            styles.button,
-            (!selectedOffer || busyStatus || unavailable || subscriptionActive || pressed) && styles.disabled,
-          ]}
-        >
-          <Text style={styles.buttonText}>
-            {status === "purchasing"
-              ? "Starting…"
-              : subscriptionActive
-                ? "Premium is active"
+          <View style={styles.benefits}>
+            <Benefit>Build faster fact recall</Benefit>
+            <Benefit>See every learner’s progress grow</Benefit>
+            <Benefit>Practice in quick sprints, even offline</Benefit>
+          </View>
+
+          {status === "loading" && <Text style={styles.note}>Checking available plans…</Text>}
+          {status === "ready" && selectedOffer && (
+            <OfferChoices
+              offers={offers}
+              selectedOffer={selectedOffer}
+              onSelect={setSelectedOfferId}
+            />
+          )}
+          {unavailable && (
+            <Text accessibilityRole="alert" style={styles.note}>
+              The yearly 7-day trial and monthly plan aren’t available yet. Please check back after Premium is configured.
+            </Text>
+          )}
+          {status === "error" && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              That didn’t go through. Please try again or restore purchases.
+            </Text>
+          )}
+
+          <Pressable
+            accessibilityRole="button"
+            disabled={busyStatus}
+            onPress={() => void run("restore")}
+            style={({ pressed }) => [styles.restore, (busyStatus || pressed) && styles.disabled]}
+          >
+            <Text style={styles.restoreText}>{status === "restoring" ? "Restoring…" : "Restore purchases"}</Text>
+          </Pressable>
+          <View style={styles.legal}>
+            {LEGAL_LINKS.map(({ label, url }) => (
+              <Pressable key={url} accessibilityRole="link" onPress={() => void Linking.openURL(url)}>
+                <Text style={styles.legalText}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+
+        <View style={styles.purchaseFooter}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: purchaseActionDisabled,
+              busy: busyStatus,
+            }}
+            disabled={purchaseActionDisabled}
+            onPress={() => {
+              if (subscriptionActive) {
+                router.dismissTo("/");
+                return;
+              }
+              void run("purchase");
+            }}
+            style={({ pressed }) => [
+              styles.button,
+              (purchaseActionDisabled || pressed) && styles.disabled,
+            ]}
+          >
+            <Text style={styles.buttonText}>
+              {status === "purchasing"
+                ? "Starting…"
                 : selectedOffer?.hasSevenDayTrial
-                  ? "Start 7-day free trial"
-                  : `Continue with ${selectedOffer?.billingPeriod ?? "monthly"}`}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={busyStatus}
-          onPress={() => void run("restore")}
-          style={({ pressed }) => [styles.restore, (busyStatus || pressed) && styles.disabled]}
-        >
-          <Text style={styles.restoreText}>{status === "restoring" ? "Restoring…" : "Restore purchases"}</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={busyStatus}
-          onPress={() => router.dismissTo("/")}
-          style={({ pressed }) => [styles.notNow, (busyStatus || pressed) && styles.disabled]}
-        >
-          <Text style={styles.notNowText}>{subscriptionActive ? "Continue to Benster" : "Not now"}</Text>
-        </Pressable>
-        <View style={styles.legal}>
-          {LEGAL_LINKS.map(({ label, url }) => (
-            <Pressable key={url} accessibilityRole="link" onPress={() => void Linking.openURL(url)}>
-              <Text style={styles.legalText}>{label}</Text>
-            </Pressable>
-          ))}
+                    ? "Start 7-day free trial"
+                    : `Continue with ${selectedOffer?.billingPeriod ?? "monthly"}`}
+            </Text>
+          </Pressable>
+          <Text style={styles.commitment}>No commitment · Cancel anytime.</Text>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
+  );
+}
+
+function Benefit({ children }: { children: string }) {
+  return (
+    <View style={styles.benefit}>
+      <Text accessibilityElementsHidden style={styles.benefitCheck}>✓</Text>
+      <Text style={styles.benefitText}>{children}</Text>
+    </View>
   );
 }
 
@@ -195,42 +236,65 @@ function OfferChoices({
   selectedOffer: SubscriptionOffer;
   onSelect: (id: string) => void;
 }) {
+  const yearlyOffer = offers.find((offer) => offer.label === "Yearly");
+  const monthlyOffer = offers.find((offer) => offer.label === "Monthly");
+  const yearlySavingsPercent = yearlyOffer && monthlyOffer
+    ? Math.round((1 - yearlyOffer.amount / (monthlyOffer.amount * 12)) * 100)
+    : null;
+  const orderedOffers = [yearlyOffer, monthlyOffer].filter(
+    (offer): offer is SubscriptionOffer => offer !== undefined,
+  );
+
   return (
     <View style={styles.offer}>
       <Text style={styles.offerTitle}>Choose your plan</Text>
       <View accessibilityRole="radiogroup" style={styles.offerChoices}>
-        {offers.map((offer) => {
+        {orderedOffers.map((offer) => {
           const selected = offer.id === selectedOffer.id;
+          const isYearly = offer.label === "Yearly";
+          const yearlySavings = offer.label === "Yearly" && yearlySavingsPercent && yearlySavingsPercent > 0
+            ? `Save ${yearlySavingsPercent}%`
+            : null;
 
           return (
             <Pressable
               key={offer.id}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
+              accessibilityLabel={`${offer.label}, ${offer.hasSevenDayTrial ? `7 days free, then ${offer.price} yearly` : `${offer.price} billed ${offer.billingPeriod}`}${yearlySavings ? `, ${yearlySavings}` : ""}`}
               onPress={() => onSelect(offer.id)}
               style={({ pressed }) => [
                 styles.offerChoice,
+                isYearly && styles.yearlyOfferChoice,
                 selected && styles.offerChoiceSelected,
                 pressed && styles.disabled,
               ]}
             >
-              <View>
+              {isYearly && (yearlySavings || offer.hasSevenDayTrial) && (
+                <View pointerEvents="none" style={styles.yearlyBadges}>
+                  {offer.hasSevenDayTrial && <Text style={styles.trialBadge}>7 days free</Text>}
+                  {yearlySavings && <Text style={styles.savingsBadge}>{yearlySavings}</Text>}
+                </View>
+              )}
+              <View style={styles.offerCopy}>
                 <Text style={styles.offerLabel}>{offer.label}</Text>
+              </View>
+              <View style={styles.offerPriceColumn}>
+                <Text style={styles.choicePriceAmount}>{offer.price}</Text>
                 <Text style={styles.choicePrice}>
-                  {offer.hasSevenDayTrial
-                    ? `7 days free, then ${offer.price} yearly`
-                    : `${offer.price} billed ${offer.billingPeriod}`}
+                  {offer.billingPeriod === "yearly" && offer.pricePerMonth
+                    ? `${offer.pricePerMonth}/mo · Billed yearly`
+                    : "Billed monthly"}
                 </Text>
               </View>
-              {selected && <Text style={styles.choiceCheck}>✓</Text>}
             </Pressable>
           );
         })}
       </View>
       <Text style={styles.offerPrice}>
         {selectedOffer.hasSevenDayTrial
-          ? `Then ${selectedOffer.price} each year, unless canceled`
-          : `${selectedOffer.price} each ${selectedOffer.billingPeriod === "yearly" ? "year" : "month"}, unless canceled`}
+          ? `No payment today. Then ${selectedOffer.price} each year, unless canceled.`
+          : `${selectedOffer.price} each ${selectedOffer.billingPeriod === "yearly" ? "year" : "month"}, unless canceled.`}
       </Text>
     </View>
   );
@@ -238,32 +302,48 @@ function OfferChoices({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
-  content: { flexGrow: 1, alignItems: "center", paddingHorizontal: 28, paddingVertical: 24, gap: 14, maxWidth: 600, alignSelf: "center" },
-  mascot: { width: 190, height: 190 },
-  title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 31, lineHeight: 39, textAlign: "center" },
-  body: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 16, lineHeight: 23, textAlign: "center" },
-  benefits: { width: "100%", gap: 9, marginTop: 12 },
-  benefit: { backgroundColor: COLORS.primarySoft, color: COLORS.ink, fontFamily: "NunitoSans_700Bold", borderRadius: 13, minHeight: 46, textAlign: "center", textAlignVertical: "center", paddingHorizontal: 12 },
-  offer: { width: "100%", backgroundColor: COLORS.primarySoft, borderRadius: 16, padding: 16, gap: 12, marginTop: 8 },
-  offerTitle: { color: COLORS.primary, textAlign: "center", fontFamily: "NunitoSans_700Bold", fontSize: 17 },
+  layout: { flex: 1 },
+  content: { alignItems: "center", paddingHorizontal: 28, paddingTop: 12, paddingBottom: 20, gap: 12, maxWidth: 600, width: "100%", alignSelf: "center" },
+  mascot: { width: 136, height: 136 },
+  title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 30, lineHeight: 37, textAlign: "center" },
+  body: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 16, lineHeight: 23, textAlign: "center", maxWidth: 350 },
+  benefits: { width: "100%", gap: 8, marginTop: 4 },
+  benefit: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 24 },
+  benefitCheck: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 17, lineHeight: 22 },
+  benefitText: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 14, lineHeight: 20 },
+  offer: { width: "100%", gap: 9, marginTop: 4 },
+  offerTitle: { color: COLORS.ink, textAlign: "left", fontFamily: "NunitoSans_700Bold", fontSize: 17 },
   offerChoices: { gap: 8 },
-  offerChoice: { minHeight: 60, borderRadius: 13, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  offerChoiceSelected: { borderColor: COLORS.primary, borderWidth: 2 },
+  offerChoice: { minHeight: 76, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, position: "relative" },
+  yearlyOfferChoice: { marginTop: 10 },
+  offerChoiceSelected: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.primarySoft },
+  offerCopy: { flex: 1, minWidth: 0 },
   offerLabel: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
-  choicePrice: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 12, marginTop: 2 },
-  choiceCheck: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 22 },
-  offerPrice: { color: COLORS.secondary, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 13 },
+  yearlyBadges: { position: "absolute", top: -11, right: 12, flexDirection: "row", alignItems: "center", gap: 5 },
+  savingsBadge: { backgroundColor: COLORS.primary, borderRadius: 9, color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 11, lineHeight: 17, overflow: "hidden", paddingHorizontal: 7 },
+  trialBadge: { backgroundColor: COLORS.primarySoft, borderColor: COLORS.primary, borderRadius: 9, borderWidth: 1, color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 11, lineHeight: 17, overflow: "hidden", paddingHorizontal: 7 },
+  offerPriceColumn: { alignItems: "flex-end", flexShrink: 0 },
+  choicePrice: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 11, lineHeight: 16, marginTop: 2, textAlign: "right" },
+  choicePriceAmount: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 20, lineHeight: 25, textAlign: "right" },
+  offerPrice: { color: COLORS.secondary, textAlign: "left", fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 17 },
   note: { color: COLORS.secondary, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 14, lineHeight: 20, marginTop: 8 },
-  commitment: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 13, marginTop: 8 },
-  button: { width: "100%", minHeight: 54, borderRadius: 16, backgroundColor: COLORS.primary, justifyContent: "center", alignItems: "center", marginTop: 2 },
+  purchaseFooter: { backgroundColor: COLORS.background, borderTopColor: COLORS.border, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 28, paddingTop: 12, paddingBottom: 8, gap: 8, alignItems: "center" },
+  commitment: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 17, textAlign: "center" },
+  button: { width: "100%", maxWidth: 544, minHeight: 54, borderRadius: 16, backgroundColor: COLORS.ink, justifyContent: "center", alignItems: "center" },
   buttonText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 17 },
-  restore: { minHeight: 42, justifyContent: "center", alignItems: "center" },
+  restore: { minHeight: 34, justifyContent: "center", alignItems: "center", marginTop: 2 },
   restoreText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
-  notNow: { minHeight: 38, justifyContent: "center", alignItems: "center", marginTop: -4 },
-  notNowText: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 14 },
-  legal: { flexDirection: "row", gap: 16, marginTop: 4 },
+  legal: { flexDirection: "row", gap: 16, marginTop: 2 },
   legalText: { color: COLORS.secondary, textDecorationLine: "underline", fontFamily: "NunitoSans_600SemiBold", fontSize: 12 },
   error: { color: COLORS.red, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 14 },
-  active: { color: COLORS.green, textAlign: "center", fontFamily: "NunitoSans_700Bold", fontSize: 15 },
+  successContent: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, paddingBottom: 36, gap: 12, maxWidth: 600, width: "100%", alignSelf: "center" },
+  successMascot: { width: 196, height: 196, marginBottom: 2 },
+  successMark: { alignItems: "center", backgroundColor: COLORS.green, borderRadius: 16, height: 32, justifyContent: "center", width: 32 },
+  successMarkText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 18, lineHeight: 22 },
+  successTitle: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 30, lineHeight: 37, marginTop: 2, textAlign: "center" },
+  successSubtitle: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 17, lineHeight: 24, textAlign: "center" },
+  successBody: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 15, lineHeight: 22, maxWidth: 310, textAlign: "center" },
+  successFooter: { backgroundColor: COLORS.background, borderTopColor: COLORS.border, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 28, paddingTop: 12, paddingBottom: 8, alignItems: "center" },
+  successButton: { backgroundColor: COLORS.primary },
   disabled: { opacity: 0.45 },
 });

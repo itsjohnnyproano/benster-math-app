@@ -1,5 +1,6 @@
 import Purchases, {
   INTRO_ELIGIBILITY_STATUS,
+  LOG_LEVEL,
   type CustomerInfo,
   type PurchasesPackage,
 } from "react-native-purchases";
@@ -17,6 +18,8 @@ export type SubscriptionOffer = Readonly<{
   label: "Monthly" | "Yearly";
   purchasePackage: PurchasesPackage;
   price: string;
+  pricePerMonth: string | null;
+  amount: number;
   billingPeriod: "monthly" | "yearly";
   hasSevenDayTrial: boolean;
 }>;
@@ -36,11 +39,17 @@ function apiKey() {
   });
 }
 
-function configure() {
+/**
+ * Configures RevenueCat once for this app process.
+ *
+ * Learner names, profile identifiers, and sprint data intentionally stay on
+ * the device: no appUserID or subscriber attributes are supplied here.
+ */
+export function initializeSubscriptionService() {
   const key = apiKey();
   if (!key) return false;
   if (!configured) {
-    // Do not provide an appUserID: learner names and device profile IDs remain local.
+    if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
     Purchases.configure({ apiKey: key });
     configured = true;
   }
@@ -97,6 +106,8 @@ function createSubscriptionOffer(
     label,
     purchasePackage,
     price: purchasePackage.product.priceString,
+    pricePerMonth: purchasePackage.product.pricePerMonthString,
+    amount: purchasePackage.product.price,
     billingPeriod: label === "Yearly" ? "yearly" : "monthly",
     // This is replaced with customer-specific eligibility below for annual.
     hasSevenDayTrial,
@@ -104,7 +115,7 @@ function createSubscriptionOffer(
 }
 
 export async function loadSubscriptionOffers(): Promise<readonly SubscriptionOffer[]> {
-  if (!configure()) return [];
+  if (!initializeSubscriptionService()) return [];
   const offering = (await Purchases.getOfferings()).current;
   // Only show the standard monthly and annual packages. The annual package
   // must have the configured seven-day trial; monthly must not.
@@ -120,18 +131,30 @@ export async function loadSubscriptionOffers(): Promise<readonly SubscriptionOff
 
 /** Reads the device's current RevenueCat entitlement without associating local learners to an account. */
 export async function getSubscriptionAccess(): Promise<SubscriptionAccess> {
-  if (!configure()) return { configured: false, premium: false };
+  if (!initializeSubscriptionService()) return { configured: false, premium: false };
   return { configured: true, premium: isPremium(await Purchases.getCustomerInfo()) };
 }
 
+/** Subscribes to entitlement changes from purchases, restores, renewals, and expirations. */
+export function subscribeToSubscriptionAccess(onChange: (premium: boolean) => void) {
+  if (!initializeSubscriptionService()) return null;
+
+  const listener = (customerInfo: CustomerInfo) => onChange(isPremium(customerInfo));
+  Purchases.addCustomerInfoUpdateListener(listener);
+
+  return () => {
+    Purchases.removeCustomerInfoUpdateListener(listener);
+  };
+}
+
 export async function purchaseSubscription(offer: SubscriptionOffer) {
-  if (!configure()) throw new Error("Subscription purchases are not configured");
+  if (!initializeSubscriptionService()) throw new Error("Subscription purchases are not configured");
   const { customerInfo } = await Purchases.purchasePackage(offer.purchasePackage);
-  return isPremium(customerInfo);
+  return { premium: isPremium(customerInfo) };
 }
 
 export async function restoreSubscriptionPurchases() {
-  if (!configure()) throw new Error("Subscription purchases are not configured");
+  if (!initializeSubscriptionService()) throw new Error("Subscription purchases are not configured");
   return isPremium(await Purchases.restorePurchases());
 }
 
