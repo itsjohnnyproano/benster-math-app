@@ -4,8 +4,9 @@ import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { useAppFonts } from "@/lib/fonts";
+import { requiresPremiumAfterOnboardingSprint } from "@/domain/subscription";
 import { PreferencesProvider, usePreferences } from "@/providers/PreferencesProvider";
-import { SubscriptionProvider } from "@/providers/SubscriptionProvider";
+import { SubscriptionProvider, useSubscription } from "@/providers/SubscriptionProvider";
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
 import { PreferencesRecoveryScreen } from "@/components/preferences/PreferencesRecoveryScreen";
 import { COLORS } from "@/theme/tokens";
@@ -15,6 +16,13 @@ SplashScreen.preventAutoHideAsync();
 
 function AppNavigation() {
   const { isReady, loadError, preferences } = usePreferences();
+  const { isPremium } = useSubscription();
+  const requiresPremium = requiresPremiumAfterOnboardingSprint({
+    onboardingCompleted: preferences.onboardingCompleted,
+    firstFreeSprintCompleted: preferences.firstFreeSprintCompleted,
+    firstResultCelebrationSeen: preferences.firstResultCelebrationSeen,
+    isPremium,
+  });
 
   if (!isReady) {
     if (loadError) return <PreferencesRecoveryScreen />;
@@ -33,13 +41,15 @@ function AppNavigation() {
       <Stack.Protected guard={!preferences.onboardingCompleted}>
         <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={preferences.onboardingCompleted}>
+      <Stack.Protected guard={preferences.onboardingCompleted && !requiresPremium} redirectTo="/subscription">
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="streak" />
         <Stack.Screen name="history/[sprintId]" />
         <Stack.Screen name="sprint/setup" />
         <Stack.Screen name="sprint/play" />
-        <Stack.Screen name="subscription" />
+      </Stack.Protected>
+      <Stack.Protected guard={preferences.onboardingCompleted}>
+        <Stack.Screen name="subscription" options={{ gestureEnabled: false }} />
       </Stack.Protected>
     </Stack>
     <ProfilePickerController />

@@ -22,6 +22,9 @@ export function getSprintSubscriptionGate({
 
   return {
     subscriptionCheckPending: shouldCheckSubscription && subscriptionStatus === "loading",
-    requiresPremium: shouldCheckSubscription && subscriptionStatus === "ready" && !isPremium,
+    // A completed free sprint must not unlock more practice because a
+    // subscription check failed. RevenueCat's cached CustomerInfo still keeps
+    // a previously verified subscriber active while offline.
+    requiresPremium: shouldCheckSubscription && subscriptionStatus !== "loading" && !isPremium,
   };
 }

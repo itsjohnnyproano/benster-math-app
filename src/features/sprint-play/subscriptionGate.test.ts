@@ -20,4 +20,13 @@ describe("sprint subscription gate", () => {
       subscriptionStatus: "ready",
     })).toEqual({ subscriptionCheckPending: false, requiresPremium: true });
   });
+
+  it.each(["unavailable", "error"] as const)("fails closed when the subscription service is %s", (subscriptionStatus) => {
+    expect(getSprintSubscriptionGate({
+      firstFreeSprintCompleted: true,
+      isPremium: false,
+      sprintCompleted: false,
+      subscriptionStatus,
+    })).toEqual({ subscriptionCheckPending: false, requiresPremium: true });
+  });
 });

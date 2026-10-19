@@ -15,3 +15,39 @@ export function isSevenDayFreeTrial(intro: { price: number; periodUnit: string; 
 export function isEligibleForSevenDayTrial(status: "eligible" | "ineligible" | "unknown") {
   return status === "eligible";
 }
+
+/**
+ * The completed onboarding sprint and its celebration remain visible. Once
+ * both are complete, the first subscription decision gates the rest of the
+ * app until RevenueCat confirms the Premium entitlement.
+ */
+export function requiresPremiumAfterOnboardingSprint({
+  onboardingCompleted,
+  firstFreeSprintCompleted,
+  firstResultCelebrationSeen,
+  isPremium,
+}: {
+  onboardingCompleted: boolean;
+  firstFreeSprintCompleted: boolean;
+  firstResultCelebrationSeen: boolean;
+  isPremium: boolean;
+}) {
+  return onboardingCompleted
+    && firstFreeSprintCompleted
+    && firstResultCelebrationSeen
+    && !isPremium;
+}
+
+/**
+ * The confirmation is a short, in-session acknowledgement of a purchase or
+ * restore. An existing member returning to the app should resume on Home.
+ */
+export function shouldShowSubscriptionSuccess({
+  subscriptionActive,
+  purchaseCompletedInSession,
+}: {
+  subscriptionActive: boolean;
+  purchaseCompletedInSession: boolean;
+}) {
+  return subscriptionActive && purchaseCompletedInSession;
+}

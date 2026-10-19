@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { hasPremiumEntitlement, isEligibleForSevenDayTrial, isSevenDayFreeTrial } from "./subscription";
+import {
+  hasPremiumEntitlement,
+  isEligibleForSevenDayTrial,
+  isSevenDayFreeTrial,
+  requiresPremiumAfterOnboardingSprint,
+  shouldShowSubscriptionSuccess,
+} from "./subscription";
 
 describe("subscription rules", () => {
   it("recognizes only the configured premium entitlement", () => {
@@ -19,5 +25,24 @@ describe("subscription rules", () => {
     expect(isEligibleForSevenDayTrial("eligible")).toBe(true);
     expect(isEligibleForSevenDayTrial("ineligible")).toBe(false);
     expect(isEligibleForSevenDayTrial("unknown")).toBe(false);
+  });
+
+  it("gates the app only after the first sprint result and celebration are complete", () => {
+    const beforePaywall = {
+      onboardingCompleted: true,
+      firstFreeSprintCompleted: true,
+      firstResultCelebrationSeen: false,
+      isPremium: false,
+    };
+
+    expect(requiresPremiumAfterOnboardingSprint(beforePaywall)).toBe(false);
+    expect(requiresPremiumAfterOnboardingSprint({ ...beforePaywall, firstResultCelebrationSeen: true })).toBe(true);
+    expect(requiresPremiumAfterOnboardingSprint({ ...beforePaywall, firstResultCelebrationSeen: true, isPremium: true })).toBe(false);
+  });
+
+  it("shows the Premium confirmation only after an in-session purchase or restore", () => {
+    expect(shouldShowSubscriptionSuccess({ subscriptionActive: true, purchaseCompletedInSession: true })).toBe(true);
+    expect(shouldShowSubscriptionSuccess({ subscriptionActive: true, purchaseCompletedInSession: false })).toBe(false);
+    expect(shouldShowSubscriptionSuccess({ subscriptionActive: false, purchaseCompletedInSession: true })).toBe(false);
   });
 });

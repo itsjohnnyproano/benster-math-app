@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,12 +23,15 @@ import { MAX_NICKNAME_LENGTH } from "@/domain/nickname";
 import type { OnboardingGoal, SprintDurationSeconds, SprintMode } from "@/domain/sprint";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { COLORS } from "@/theme/tokens";
+import { getOnboardingLayout, ONBOARDING_COLUMN_GAP } from "./onboardingLayout";
 import { useIntroAdvance } from "./useIntroAdvance";
 
 type SetupStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 const DARK = "#24134B";
 const GOLD = "#FFD56B";
+// The portrait iPad footer is 640pt wide with 24pt side padding.
+const IPAD_PRIMARY_CONTROL_WIDTH = 592;
 const ANSWER_STYLE_OPTIONS = [
   { label: "Tap answers", value: "multiple-choice" },
   { label: "Type answers", value: "typed" },
@@ -111,6 +115,7 @@ export default function OnboardingScreen() {
   const [inputStyle, setInputStyle] = useState(preferences.inputStyle);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  const { width, height, fontScale } = useWindowDimensions();
   const mounted = useRef(true);
   const submitting = useRef(false);
   const finishIntro = useCallback(() => setShowIntro(false), []);
@@ -201,6 +206,10 @@ export default function OnboardingScreen() {
   const needsGoal = screen === 2 && onboardingGoal === null;
   const continueDisabled = saving || needsGoal;
   const choiceScreen = screen === 2 || screen === 3;
+  const layout = getOnboardingLayout(Platform.OS === "ios", width, height, fontScale);
+  const useLandscapeSingleColumnLayout = layout.twoColumn && screen === 1;
+  const useLandscapeSplitLayout = layout.twoColumn && !useLandscapeSingleColumnLayout;
+  const contentMaxWidth = useLandscapeSingleColumnLayout ? 640 : layout.maxWidth;
 
   return (
     <SafeAreaView style={[styles.screen, dark && styles.dark]}>
@@ -210,7 +219,7 @@ export default function OnboardingScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { maxWidth: contentMaxWidth }]}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -221,50 +230,77 @@ export default function OnboardingScreen() {
             choiceScreen && styles.compactChoiceContent,
             choiceScreen && styles.centeredContent,
             (screen === 4 || screen === 5 || screen === 6 || screen === 7) && styles.centeredContent,
+            useLandscapeSplitLayout && styles.landscapeChoiceContent,
+            useLandscapeSingleColumnLayout && styles.landscapeNicknameContent,
           ]}>
-            <Image
-              source={step.mascot}
-              contentFit="contain"
-              style={[styles.mascot, choiceScreen && styles.compactChoiceMascot]}
-              accessible={false}
-            />
-            <Text accessibilityRole="header" style={[styles.title, choiceScreen && styles.compactChoiceTitle, dark && styles.light]}>
-              {screen === 7 && displayName ? `You’re ready, ${displayName}!` : step.title}
-            </Text>
-            <Text style={[styles.body, dark && styles.lightBody]}>{body}</Text>
+            <View style={[
+              styles.stepIntro,
+              choiceScreen && styles.compactStepIntro,
+              useLandscapeSplitLayout && styles.landscapeStepIntro,
+            ]}>
+              <Image
+                source={step.mascot}
+                contentFit="contain"
+                style={[
+                  styles.mascot,
+                  choiceScreen && styles.compactChoiceMascot,
+                  useLandscapeSplitLayout && styles.landscapeChoiceMascot,
+                  useLandscapeSingleColumnLayout && styles.landscapeNicknameMascot,
+                ]}
+                accessible={false}
+              />
+              <Text accessibilityRole="header" style={[
+                styles.title,
+                choiceScreen && styles.compactChoiceTitle,
+                useLandscapeSplitLayout && styles.landscapeChoiceTitle,
+                useLandscapeSingleColumnLayout && styles.landscapeNicknameTitle,
+                dark && styles.light,
+              ]}>
+                {screen === 7 && displayName ? `You’re ready, ${displayName}!` : step.title}
+              </Text>
+              <Text style={[
+                styles.body,
+                useLandscapeSplitLayout && styles.landscapeChoiceBody,
+                dark && styles.lightBody,
+              ]}>
+                {body}
+              </Text>
+            </View>
 
-            {screen === 1 && (
+            <View style={[styles.stepSelection, useLandscapeSplitLayout && styles.landscapeStepSelection]}>
+              {screen === 1 && (
               <Nickname value={nickname} onChange={setNickname} disabled={saving} />
-            )}
-            {screen === 2 && <OnboardingGoalChoices value={onboardingGoal} onChange={setOnboardingGoal} compact />}
-            {screen === 3 && <FirstPracticeChoices value={mode} onChange={setMode} compact />}
-            {screen === 4 && <SprintLengthChoices value={durationSeconds} onChange={setDurationSeconds} />}
-            {screen === 5 && <AnswerStyleChoices value={inputStyle} onChange={setInputStyle} />}
-            {screen === 6 && <GrowthRows />}
-            {screen === 7 && (
-              <>
-                <View style={styles.firstStep}>
-                  {onboardingGoal && (
-                    <Text style={[styles.firstStepText, styles.firstStepGoal]}>
-                      Your goal: {ONBOARDING_GOAL_DETAILS[onboardingGoal].readyLabel}
+              )}
+              {screen === 2 && <OnboardingGoalChoices value={onboardingGoal} onChange={setOnboardingGoal} compact />}
+              {screen === 3 && <FirstPracticeChoices value={mode} onChange={setMode} compact />}
+              {screen === 4 && <SprintLengthChoices value={durationSeconds} onChange={setDurationSeconds} />}
+              {screen === 5 && <AnswerStyleChoices value={inputStyle} onChange={setInputStyle} />}
+              {screen === 6 && <GrowthRows />}
+              {screen === 7 && (
+                <>
+                  <View style={styles.firstStep}>
+                    {onboardingGoal && (
+                      <Text style={[styles.firstStepText, styles.firstStepGoal]}>
+                        Your goal: {ONBOARDING_GOAL_DETAILS[onboardingGoal].readyLabel}
+                      </Text>
+                    )}
+                    <Text style={styles.firstStepText}>
+                      {SPRINT_MODE_DETAILS[mode].title} · {formatSprintLength(durationSeconds)}
                     </Text>
-                  )}
-                  <Text style={styles.firstStepText}>
-                    {SPRINT_MODE_DETAILS[mode].title} · {formatSprintLength(durationSeconds)}
+                    <Text style={[styles.firstStepText, styles.firstStepDetail]}>
+                      {inputStyle === "typed" ? "Type answers" : "Tap answers"} · Vertical + horizontal cards
+                    </Text>
+                  </View>
+                  <Text style={[styles.levelUpNote, styles.lightBody]}>
+                    Level Up is on — get 5 correct in a row and the next questions get a little harder.
                   </Text>
-                  <Text style={[styles.firstStepText, styles.firstStepDetail]}>
-                    {inputStyle === "typed" ? "Type answers" : "Tap answers"} · Vertical + horizontal cards
-                  </Text>
-                </View>
-                <Text style={[styles.levelUpNote, styles.lightBody]}>
-                  Level Up is on — get 5 correct in a row and the next questions get a little harder.
-                </Text>
-              </>
-            )}
+                </>
+              )}
+            </View>
           </View>
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { maxWidth: contentMaxWidth }, layout.twoColumn && styles.landscapeFooter]}>
           {error && (
             <Text accessibilityRole="alert" style={styles.error}>
               We couldn’t save your setup. Please try again.
@@ -284,6 +320,8 @@ export default function OnboardingScreen() {
             style={({ pressed }) => [
               styles.button,
               dark && styles.goldButton,
+              layout.twoColumn && styles.landscapeButton,
+              layout.twoColumn && { width: IPAD_PRIMARY_CONTROL_WIDTH },
               continueDisabled && styles.buttonDisabled,
               (!continueDisabled && pressed) && styles.buttonPressed,
             ]}
@@ -536,15 +574,35 @@ const styles = StyleSheet.create({
   goldFill: { backgroundColor: GOLD },
   goldText: { color: GOLD },
   content: { flex: 1, alignItems: "center", paddingHorizontal: 28, paddingTop: 22, gap: 14 },
+  stepIntro: { alignItems: "center", gap: 14 },
+  compactStepIntro: { gap: 10 },
+  stepSelection: { width: "100%", alignItems: "center" },
   compactChoiceContent: { paddingTop: 8, gap: 10 },
   centeredContent: { justifyContent: "center", paddingBottom: 28 },
+  landscapeChoiceContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: ONBOARDING_COLUMN_GAP,
+    paddingHorizontal: 32,
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  landscapeNicknameContent: { paddingHorizontal: 24, paddingTop: 12 },
+  landscapeStepIntro: { flex: 1, maxWidth: 424 },
+  landscapeStepSelection: { flex: 1, maxWidth: 536 },
   welcomeContent: { justifyContent: "center", paddingBottom: 30 },
   mascot: { width: 210, height: 210, marginTop: 2 },
   compactChoiceMascot: { width: 155, height: 155 },
+  landscapeChoiceMascot: { width: 124, height: 124 },
+  landscapeNicknameMascot: { width: 170, height: 170 },
   welcomeMascot: { width: 270, height: 270 },
   title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 31, lineHeight: 39, textAlign: "center" },
   compactChoiceTitle: { fontSize: 29, lineHeight: 36 },
+  landscapeChoiceTitle: { fontSize: 27, lineHeight: 33 },
+  landscapeNicknameTitle: { fontSize: 29, lineHeight: 36 },
   body: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 16, lineHeight: 23, textAlign: "center", maxWidth: 350 },
+  landscapeChoiceBody: { maxWidth: 310, fontSize: 15, lineHeight: 21 },
   light: { color: COLORS.card },
   lightBody: { color: "#D8CDED" },
   nickname: { width: "100%", marginTop: 18, gap: 8 },
@@ -582,7 +640,9 @@ const styles = StyleSheet.create({
   firstStepDetail: { marginTop: 5, color: "#D8CDED", fontFamily: "NunitoSans_600SemiBold", fontSize: 12 },
   levelUpNote: { maxWidth: 330, marginTop: 2, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 18 },
   footer: { width: "100%", alignSelf: "center", maxWidth: 640, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 },
+  landscapeFooter: { paddingHorizontal: 32, paddingTop: 10, paddingBottom: 16 },
   button: { minHeight: 54, borderRadius: 16, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
+  landscapeButton: { alignSelf: "center" },
   goldButton: { backgroundColor: GOLD },
   buttonText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 17 },
   goldButtonText: { color: DARK },

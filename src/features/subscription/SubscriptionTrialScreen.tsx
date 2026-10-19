@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LEGAL_LINKS } from "@/config/legalLinks";
@@ -14,9 +14,11 @@ import {
   restoreSubscriptionPurchases,
   type SubscriptionOffer,
 } from "@/data/subscription/revenueCatSubscription";
+import { shouldShowSubscriptionSuccess } from "@/domain/subscription";
 import { COLORS } from "@/theme/tokens";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { useSubscription } from "@/providers/SubscriptionProvider";
+import { getSubscriptionLayout, SUBSCRIPTION_COLUMN_GAP } from "./subscriptionLayout";
 
 type Status = "loading" | "ready" | "unavailable" | "purchasing" | "restoring" | "active" | "error";
 
@@ -27,7 +29,10 @@ export default function SubscriptionTrialScreen() {
   const [offers, setOffers] = useState<readonly SubscriptionOffer[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("loading");
+  const [purchaseCompletedInSession, setPurchaseCompletedInSession] = useState(false);
   const busy = useRef(false);
+  const { width, height, fontScale } = useWindowDimensions();
+  const layout = getSubscriptionLayout(Platform.OS === "ios", width, height, fontScale);
 
   useEffect(() => {
     let active = true;
@@ -59,6 +64,12 @@ export default function SubscriptionTrialScreen() {
   const purchaseActionDisabled = busyStatus || unavailable || (!selectedOffer && !subscriptionActive);
   const goal = preferences.onboardingGoal;
 
+  useEffect(() => {
+    if (status !== "loading" && subscriptionActive && !purchaseCompletedInSession) {
+      router.replace("/");
+    }
+  }, [purchaseCompletedInSession, router, status, subscriptionActive]);
+
   const run = async (kind: "purchase" | "restore") => {
     if (busy.current || (kind === "purchase" && !selectedOffer)) return;
 
@@ -74,6 +85,7 @@ export default function SubscriptionTrialScreen() {
         // shared gate too, but never make a completed purchase look inactive
         // merely because that follow-up cache read failed.
         void refreshSubscription();
+        setPurchaseCompletedInSession(true);
         setStatus("active");
       } else {
         setStatus("ready");
@@ -86,7 +98,7 @@ export default function SubscriptionTrialScreen() {
     }
   };
 
-  if (subscriptionActive) {
+  if (shouldShowSubscriptionSuccess({ subscriptionActive, purchaseCompletedInSession })) {
     return (
       <SafeAreaView style={styles.screen}>
         <StatusBar style="dark" />
@@ -125,93 +137,102 @@ export default function SubscriptionTrialScreen() {
     <SafeAreaView style={styles.screen}>
       <StatusBar style="dark" />
       <View style={styles.layout}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Image
-            source={require("../../../assets/mascot/penguin-thumbs-up2.png")}
-            contentFit="contain"
-            style={styles.mascot}
-            accessible={false}
-          />
-          <Text accessibilityRole="header" style={styles.title}>
-            More little wins,{"\n"}every day.
-          </Text>
-          <Text style={styles.body}>
-            {goal
-              ? ONBOARDING_GOAL_DETAILS[goal].paywallMessage
-              : "Unlimited math sprints and progress for your family."}
-          </Text>
+        <ScrollView contentContainerStyle={[styles.content, { maxWidth: layout.maxWidth }]} showsVerticalScrollIndicator={false}>
+          <View style={[styles.paywall, layout.twoColumn && styles.landscapePaywall]}>
+            <View style={[styles.paywallIntro, layout.twoColumn && styles.landscapePaywallIntro]}>
+              <Image
+                source={require("../../../assets/mascot/penguin-thumbs-up2.png")}
+                contentFit="contain"
+                style={[styles.mascot, layout.twoColumn && styles.landscapeMascot]}
+                accessible={false}
+              />
+              <Text accessibilityRole="header" style={styles.title}>
+                More little wins,{"\n"}every day.
+              </Text>
+              <Text style={styles.body}>
+                {goal
+                  ? ONBOARDING_GOAL_DETAILS[goal].paywallMessage
+                  : "Unlimited math sprints and progress for your family."}
+              </Text>
 
-          <View style={styles.benefits}>
-            <Benefit>Build faster fact recall</Benefit>
-            <Benefit>See every learner’s progress grow</Benefit>
-            <Benefit>Practice in quick sprints, even offline</Benefit>
-          </View>
+              <View style={styles.benefits}>
+                <Benefit>Build faster fact recall</Benefit>
+                <Benefit>See every learner’s progress grow</Benefit>
+                <Benefit>Practice in quick sprints, even offline</Benefit>
+              </View>
+            </View>
 
-          {status === "loading" && <Text style={styles.note}>Checking available plans…</Text>}
-          {status === "ready" && selectedOffer && (
-            <OfferChoices
-              offers={offers}
-              selectedOffer={selectedOffer}
-              onSelect={setSelectedOfferId}
-            />
-          )}
-          {unavailable && (
-            <Text accessibilityRole="alert" style={styles.note}>
-              The yearly 7-day trial and monthly plan aren’t available yet. Please check back after Premium is configured.
-            </Text>
-          )}
-          {status === "error" && (
-            <Text accessibilityRole="alert" style={styles.error}>
-              That didn’t go through. Please try again or restore purchases.
-            </Text>
-          )}
+            <View style={[styles.paywallOptions, layout.twoColumn && styles.landscapePaywallOptions]}>
+              {status === "loading" && <Text style={styles.note}>Checking available plans…</Text>}
+              {status === "ready" && selectedOffer && (
+                <OfferChoices
+                  offers={offers}
+                  selectedOffer={selectedOffer}
+                  onSelect={setSelectedOfferId}
+                  isTablet={layout.tablet}
+                />
+              )}
+              {unavailable && (
+                <Text accessibilityRole="alert" style={styles.note}>
+                  The yearly 7-day trial and monthly plan aren’t available yet. Please check back after Premium is configured.
+                </Text>
+              )}
+              {status === "error" && (
+                <Text accessibilityRole="alert" style={styles.error}>
+                  That didn’t go through. Please try again or restore purchases.
+                </Text>
+              )}
 
-          <Pressable
-            accessibilityRole="button"
-            disabled={busyStatus}
-            onPress={() => void run("restore")}
-            style={({ pressed }) => [styles.restore, (busyStatus || pressed) && styles.disabled]}
-          >
-            <Text style={styles.restoreText}>{status === "restoring" ? "Restoring…" : "Restore purchases"}</Text>
-          </Pressable>
-          <View style={styles.legal}>
-            {LEGAL_LINKS.map(({ label, url }) => (
-              <Pressable key={url} accessibilityRole="link" onPress={() => void Linking.openURL(url)}>
-                <Text style={styles.legalText}>{label}</Text>
+              <Pressable
+                accessibilityRole="button"
+                disabled={busyStatus}
+                onPress={() => void run("restore")}
+                style={({ pressed }) => [styles.restore, (busyStatus || pressed) && styles.disabled]}
+              >
+                <Text style={styles.restoreText}>{status === "restoring" ? "Restoring…" : "Restore purchases"}</Text>
               </Pressable>
-            ))}
+              <View style={styles.legal}>
+                {LEGAL_LINKS.map(({ label, url }) => (
+                  <Pressable key={url} accessibilityRole="link" onPress={() => void Linking.openURL(url)}>
+                    <Text style={styles.legalText}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           </View>
         </ScrollView>
 
         <View style={styles.purchaseFooter}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: purchaseActionDisabled,
-              busy: busyStatus,
-            }}
-            disabled={purchaseActionDisabled}
-            onPress={() => {
-              if (subscriptionActive) {
-                router.dismissTo("/");
-                return;
-              }
-              void run("purchase");
-            }}
-            style={({ pressed }) => [
-              styles.button,
-              (purchaseActionDisabled || pressed) && styles.disabled,
-            ]}
-          >
-            <Text style={styles.buttonText}>
-              {status === "purchasing"
-                ? "Starting…"
-                : selectedOffer?.hasSevenDayTrial
-                    ? "Start 7-day free trial"
-                    : `Continue with ${selectedOffer?.billingPeriod ?? "monthly"}`}
-            </Text>
-          </Pressable>
-          <Text style={styles.commitment}>No commitment · Cancel anytime.</Text>
+          <View style={[styles.purchaseFooterContent, { maxWidth: layout.maxWidth }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{
+                disabled: purchaseActionDisabled,
+                busy: busyStatus,
+              }}
+              disabled={purchaseActionDisabled}
+              onPress={() => {
+                if (subscriptionActive) {
+                  router.dismissTo("/");
+                  return;
+                }
+                void run("purchase");
+              }}
+              style={({ pressed }) => [
+                styles.button,
+                (purchaseActionDisabled || pressed) && styles.disabled,
+              ]}
+            >
+              <Text style={styles.buttonText}>
+                {status === "purchasing"
+                  ? "Starting…"
+                  : selectedOffer?.hasSevenDayTrial
+                      ? "Start 7-day free trial"
+                      : `Continue with ${selectedOffer?.billingPeriod ?? "monthly"}`}
+              </Text>
+            </Pressable>
+            <Text style={styles.commitment}>No commitment · Cancel anytime.</Text>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -231,10 +252,12 @@ function OfferChoices({
   offers,
   selectedOffer,
   onSelect,
+  isTablet,
 }: {
   offers: readonly SubscriptionOffer[];
   selectedOffer: SubscriptionOffer;
   onSelect: (id: string) => void;
+  isTablet: boolean;
 }) {
   const yearlyOffer = offers.find((offer) => offer.label === "Yearly");
   const monthlyOffer = offers.find((offer) => offer.label === "Monthly");
@@ -266,6 +289,9 @@ function OfferChoices({
               style={({ pressed }) => [
                 styles.offerChoice,
                 isYearly && styles.yearlyOfferChoice,
+                isTablet && styles.tabletOfferChoice,
+                isYearly && isTablet && styles.tabletYearlyOfferChoice,
+                !isYearly && isTablet && styles.tabletMonthlyOfferChoice,
                 selected && styles.offerChoiceSelected,
                 pressed && styles.disabled,
               ]}
@@ -277,9 +303,12 @@ function OfferChoices({
                 </View>
               )}
               <View style={styles.offerCopy}>
-                <Text style={styles.offerLabel}>{offer.label}</Text>
+                <Text style={[styles.offerLabel, isTablet && styles.tabletOfferLabel]}>{offer.label}</Text>
               </View>
-              <View style={styles.offerPriceColumn}>
+              <View style={[
+                styles.offerPriceColumn,
+                isYearly && isTablet && styles.tabletYearlyOfferPriceColumn,
+              ]}>
                 <Text style={styles.choicePriceAmount}>{offer.price}</Text>
                 <Text style={styles.choicePrice}>
                   {offer.billingPeriod === "yearly" && offer.pricePerMonth
@@ -303,8 +332,15 @@ function OfferChoices({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   layout: { flex: 1 },
-  content: { alignItems: "center", paddingHorizontal: 28, paddingTop: 12, paddingBottom: 20, gap: 12, maxWidth: 600, width: "100%", alignSelf: "center" },
+  content: { flexGrow: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, paddingTop: 20, paddingBottom: 20, maxWidth: 600, width: "100%", alignSelf: "center" },
+  paywall: { width: "100%", alignItems: "center", gap: 16 },
+  paywallIntro: { width: "100%", alignItems: "center", gap: 12 },
+  paywallOptions: { width: "100%", alignItems: "center", gap: 12 },
+  landscapePaywall: { flexDirection: "row", alignItems: "center", gap: SUBSCRIPTION_COLUMN_GAP },
+  landscapePaywallIntro: { flex: 1, maxWidth: 440 },
+  landscapePaywallOptions: { flex: 1, maxWidth: 536 },
   mascot: { width: 136, height: 136 },
+  landscapeMascot: { width: 118, height: 118 },
   title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 30, lineHeight: 37, textAlign: "center" },
   body: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 16, lineHeight: 23, textAlign: "center", maxWidth: 350 },
   benefits: { width: "100%", gap: 8, marginTop: 4 },
@@ -316,18 +352,26 @@ const styles = StyleSheet.create({
   offerChoices: { gap: 8 },
   offerChoice: { minHeight: 76, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, position: "relative" },
   yearlyOfferChoice: { marginTop: 10 },
+  tabletOfferChoice: { minHeight: 100, paddingHorizontal: 20, paddingVertical: 14, gap: 18 },
+  tabletYearlyOfferChoice: { paddingTop: 24, paddingBottom: 14 },
+  // The yearly badge protrudes 10pt beyond its top edge. Give Monthly the
+  // same visible footprint on iPad without changing the yearly treatment.
+  tabletMonthlyOfferChoice: { minHeight: 110 },
   offerChoiceSelected: { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: COLORS.primarySoft },
   offerCopy: { flex: 1, minWidth: 0 },
   offerLabel: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
+  tabletOfferLabel: { fontSize: 18, lineHeight: 23 },
   yearlyBadges: { position: "absolute", top: -11, right: 12, flexDirection: "row", alignItems: "center", gap: 5 },
   savingsBadge: { backgroundColor: COLORS.primary, borderRadius: 9, color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 11, lineHeight: 17, overflow: "hidden", paddingHorizontal: 7 },
   trialBadge: { backgroundColor: COLORS.primarySoft, borderColor: COLORS.primary, borderRadius: 9, borderWidth: 1, color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 11, lineHeight: 17, overflow: "hidden", paddingHorizontal: 7 },
   offerPriceColumn: { alignItems: "flex-end", flexShrink: 0 },
+  tabletYearlyOfferPriceColumn: { marginTop: 10, minWidth: 132 },
   choicePrice: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 11, lineHeight: 16, marginTop: 2, textAlign: "right" },
   choicePriceAmount: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 20, lineHeight: 25, textAlign: "right" },
   offerPrice: { color: COLORS.secondary, textAlign: "left", fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 17 },
   note: { color: COLORS.secondary, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 14, lineHeight: 20, marginTop: 8 },
-  purchaseFooter: { backgroundColor: COLORS.background, borderTopColor: COLORS.border, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 28, paddingTop: 12, paddingBottom: 8, gap: 8, alignItems: "center" },
+  purchaseFooter: { backgroundColor: COLORS.background, borderTopColor: COLORS.border, borderTopWidth: StyleSheet.hairlineWidth, alignItems: "center" },
+  purchaseFooterContent: { width: "100%", paddingHorizontal: 28, paddingTop: 12, paddingBottom: 8, gap: 8, alignItems: "center" },
   commitment: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 17, textAlign: "center" },
   button: { width: "100%", maxWidth: 544, minHeight: 54, borderRadius: 16, backgroundColor: COLORS.ink, justifyContent: "center", alignItems: "center" },
   buttonText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 17 },
