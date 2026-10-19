@@ -62,6 +62,10 @@ function AppNavigation() {
         <Stack.Screen name="streak" />
         <Stack.Screen name="history/[sprintId]" />
         <Stack.Screen name="sprint/setup" />
+      </Stack.Protected>
+      <Stack.Protected guard={preferences.onboardingCompleted && canAccessAppRoutes} redirectTo="/subscription">
+        {/* Keep an in-memory completed first sprint visible. The screen itself
+            sends a fresh launch with a pending celebration to its resume route. */}
         <Stack.Screen name="sprint/play" />
       </Stack.Protected>
       <Stack.Protected guard={preferences.onboardingCompleted && !pendingFirstResultCelebration} redirectTo="/first-result-celebration">

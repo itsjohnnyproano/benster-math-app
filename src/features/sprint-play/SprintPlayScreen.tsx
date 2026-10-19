@@ -29,8 +29,9 @@ import { QuestionCard } from "./components/QuestionCard";
 import { SprintHeader } from "./components/SprintHeader";
 import { getGameplayLayout, resolveQuestionCardLayout } from "./gameplayLayout";
 import { createSprintClock } from "./sprintClock";
-import { getSprintSubscriptionGate } from "./subscriptionGate";
+import { canStartSprintCountdown, getSprintSubscriptionGate } from "./subscriptionGate";
 import type { AnswerFeedback } from "./types";
+import { hasPendingFirstResultCelebration } from "@/domain/subscription";
 
 const FEEDBACK_DURATION_MS = 650;
 const LEVEL_UP_NOTICE_DURATION_MS = 1_800;
@@ -99,9 +100,16 @@ export default function SprintPlayScreen() {
     sprintCompleted: sprintState?.status === "completed",
     subscriptionStatus,
   });
+  const pendingFirstResultCelebration = hasPendingFirstResultCelebration({
+    onboardingCompleted: preferences.onboardingCompleted,
+    firstFreeSprintCompleted: preferences.firstFreeSprintCompleted,
+    firstResultCelebrationSeen: preferences.firstResultCelebrationSeen,
+  });
+  const shouldResumePendingCelebration = pendingFirstResultCelebration && sprintState?.status !== "completed";
+  const canStartCountdown = canStartSprintCountdown({ subscriptionCheckPending, requiresPremium });
 
   useEffect(() => {
-    if (countdown <= 0) return;
+    if (!canStartCountdown || shouldResumePendingCelebration || countdown <= 0) return;
     const timeout = setTimeout(() => {
       if (countdown > 1) {
         setCountdown(countdown - 1);
@@ -115,7 +123,7 @@ export default function SprintPlayScreen() {
     }, 1000);
 
     return () => clearTimeout(timeout);
-  }, [configuration, countdown]);
+  }, [canStartCountdown, configuration, countdown, shouldResumePendingCelebration]);
 
   useEffect(() => {
     const clock = clockRef.current;
@@ -141,6 +149,10 @@ export default function SprintPlayScreen() {
   useEffect(() => {
     if (requiresPremium) router.replace("/subscription");
   }, [requiresPremium, router]);
+
+  useEffect(() => {
+    if (shouldResumePendingCelebration) router.replace("/first-result-celebration");
+  }, [router, shouldResumePendingCelebration]);
 
   const submit = useCallback(
     (submittedAnswer: number) => {
@@ -213,7 +225,7 @@ export default function SprintPlayScreen() {
     ]);
   };
 
-  if (subscriptionCheckPending || requiresPremium) {
+  if (subscriptionCheckPending || requiresPremium || shouldResumePendingCelebration) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="dark" />

@@ -28,3 +28,11 @@ export function getSprintSubscriptionGate({
     requiresPremium: shouldCheckSubscription && subscriptionStatus !== "loading" && !isPremium,
   };
 }
+
+/** A sprint's countdown and timer must not advance behind an entitlement check. */
+export function canStartSprintCountdown({
+  subscriptionCheckPending,
+  requiresPremium,
+}: ReturnType<typeof getSprintSubscriptionGate>) {
+  return !subscriptionCheckPending && !requiresPremium;
+}
