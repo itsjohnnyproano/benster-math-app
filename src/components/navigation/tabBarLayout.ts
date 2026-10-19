@@ -11,13 +11,17 @@ export function useTabBarLayout() {
   const isIpad = Platform.OS === "ios" && getAdaptiveLayout(width, height) !== "phone";
   const bottom = Math.max(insets.bottom, 12);
   const top = Math.max(insets.top, 12);
+  // iOS NativeTabs reserves the bar height itself. Its direct scroll views only
+  // need a small visual gap; nested scroll views need the remaining safe-area
+  // space as well. Other platforms render our floating bar over content.
+  const usesNativeTabs = Platform.OS === "ios";
+  const floatingTabBarClearance = TAB_BAR_HEIGHT + bottom + 20;
 
   return {
     bottom,
-    // NativeTabs adjusts the first scroll container for the system tab layout on iOS.
-    // Android and web use the JavaScript floating bar, so they still need its clearance.
-    contentInset: Platform.OS === "ios" ? 0 : TAB_BAR_HEIGHT + bottom + 16,
+    contentInset: usesNativeTabs ? 20 : floatingTabBarClearance,
     isIpad,
+    overlayContentInset: usesNativeTabs ? bottom + 20 : floatingTabBarClearance,
     top,
   };
 }

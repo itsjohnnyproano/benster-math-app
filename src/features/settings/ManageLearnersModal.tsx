@@ -413,7 +413,7 @@ export function ManageLearnersModal({
               }}
               style={[styles.cancel, isAdding && styles.disabled]}
             >
-              <Text style={styles.link}>Cancel</Text>
+              <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
           </View>
         </View>
@@ -551,11 +551,15 @@ const styles = StyleSheet.create({
   buttonText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
   cancel: {
     minHeight: 48,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
   },
+  cancelText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.7 },
 });

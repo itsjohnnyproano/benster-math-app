@@ -228,7 +228,27 @@ export default function OnboardingScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Progress step={screen} dark={dark} />
+          <View style={styles.navigationHeader}>
+            <Text style={[styles.progressLabel, dark && styles.goldText]}>
+              STEP {screen} OF 7
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              disabled={saving}
+              onPress={goBack}
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.backControl,
+                dark && styles.darkBackControl,
+                saving && styles.buttonDisabled,
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <Text style={[styles.backControlText, dark && styles.goldText]}>←</Text>
+            </Pressable>
+            <Progress step={screen} dark={dark} />
+          </View>
           <View style={[
             styles.content,
             choiceScreen && styles.compactChoiceContent,
@@ -312,15 +332,6 @@ export default function OnboardingScreen() {
           )}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={screen === 7 ? "Edit your choices" : "Back"}
-            disabled={saving}
-            onPress={goBack}
-            style={({ pressed }) => [styles.backButton, saving && styles.buttonDisabled, pressed && styles.buttonPressed]}
-          >
-            <Text style={[styles.backButtonText, dark && styles.light]}>← {screen === 7 ? "Edit choices" : "Back"}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
             accessibilityState={{ disabled: continueDisabled, busy: saving }}
             disabled={continueDisabled}
             onPress={() => {
@@ -383,9 +394,6 @@ function Welcome({ onContinue }: { onContinue: () => void }) {
 function Progress({ step, dark }: { step: SetupStep; dark: boolean }) {
   return (
     <View accessible accessibilityLabel={`Step ${step} of 7`} style={styles.progressWrap}>
-      <Text style={[styles.progressLabel, dark && styles.goldText]}>
-        STEP {step} OF 7
-      </Text>
       <View style={[styles.track, dark && styles.darkTrack]}>
         <View style={[styles.fill, dark && styles.goldFill, { width: `${(step / 7) * 100}%` }]} />
       </View>
@@ -578,11 +586,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   brand: { flex: 1, alignSelf: "center", width: "72%" },
   scroll: { flexGrow: 1, width: "100%", alignSelf: "center", maxWidth: 640 },
-  progressWrap: { paddingHorizontal: 24, paddingTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
-  progressLabel: { position: "absolute", top: 26, left: 0, right: 0, textAlign: "center", fontFamily: "NunitoSans_700Bold", fontSize: 10, color: COLORS.primary, letterSpacing: 0.4 },
-  track: { flex: 1, height: 6, marginTop: 28, borderRadius: 10, overflow: "hidden", backgroundColor: COLORS.border },
+  navigationHeader: { width: "100%", flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 24, paddingTop: 10 },
+  backControl: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primarySoft, alignItems: "center", justifyContent: "center", transform: [{ translateY: 9 }] },
+  darkBackControl: { backgroundColor: "#51397E", borderWidth: 1, borderColor: "#5A4387" },
+  backControlText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 24, lineHeight: 28 },
+  progressWrap: { flex: 1, alignSelf: "stretch", paddingTop: 0, flexDirection: "row", alignItems: "center", gap: 10 },
+  progressLabel: { position: "absolute", top: 17, left: 0, right: 0, textAlign: "center", fontFamily: "NunitoSans_700Bold", fontSize: 12, color: COLORS.primary, letterSpacing: 0.4 },
+  track: { flex: 1, height: 6, marginTop: 17, borderRadius: 10, overflow: "hidden", backgroundColor: COLORS.border },
   fill: { height: "100%", backgroundColor: COLORS.primary, borderRadius: 10 },
-  progressCount: { marginTop: 28, fontFamily: "NunitoSans_700Bold", color: COLORS.secondary, fontSize: 11 },
+  progressCount: { marginTop: 17, fontFamily: "NunitoSans_700Bold", color: COLORS.secondary, fontSize: 11 },
   darkTrack: { backgroundColor: "#5A4387" },
   goldFill: { backgroundColor: GOLD },
   goldText: { color: GOLD },
@@ -654,8 +666,6 @@ const styles = StyleSheet.create({
   levelUpNote: { maxWidth: 330, marginTop: 2, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 18 },
   footer: { width: "100%", alignSelf: "center", maxWidth: 640, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 },
   landscapeFooter: { paddingHorizontal: 32, paddingTop: 10, paddingBottom: 16 },
-  backButton: { minHeight: 44, alignSelf: "center", justifyContent: "center", alignItems: "center", paddingHorizontal: 12 },
-  backButtonText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 16 },
   button: { minHeight: 54, borderRadius: 16, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
   landscapeButton: { alignSelf: "center" },
   goldButton: { backgroundColor: GOLD },

@@ -34,7 +34,7 @@ import { getSettingsLayout } from "./settingsLayout";
 import { formatResetPracticeMessage } from "./settingsPresentation";
 
 export default function SettingsScreen() {
-  const { contentInset, isIpad } = useTabBarLayout();
+  const { isIpad, overlayContentInset } = useTabBarLayout();
   const { width, height, fontScale } = useWindowDimensions();
   const { twoColumn, maxWidth } = getSettingsLayout(isIpad, width, height, fontScale);
   const {
@@ -104,7 +104,7 @@ export default function SettingsScreen() {
           tablet={isIpad}
           twoColumn={twoColumn}
           maxWidth={maxWidth}
-          bottomInset={contentInset}
+          bottomInset={overlayContentInset}
           header={
             <>
               <Text
