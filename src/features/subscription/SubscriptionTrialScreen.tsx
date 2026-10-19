@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
@@ -24,8 +24,9 @@ type Status = "loading" | "ready" | "unavailable" | "purchasing" | "restoring" |
 
 export default function SubscriptionTrialScreen() {
   const router = useRouter();
+  const { firstSprint } = useLocalSearchParams<{ firstSprint?: string }>();
   const { preferences } = usePreferences();
-  const { isPremium, refreshSubscription } = useSubscription();
+  const { isPremium, refreshSubscription, status: subscriptionStatus } = useSubscription();
   const [offers, setOffers] = useState<readonly SubscriptionOffer[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("loading");
@@ -73,15 +74,24 @@ export default function SubscriptionTrialScreen() {
   const unavailable = status === "unavailable";
   const busyStatus = status === "purchasing" || status === "restoring";
   const subscriptionActive = status === "active" || isPremium;
+  const showFirstSprintPremiumConfirmation = firstSprint === "1";
   const purchaseActionDisabled = busyStatus || unavailable || (!selectedOffer && !subscriptionActive);
   const canShowOffers = selectedOffer !== null && offers.length > 0 && status !== "unavailable";
   const goal = preferences.onboardingGoal;
 
   useEffect(() => {
-    if (status !== "loading" && subscriptionActive && !purchaseCompletedInSession) {
+    // Only leave the paywall once the shared entitlement gate has settled. A
+    // local offer reload finishing before RevenueCat does can otherwise fight
+    // Stack.Protected redirects and trigger update-depth loops.
+    if (
+      subscriptionStatus !== "loading"
+      && isPremium
+      && !purchaseCompletedInSession
+      && !showFirstSprintPremiumConfirmation
+    ) {
       router.replace("/");
     }
-  }, [purchaseCompletedInSession, router, status, subscriptionActive]);
+  }, [isPremium, purchaseCompletedInSession, router, showFirstSprintPremiumConfirmation, subscriptionStatus]);
 
   const run = async (kind: "purchase" | "restore") => {
     if (busy.current || (kind === "purchase" && !selectedOffer)) return;
@@ -111,7 +121,14 @@ export default function SubscriptionTrialScreen() {
     }
   };
 
-  if (shouldShowSubscriptionSuccess({ subscriptionActive, purchaseCompletedInSession })) {
+  if (
+    subscriptionStatus !== "loading"
+    && shouldShowSubscriptionSuccess({
+      subscriptionActive,
+      purchaseCompletedInSession,
+      showFirstSprintPremiumConfirmation,
+    })
+  ) {
     return (
       <SafeAreaView style={styles.screen}>
         <StatusBar style="dark" />
@@ -126,7 +143,9 @@ export default function SubscriptionTrialScreen() {
             <View accessible accessibilityRole="image" accessibilityLabel="Premium is active" style={styles.successMark}>
               <Text style={styles.successMarkText}>✓</Text>
             </View>
-            <Text accessibilityRole="header" style={styles.successTitle}>You’re all set!</Text>
+            <Text accessibilityRole="header" style={styles.successTitle}>
+              You’re all set{preferences.nickname ? `, ${preferences.nickname}` : ""}!
+            </Text>
             <Text accessibilityRole="status" style={styles.successSubtitle}>Benster Premium is active.</Text>
             <Text style={styles.successBody}>
               Unlimited sprints and progress are ready on this device.

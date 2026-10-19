@@ -24,8 +24,6 @@ import { MAX_NICKNAME_LENGTH } from "@/domain/nickname";
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { PROFILE_COLORS } from "@/theme/profileColors";
 import { COLORS } from "@/theme/tokens";
-import { ParentalGate } from "./ParentalGate";
-import { useParentalGate } from "./useParentalGate";
 
 type PendingCleanup = Readonly<{
   learnerId: string;
@@ -54,7 +52,6 @@ export function ManageLearnersModal({
     retryRemovedLearnerPreferencesCleanup,
     updateLearnerColor,
   } = usePreferences();
-  const gate = useParentalGate();
   const [addOpen, setAddOpen] = useState(false);
   const [openAddAfterManagerDismiss, setOpenAddAfterManagerDismiss] = useState(false);
   const [openManagerAfterAddDismiss, setOpenManagerAfterAddDismiss] = useState(false);
@@ -242,19 +239,17 @@ export function ManageLearnersModal({
                               accessibilityLabel={`Delete ${displayName}`}
                               onPress={() => {
                                 setProfileError(null);
-                                gate.request(() =>
-                                  Alert.alert(
-                                    "Delete learner?",
-                                    `This permanently removes ${displayName} and their local settings, history, streak, and personal bests. This cannot be undone.`,
-                                    [
-                                      { text: "Cancel", style: "cancel" },
-                                      {
-                                        text: "Delete learner",
-                                        style: "destructive",
-                                        onPress: () => void remove(learner.id),
-                                      },
-                                    ]
-                                  )
+                                Alert.alert(
+                                  "Delete learner?",
+                                  `This permanently removes ${displayName} and their local settings, history, streak, and personal bests. This cannot be undone.`,
+                                  [
+                                    { text: "Cancel", style: "cancel" },
+                                    {
+                                      text: "Delete learner",
+                                      style: "destructive",
+                                      onPress: () => void remove(learner.id),
+                                    },
+                                  ]
                                 );
                               }}
                               style={[styles.delete, tablet && styles.tabletDelete]}
@@ -321,16 +316,14 @@ export function ManageLearnersModal({
                   })}
                   <Pressable
                     accessibilityRole="button"
-                    onPress={() =>
-                      gate.request(() => {
-                        setProfileError(null);
-                        // iOS cannot reliably present a second native modal while
-                        // this full-screen manager is still animating away.
-                        if (Platform.OS === "ios") setOpenAddAfterManagerDismiss(true);
-                        onClose();
-                        if (Platform.OS !== "ios") setAddOpen(true);
-                      })
-                    }
+                    onPress={() => {
+                      setProfileError(null);
+                      // iOS cannot reliably present a second native modal while
+                      // this full-screen manager is still animating away.
+                      if (Platform.OS === "ios") setOpenAddAfterManagerDismiss(true);
+                      onClose();
+                      if (Platform.OS !== "ios") setAddOpen(true);
+                    }}
                     style={[styles.add, tablet && styles.tabletAdd]}
                   >
                     <Text style={styles.addText}>+ Add a learner</Text>
@@ -338,7 +331,6 @@ export function ManageLearnersModal({
                 </View>
               </ScrollView>
             </View>
-            {gate.visible && <ParentalGate onResolved={gate.onResolved} />}
           </SafeAreaView>
         </SafeAreaProvider>
       </Modal>

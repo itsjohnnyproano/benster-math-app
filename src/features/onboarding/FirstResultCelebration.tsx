@@ -26,9 +26,9 @@ export function FirstResultCelebration({ correctCount }: { correctCount: number 
     setError(false);
     try {
       await completeFirstResultCelebration();
-      // Typed routes are generated at Expo start; this new route is included in
-      // the source stack before that generation occurs.
-      router.replace("/subscription" as never);
+      // Keep the Premium confirmation visible for learners who already have
+      // access, instead of immediately returning them to Home.
+      router.replace("/subscription?firstSprint=1" as never);
     } catch {
       setError(true);
     } finally {

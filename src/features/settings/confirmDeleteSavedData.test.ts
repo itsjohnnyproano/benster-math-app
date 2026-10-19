@@ -16,7 +16,9 @@ it.each([true, false])("honors web confirmation: %s", (approved) => {
   vi.stubGlobal("window", { confirm });
   const remove = vi.fn();
   confirmDeleteSavedData(remove);
-  expect(confirm).toHaveBeenCalledExactlyOnceWith("Are you sure?\n\nThis will permanently erase all local high scores and game progress. This cannot be undone.");
+  expect(confirm).toHaveBeenCalledExactlyOnceWith(
+    "Are you sure?\n\nThis will permanently delete all learner profiles, settings, and practice history from this device. This cannot be undone."
+  );
   expect(remove).toHaveBeenCalledTimes(approved ? 1 : 0);
   expect(Alert.alert).not.toHaveBeenCalled();
 });
@@ -29,18 +31,20 @@ it("does not delete without a browser confirmation environment", () => {
   expect(remove).not.toHaveBeenCalled();
 });
 
-it("requires a separate destructive confirmation after the gate", () => {
+it("requires a separate destructive confirmation", () => {
   const remove = vi.fn();
   confirmDeleteSavedData(remove);
   const [title, message, buttons, options] = vi.mocked(Alert.alert).mock.calls.at(-1)!;
   expect(title).toBe("Are you sure?");
-  expect(message).toBe("This will permanently erase all local high scores and game progress. This cannot be undone.");
+  expect(message).toBe(
+    "This will permanently delete all learner profiles, settings, and practice history from this device. This cannot be undone."
+  );
   expect(options?.cancelable).toBe(true);
   expect(remove).not.toHaveBeenCalled();
-  expect(buttons?.[0]).toMatchObject({ text: "Cancel", style: "cancel" });
+  expect(buttons?.[0]).toMatchObject({ text: "No", style: "cancel" });
   buttons?.[0].onPress?.();
   expect(remove).not.toHaveBeenCalled();
-  expect(buttons?.[1]).toMatchObject({ text: "Delete Everything", style: "destructive" });
+  expect(buttons?.[1]).toMatchObject({ text: "Yes, delete all data", style: "destructive" });
   buttons?.[1].onPress?.();
   buttons?.[1].onPress?.();
   expect(remove).toHaveBeenCalledTimes(1);

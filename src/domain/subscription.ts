@@ -73,15 +73,18 @@ export function canAccessSubscriptionGatedRoutes({
 }
 
 /**
- * The confirmation is a short, in-session acknowledgement of a purchase or
- * restore. An existing member returning to the app should resume on Home.
+ * The confirmation is a short acknowledgement of a purchase, restore, or a
+ * Premium learner completing their first sprint. Other returning members
+ * resume on Home.
  */
 export function shouldShowSubscriptionSuccess({
   subscriptionActive,
   purchaseCompletedInSession,
+  showFirstSprintPremiumConfirmation,
 }: {
   subscriptionActive: boolean;
   purchaseCompletedInSession: boolean;
+  showFirstSprintPremiumConfirmation: boolean;
 }) {
-  return subscriptionActive && purchaseCompletedInSession;
+  return subscriptionActive && (purchaseCompletedInSession || showFirstSprintPremiumConfirmation);
 }

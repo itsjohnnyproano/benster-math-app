@@ -70,9 +70,10 @@ describe("subscription rules", () => {
     })).toBe(true);
   });
 
-  it("shows the Premium confirmation only after an in-session purchase or restore", () => {
-    expect(shouldShowSubscriptionSuccess({ subscriptionActive: true, purchaseCompletedInSession: true })).toBe(true);
-    expect(shouldShowSubscriptionSuccess({ subscriptionActive: true, purchaseCompletedInSession: false })).toBe(false);
-    expect(shouldShowSubscriptionSuccess({ subscriptionActive: false, purchaseCompletedInSession: true })).toBe(false);
+  it("shows the Premium confirmation after a purchase, restore, or first sprint", () => {
+    expect(shouldShowSubscriptionSuccess({ subscriptionActive: true, purchaseCompletedInSession: true, showFirstSprintPremiumConfirmation: false })).toBe(true);
+    expect(shouldShowSubscriptionSuccess({ subscriptionActive: true, purchaseCompletedInSession: false, showFirstSprintPremiumConfirmation: true })).toBe(true);
+    expect(shouldShowSubscriptionSuccess({ subscriptionActive: true, purchaseCompletedInSession: false, showFirstSprintPremiumConfirmation: false })).toBe(false);
+    expect(shouldShowSubscriptionSuccess({ subscriptionActive: false, purchaseCompletedInSession: true, showFirstSprintPremiumConfirmation: true })).toBe(false);
   });
 });
