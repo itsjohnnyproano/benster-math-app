@@ -1,13 +1,14 @@
 import { Image } from "expo-image";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { isSprintMode } from "@/domain/sprint";
 import type { FactNumberLimit, FactTable, PracticeNumberRange } from "@/domain/practiceSelection";
 import { usePreferences } from "@/providers/PreferencesProvider";
+import { useSubscription } from "@/providers/SubscriptionProvider";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 
 import { PracticePreferences } from "@/components/preferences/PracticePreferences";
@@ -21,12 +22,19 @@ export default function SprintSetupScreen() {
   const { width, height, fontScale } = useWindowDimensions();
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const { preferences, isReady, updatePreference } = usePreferences();
+  const { isPremium, status: subscriptionStatus } = useSubscription();
   const [isStarting, setIsStarting] = useState(false);
   const mode = isSprintMode(modeParam) ? modeParam : "addition";
   const [range, setRange] = useState<PracticeNumberRange | null>(null);
   const [tables, setTables] = useState<FactTable[] | null>(null);
   const [factNumberLimit, setFactNumberLimit] = useState<FactNumberLimit | null>(null);
   const { tablet: isTablet, twoColumn: isLandscapeTablet, maxWidth } = getSetupLayout(width, height, Platform.OS, fontScale);
+  const subscriptionCheckPending = preferences.firstFreeSprintCompleted && subscriptionStatus === "loading";
+  const requiresPremium = preferences.firstFreeSprintCompleted && subscriptionStatus === "ready" && !isPremium;
+
+  useEffect(() => {
+    if (requiresPremium) router.replace("/subscription");
+  }, [requiresPremium, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,7 +66,11 @@ export default function SprintSetupScreen() {
   const canStart = !((mode === "multiplication" || mode === "division") && tables !== null && tables.length === 0);
 
   const startSprint = () => {
-    if (!isReady || isStarting || !canStart) return;
+    if (requiresPremium) {
+      router.replace("/subscription");
+      return;
+    }
+    if (!isReady || isStarting || !canStart || subscriptionCheckPending) return;
     setIsStarting(true);
 
     router.push({
@@ -119,18 +131,18 @@ export default function SprintSetupScreen() {
               <Pressable
                 accessibilityLabel="Start Sprint"
                 accessibilityRole="button"
-                accessibilityState={{ disabled: !isReady || isStarting || !canStart }}
-                disabled={!isReady || isStarting || !canStart}
+                accessibilityState={{ disabled: !isReady || isStarting || !canStart || subscriptionCheckPending }}
+                disabled={!isReady || isStarting || !canStart || subscriptionCheckPending}
                 onPress={startSprint}
                 style={({ pressed }) => [
                   styles.startButton,
                   isTablet && styles.tabletStartButton,
                   CARD_SHADOW,
-                  (!isReady || isStarting || !canStart) && styles.disabledButton,
+                  (!isReady || isStarting || !canStart || subscriptionCheckPending) && styles.disabledButton,
                   pressed && styles.pressedButton,
                 ]}
               >
-                <Text style={[styles.startButtonText, isTablet && styles.tabletStartButtonText]}>{isStarting ? "Starting…" : "Start Sprint"}</Text>
+                <Text style={[styles.startButtonText, isTablet && styles.tabletStartButtonText]}>{subscriptionCheckPending ? "Checking access…" : isStarting ? "Starting…" : "Start Sprint"}</Text>
               </Pressable>
             </View>
           </View>

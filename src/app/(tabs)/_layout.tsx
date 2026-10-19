@@ -1,5 +1,5 @@
 export const unstable_settings = {
-  initialRouteName: "index",
+  anchor: "index",
 };
 
 export { default } from "@/components/navigation/MainTabs";

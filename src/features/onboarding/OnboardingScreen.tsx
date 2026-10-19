@@ -1,68 +1,181 @@
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable,
-  ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions,
+  BackHandler,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ONBOARDING_GOAL_DETAILS } from "@/config/onboardingGoals";
+import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
 import { MAX_NICKNAME_LENGTH } from "@/domain/nickname";
+import type { OnboardingGoal, SprintDurationSeconds, SprintMode } from "@/domain/sprint";
 import { usePreferences } from "@/providers/PreferencesProvider";
-import { CARD_SHADOW, COLORS } from "@/theme/tokens";
-import { useIntroAdvance } from "./useIntroAdvance";
+import { COLORS } from "@/theme/tokens";
 import { getOnboardingLayout, ONBOARDING_COLUMN_GAP } from "./onboardingLayout";
+import { useIntroAdvance } from "./useIntroAdvance";
 
-const WELCOME = {
-  background: "#24134B",
-  surface: "#34205E",
-  muted: "#D8CDED",
-  accent: "#FFD56B",
+type SetupStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+const DARK = "#24134B";
+const GOLD = "#FFD56B";
+// The portrait iPad footer is 640pt wide with 24pt side padding.
+const IPAD_PRIMARY_CONTROL_WIDTH = 592;
+const ANSWER_STYLE_OPTIONS = [
+  { label: "Tap answers", value: "multiple-choice" },
+  { label: "Type answers", value: "typed" },
+] as const;
+const SPRINT_LENGTH_OPTIONS = [
+  { label: "30 sec", detail: "A quick win", value: 30 },
+  { label: "1 min", detail: "A little more practice", value: 60 },
+  { label: "2 min", detail: "Ready for a longer sprint", value: 120 },
+] as const satisfies readonly ChoiceOption<SprintDurationSeconds>[];
+const FIRST_PRACTICE_OPTIONS = [
+  { label: "Addition", detail: "Build number confidence", value: "addition" },
+  { label: "Subtraction", detail: "Make subtraction click", value: "subtraction" },
+  { label: "Multiplication", detail: "Strengthen times tables", value: "multiplication" },
+  { label: "Division", detail: "Practice fact families", value: "division" },
+  { label: "Mixed", detail: "A little of everything", value: "mixed" },
+] as const satisfies readonly ChoiceOption<SprintMode>[];
+const ONBOARDING_GOAL_OPTIONS: readonly ChoiceOption<OnboardingGoal>[] = [
+  { label: ONBOARDING_GOAL_DETAILS["math-facts"].choiceLabel, value: "math-facts" },
+  { label: ONBOARDING_GOAL_DETAILS.speed.choiceLabel, value: "speed" },
+  { label: ONBOARDING_GOAL_DETAILS.confidence.choiceLabel, value: "confidence" },
+  { label: ONBOARDING_GOAL_DETAILS["class-ready"].choiceLabel, value: "class-ready" },
+  { label: ONBOARDING_GOAL_DETAILS.practice.choiceLabel, value: "practice" },
+];
+const GROWTH_BENEFITS = [
+  "Beat your personal best",
+  "Build your practice streak",
+  "Review incorrect answers",
+  "Every learner keeps their own profile",
+] as const;
+
+const steps: Record<SetupStep, { title: string; body: string; mascot: number; dark?: boolean }> = {
+  1: {
+    title: "What should we call you?",
+    body: "Choose a nickname for your profile. It stays on this device.",
+    mascot: require("../../../assets/mascot/penguin-waving.png"),
+  },
+  2: {
+    title: "How can Benster help you today?",
+    body: "Pick the one that feels most like you.",
+    mascot: require("../../../assets/mascot/penguin-focused.png"),
+  },
+  3: {
+    title: "Pick your first practice.",
+    body: "Choose one to start. You can switch anytime.",
+    mascot: require("../../../assets/mascot/penguin-focused.png"),
+  },
+  4: {
+    title: "Big confidence.\nLittle time.",
+    body: "Choose a sprint length that feels right today.",
+    mascot: require("../../../assets/mascot/penguin-running-right-exact.png"),
+    dark: true,
+  },
+  5: {
+    title: "Practice your way.",
+    body: "Choose how you’d like to answer.",
+    mascot: require("../../../assets/mascot/penguin-waving.png"),
+  },
+  6: {
+    title: "Watch yourself grow.",
+    body: "Each sprint helps you see what you can do.",
+    mascot: require("../../../assets/mascot/penguin-reading-book-right.png"),
+  },
+  7: {
+    title: "You’re ready!",
+    body: "Your first sprint is ready when you are.",
+    mascot: require("../../../assets/mascot/penguin-sprint-start-crouch-exact.png"),
+    dark: true,
+  },
 };
 
 export default function OnboardingScreen() {
+  const router = useRouter();
   const { preferences, completeOnboarding } = usePreferences();
-  const [step, setStep] = useState<0 | 1>(0);
+  const [screen, setScreen] = useState<"welcome" | SetupStep>("welcome");
   const [showIntro, setShowIntro] = useState(true);
-  const [introImageReady, setIntroImageReady] = useState(false);
-  const finishIntro = useCallback(() => setShowIntro(false), []);
-  useIntroAdvance(showIntro && introImageReady, finishIntro);
+  const [introReady, setIntroReady] = useState(false);
   const [nickname, setNickname] = useState(preferences.nickname);
+  const [onboardingGoal, setOnboardingGoal] = useState<OnboardingGoal | null>(null);
+  const [mode, setMode] = useState<SprintMode>("addition");
+  const [durationSeconds, setDurationSeconds] = useState<SprintDurationSeconds>(30);
+  const [inputStyle, setInputStyle] = useState(preferences.inputStyle);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
-  const submitting = useRef(false);
-  const mounted = useRef(true);
   const { width, height, fontScale } = useWindowDimensions();
-  const { tablet, twoColumn, maxWidth, introSize, footerWidth } = getOnboardingLayout(Platform.OS === "ios", width, height, fontScale);
-  const compact = height < 740;
+  const mounted = useRef(true);
+  const submitting = useRef(false);
+  const finishIntro = useCallback(() => setShowIntro(false), []);
+  const goBack = useCallback(() => {
+    if (saving || screen === "welcome") return;
+
+    Keyboard.dismiss();
+    setScreen((current) => (
+      typeof current === "number" && current !== 1
+        ? (current - 1) as SetupStep
+        : "welcome"
+    ));
+  }, [saving, screen]);
+
+  useIntroAdvance(showIntro && introReady, finishIntro);
 
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; };
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (submitting.current) return true;
-      if (step === 1) {
-        Keyboard.dismiss();
-        setStep(0);
-        return true;
-      }
-      return false;
+      // This is the app's root flow, so there is no navigator route to pop
+      // from the welcome screen. Consuming the press prevents a dev warning.
+      if (saving || screen === "welcome") return true;
+      goBack();
+      return true;
     });
-    return () => subscription.remove();
-  }, [step]);
 
-  const finish = async (skipNickname: boolean) => {
+    return () => subscription.remove();
+  }, [goBack, saving, screen]);
+
+  const startFirstSprint = async () => {
     if (submitting.current) return;
+
     submitting.current = true;
     setSaving(true);
     setError(false);
     Keyboard.dismiss();
+
     try {
-      // Skip ignores the draft, but never erases an existing user's nickname.
-      await completeOnboarding(skipNickname ? preferences.nickname : nickname);
+      await completeOnboarding(nickname, {
+        durationSeconds,
+        inputStyle,
+        cardLayout: "both",
+        onboardingGoal,
+      });
+      router.replace({
+        pathname: "/sprint/play",
+        params: {
+          mode,
+          durationSeconds: String(durationSeconds),
+          inputStyle,
+          cardLayout: "both",
+          levelUpEnabled: String(preferences.levelUpEnabled),
+        },
+      });
     } catch {
       if (mounted.current) setError(true);
     } finally {
@@ -73,245 +186,482 @@ export default function OnboardingScreen() {
 
   if (showIntro) {
     return (
-      <SafeAreaView style={[styles.screen, styles.darkScreen]}>
+      <SafeAreaView style={[styles.screen, styles.dark]}>
         <StatusBar style="light" />
-        <View style={styles.intro}>
-          <Image
-            accessibilityLabel="Benster"
-            source={require("../../../assets/brand/Benster_stacked_white-text_1300px.png")}
-            contentFit="contain"
-            onDisplay={() => setIntroImageReady(true)}
-            onError={() => setIntroImageReady(true)}
-            style={[styles.introBrand, compact && styles.compactIntroBrand, tablet && { width: introSize, maxWidth: introSize }]}
-          />
-        </View>
+        <Image
+          source={require("../../../assets/brand/Benster_stacked_white-text_1300px.png")}
+          contentFit="contain"
+          onDisplay={() => setIntroReady(true)}
+          onError={() => setIntroReady(true)}
+          style={styles.brand}
+        />
       </SafeAreaView>
     );
   }
 
-  const welcome = step === 0;
-  const nicknameTitle = (
-    <Text accessibilityRole="header" style={[styles.title, tablet && styles.tabletTitle]}>What should{"\n"}we call you?</Text>
-  );
+  if (screen === "welcome") return <Welcome onContinue={() => setScreen(1)} />;
+
+  const step = steps[screen];
+  const dark = step.dark === true;
+  const displayName = nickname.trim() || preferences.nickname;
+  const body = screen === 3 && onboardingGoal
+    ? ONBOARDING_GOAL_DETAILS[onboardingGoal].firstPracticePrompt
+    : step.body;
+  const needsGoal = screen === 2 && onboardingGoal === null;
+  const continueDisabled = saving || needsGoal;
+  const choiceScreen = screen === 2 || screen === 3;
+  const layout = getOnboardingLayout(Platform.OS === "ios", width, height, fontScale);
+  const useLandscapeSingleColumnLayout = layout.twoColumn && screen === 1;
+  const useLandscapeSplitLayout = layout.twoColumn && !useLandscapeSingleColumnLayout;
+  const contentMaxWidth = useLandscapeSingleColumnLayout ? 640 : layout.maxWidth;
+
   return (
-    <SafeAreaView style={[styles.screen, welcome && styles.darkScreen]}>
-      <StatusBar style={welcome ? "light" : "dark"} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <SafeAreaView style={[styles.screen, dark && styles.dark]}>
+      <StatusBar style={dark ? "light" : "dark"} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
         <ScrollView
-          key={step}
-          contentContainerStyle={[styles.scroll, tablet && styles.tabletScroll]}
-          bounces={!tablet}
-          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.scroll, { maxWidth: contentMaxWidth }]}
           keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.page, { maxWidth }]}>
-            <View style={styles.header}>
-              {welcome ? (
-                <Text style={[styles.wordmark, tablet && styles.tabletWordmark]}>benster<Text style={styles.wordmarkDot}>.</Text></Text>
-              ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Back to welcome"
-                  disabled={saving}
-                  accessibilityState={{ disabled: saving }}
-                  onPress={() => { Keyboard.dismiss(); setStep(0); }}
-                  style={({ pressed }) => [styles.back, pressed && styles.pressed]}
-                >
-                  <Text style={styles.backText}>‹</Text>
-                </Pressable>
-              )}
-              <StepIndicator step={step} />
+          <Progress step={screen} dark={dark} />
+          <View style={[
+            styles.content,
+            choiceScreen && styles.compactChoiceContent,
+            choiceScreen && styles.centeredContent,
+            (screen === 4 || screen === 5 || screen === 6 || screen === 7) && styles.centeredContent,
+            useLandscapeSplitLayout && styles.landscapeChoiceContent,
+            useLandscapeSingleColumnLayout && styles.landscapeNicknameContent,
+          ]}>
+            <View style={[
+              styles.stepIntro,
+              choiceScreen && styles.compactStepIntro,
+              useLandscapeSplitLayout && styles.landscapeStepIntro,
+            ]}>
+              <Image
+                source={step.mascot}
+                contentFit="contain"
+                style={[
+                  styles.mascot,
+                  choiceScreen && styles.compactChoiceMascot,
+                  useLandscapeSplitLayout && styles.landscapeChoiceMascot,
+                  useLandscapeSingleColumnLayout && styles.landscapeNicknameMascot,
+                ]}
+                accessible={false}
+              />
+              <Text accessibilityRole="header" style={[
+                styles.title,
+                choiceScreen && styles.compactChoiceTitle,
+                useLandscapeSplitLayout && styles.landscapeChoiceTitle,
+                useLandscapeSingleColumnLayout && styles.landscapeNicknameTitle,
+                dark && styles.light,
+              ]}>
+                {screen === 7 && displayName ? `You’re ready, ${displayName}!` : step.title}
+              </Text>
+              <Text style={[
+                styles.body,
+                useLandscapeSplitLayout && styles.landscapeChoiceBody,
+                dark && styles.lightBody,
+              ]}>
+                {body}
+              </Text>
             </View>
 
-            {welcome ? (
-              <View style={[styles.main, twoColumn && styles.landscapeMain]}>
-                <View style={[styles.visual, twoColumn && styles.landscapePane]}>
-                <View
-                  accessible={false}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  style={[styles.mascotStage, compact && styles.compactStage, tablet && styles.tabletStage]}
-                >
-                  <View style={styles.orbit} />
-                  <View style={styles.halo} />
-                  <Text style={[styles.mathTile, styles.plus]}>+</Text>
-                  <Text style={[styles.mathTile, styles.times]}>×</Text>
-                  <Text style={[styles.mathTile, styles.minus]}>−</Text>
-                  <Image source={require("../../../assets/mascot/penguin-jumping-celebration-confetti.png")} contentFit="contain" style={styles.welcomeMascot} />
-                </View>
-                </View>
-                <View style={[styles.copy, twoColumn && styles.landscapePane]}>
-                <Text accessibilityRole="header" style={[styles.title, styles.lightTitle, tablet && styles.tabletTitle]}>
-                  Small sprints.{"\n"}<Text style={styles.accent}>Growing confidence.</Text>
-                </Text>
-                <Text style={[styles.body, styles.lightBody, tablet && styles.tabletBody]}>
-                  Add, subtract, multiply—or mix them up.
-                </Text>
-                <View style={styles.benefits}>
-                  <Text style={[styles.benefit, tablet && styles.tabletSmallText]}>30 sec–2 min</Text>
-                  <View style={styles.divider} />
-                  <Text style={[styles.benefit, tablet && styles.tabletSmallText]}>Tap or type</Text>
-                </View>
-                </View>
-              </View>
-            ) : (
-              <View style={[styles.main, twoColumn && styles.landscapeMain]}>
-                <View style={[styles.visual, twoColumn && styles.landscapePane]}>
-                <Image
-                  accessibilityLabel="Benster running, ready to practice"
-                  source={require("../../../assets/mascot/penguin-running-right-exact.png")}
-                  contentFit="contain"
-                  style={[styles.nicknameMascot, compact && styles.compactNicknameMascot, tablet && styles.tabletNicknameMascot, twoColumn && styles.landscapeNicknameMascot]}
-                />
-                {twoColumn && nicknameTitle}
-                </View>
-                <View style={[styles.copy, twoColumn && styles.landscapePane]}>
-                {!twoColumn && nicknameTitle}
-                <View style={[styles.nicknameCard, CARD_SHADOW, tablet && styles.tabletNicknameCard]}>
-                  <View style={styles.labelRow}>
-                    <Text style={[styles.label, tablet && styles.tabletLabel]}>Nickname</Text>
-                    <Text style={[styles.optional, tablet && styles.tabletSmallText]}>Optional</Text>
-                  </View>
-                  <TextInput
-                    accessibilityLabel="Your nickname, optional"
-                    value={nickname}
-                    onChangeText={setNickname}
-                    editable={!saving}
-                    maxLength={MAX_NICKNAME_LENGTH}
-                    autoCorrect={false}
-                    autoComplete="off"
-                    textContentType="none"
-                    autoCapitalize="words"
-                    placeholder="e.g. Jo"
-                    placeholderTextColor={COLORS.secondary}
-                    selectionColor={COLORS.primary}
-                    returnKeyType="done"
-                    onSubmitEditing={() => void finish(false)}
-                    style={[styles.input, tablet && styles.tabletInput]}
-                  />
-                  <Text style={[styles.inputHelp, tablet && styles.tabletHelp]}>Not your full name. Change it anytime in Settings.</Text>
-                </View>
-                <Text style={[styles.privacyNote, tablet && styles.tabletHelp]}>Saved on this device. No account needed.</Text>
-                </View>
-              </View>
-            )}
-
-            <View style={[styles.footer, tablet && styles.tabletFooter, twoColumn && { width: footerWidth, alignSelf: "flex-end" }]}>
-              {error && (
-                <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
-                  We couldn’t save your setup. Please try again.
-                </Text>
+            <View style={[styles.stepSelection, useLandscapeSplitLayout && styles.landscapeStepSelection]}>
+              {screen === 1 && (
+              <Nickname value={nickname} onChange={setNickname} disabled={saving} />
               )}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ disabled: saving, busy: saving }}
-                disabled={saving}
-                onPress={() => welcome ? setStep(1) : void finish(false)}
-                style={({ pressed }) => [styles.button, tablet && styles.tabletButton, welcome && styles.welcomeButton, saving && styles.disabled, pressed && styles.pressed]}
-              >
-                <Text style={[styles.buttonText, tablet && styles.tabletLabel, welcome && styles.welcomeButtonText]}>
-                  {welcome ? "Let’s get started" : saving ? "Saving…" : "Let’s practice"}
-                </Text>
-              </Pressable>
-              {!welcome && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: saving }}
-                  disabled={saving}
-                  onPress={() => void finish(true)}
-                  style={({ pressed }) => [styles.skip, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.skipText, tablet && styles.tabletSmallText]}>Skip for now</Text>
-                </Pressable>
+              {screen === 2 && <OnboardingGoalChoices value={onboardingGoal} onChange={setOnboardingGoal} compact />}
+              {screen === 3 && <FirstPracticeChoices value={mode} onChange={setMode} compact />}
+              {screen === 4 && <SprintLengthChoices value={durationSeconds} onChange={setDurationSeconds} />}
+              {screen === 5 && <AnswerStyleChoices value={inputStyle} onChange={setInputStyle} />}
+              {screen === 6 && <GrowthRows />}
+              {screen === 7 && (
+                <>
+                  <View style={styles.firstStep}>
+                    {onboardingGoal && (
+                      <Text style={[styles.firstStepText, styles.firstStepGoal]}>
+                        Your goal: {ONBOARDING_GOAL_DETAILS[onboardingGoal].readyLabel}
+                      </Text>
+                    )}
+                    <Text style={styles.firstStepText}>
+                      {SPRINT_MODE_DETAILS[mode].title} · {formatSprintLength(durationSeconds)}
+                    </Text>
+                    <Text style={[styles.firstStepText, styles.firstStepDetail]}>
+                      {inputStyle === "typed" ? "Type answers" : "Tap answers"} · Vertical + horizontal cards
+                    </Text>
+                  </View>
+                  <Text style={[styles.levelUpNote, styles.lightBody]}>
+                    Level Up is on — get 5 correct in a row and the next questions get a little harder.
+                  </Text>
+                </>
               )}
             </View>
           </View>
         </ScrollView>
+
+        <View style={[styles.footer, { maxWidth: contentMaxWidth }, layout.twoColumn && styles.landscapeFooter]}>
+          {error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              We couldn’t save your setup. Please try again.
+            </Text>
+          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={screen === 7 ? "Edit your choices" : "Back"}
+            disabled={saving}
+            onPress={goBack}
+            style={({ pressed }) => [styles.backButton, saving && styles.buttonDisabled, pressed && styles.buttonPressed]}
+          >
+            <Text style={[styles.backButtonText, dark && styles.light]}>← {screen === 7 ? "Edit choices" : "Back"}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: continueDisabled, busy: saving }}
+            disabled={continueDisabled}
+            onPress={() => {
+              if (screen === 7) {
+                void startFirstSprint();
+              } else {
+                setScreen((screen + 1) as SetupStep);
+              }
+            }}
+            style={({ pressed }) => [
+              styles.button,
+              dark && styles.goldButton,
+              layout.twoColumn && styles.landscapeButton,
+              layout.twoColumn && { width: IPAD_PRIMARY_CONTROL_WIDTH },
+              continueDisabled && styles.buttonDisabled,
+              (!continueDisabled && pressed) && styles.buttonPressed,
+            ]}
+          >
+            <Text style={[styles.buttonText, dark && styles.goldButtonText]}>
+              {screen === 7 ? (saving ? "Saving…" : "Start my first sprint") : "Continue"}
+            </Text>
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-function StepIndicator({ step }: { step: 0 | 1 }) {
+function Welcome({ onContinue }: { onContinue: () => void }) {
   return (
-    <View accessible accessibilityLabel={`Step ${step + 2} of 3`} style={styles.steps}>
-      {[0, 1, 2].map((index) => <View key={index} style={[styles.step, step === 0 && styles.darkStep, index === step + 1 && styles.activeStep]} />)}
+    <SafeAreaView style={[styles.screen, styles.dark]}>
+      <StatusBar style="light" />
+      <View style={[styles.content, styles.welcomeContent]}>
+        <Image
+          source={require("../../../assets/mascot/penguin-jumping-celebration-confetti.png")}
+          contentFit="contain"
+          style={styles.welcomeMascot}
+          accessible={false}
+        />
+        <Text accessibilityRole="header" style={[styles.title, styles.light]}>
+          Small sprints.{"\n"}Growing confidence.
+        </Text>
+        <Text style={[styles.body, styles.lightBody]}>
+          Add, subtract, multiply, divide—or mix them up.
+        </Text>
+      </View>
+      <View style={styles.footer}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onContinue}
+          style={({ pressed }) => [styles.button, styles.goldButton, pressed && styles.buttonPressed]}
+        >
+          <Text style={[styles.buttonText, styles.goldButtonText]}>Let’s get started</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function Progress({ step, dark }: { step: SetupStep; dark: boolean }) {
+  return (
+    <View accessible accessibilityLabel={`Step ${step} of 7`} style={styles.progressWrap}>
+      <Text style={[styles.progressLabel, dark && styles.goldText]}>
+        STEP {step} OF 7
+      </Text>
+      <View style={[styles.track, dark && styles.darkTrack]}>
+        <View style={[styles.fill, dark && styles.goldFill, { width: `${(step / 7) * 100}%` }]} />
+      </View>
+      <Text style={[styles.progressCount, dark && styles.lightBody]}>{step} of 7</Text>
+    </View>
+  );
+}
+
+function Nickname({ value, onChange, disabled }: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <View style={styles.nickname}>
+      <TextInput
+        accessibilityLabel="Your nickname, optional"
+        value={value}
+        editable={!disabled}
+        onChangeText={onChange}
+        maxLength={MAX_NICKNAME_LENGTH}
+        autoCorrect={false}
+        autoComplete="off"
+        textContentType="none"
+        autoCapitalize="words"
+        placeholder="Nickname (optional)"
+        placeholderTextColor={COLORS.secondary}
+        returnKeyType="done"
+        onSubmitEditing={Keyboard.dismiss}
+        style={styles.input}
+      />
+      <Text style={styles.privacy}>Skip to use Learner 1. No account needed—add more profiles anytime.</Text>
+    </View>
+  );
+}
+
+type ChoiceOption<Value extends string | number> = {
+  label: string;
+  detail?: string;
+  value: Value;
+};
+
+function SelectableChoices<Value extends string | number>({
+  options,
+  value,
+  onChange,
+  dark = false,
+  alignStart = false,
+  compact = false,
+}: {
+  options: readonly ChoiceOption<Value>[];
+  value: Value | null;
+  onChange: (value: Value) => void;
+  dark?: boolean;
+  alignStart?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <View accessibilityRole="radiogroup" style={[styles.rowList, compact && styles.compactRowList]}>
+      {options.map((option) => {
+        const selected = option.value === value;
+
+        return (
+          <Pressable
+            key={String(option.value)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => [
+              styles.choiceRow,
+              compact && styles.compactChoiceRow,
+              dark && styles.darkChoiceRow,
+              (dark || alignStart) && styles.choiceRowDetailed,
+              selected && styles.choiceRowSelected,
+              dark && selected && styles.darkChoiceRowSelected,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <View>
+              <Text style={[styles.rowText, dark && styles.light]}>{option.label}</Text>
+              {option.detail && (
+                <Text style={[styles.choiceDetail, dark && styles.lightBody]}>{option.detail}</Text>
+              )}
+            </View>
+            {selected && (
+              <View style={[styles.choiceCheck, dark && styles.darkChoiceCheck]}>
+                <Text style={[styles.choiceCheckText, dark && styles.darkChoiceCheckText]}>✓</Text>
+              </View>
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function OnboardingGoalChoices({ value, onChange, compact = false }: {
+  value: OnboardingGoal | null;
+  onChange: (value: OnboardingGoal) => void;
+  compact?: boolean;
+}) {
+  return <SelectableChoices options={ONBOARDING_GOAL_OPTIONS} value={value} onChange={onChange} alignStart compact={compact} />;
+}
+
+function SprintLengthChoices({ value, onChange }: {
+  value: SprintDurationSeconds;
+  onChange: (value: SprintDurationSeconds) => void;
+}) {
+  return <SelectableChoices options={SPRINT_LENGTH_OPTIONS} value={value} onChange={onChange} dark />;
+}
+
+function FirstPracticeChoices({ value, onChange, compact = false }: {
+  value: SprintMode;
+  onChange: (value: SprintMode) => void;
+  compact?: boolean;
+}) {
+  return (
+    <View accessibilityRole="radiogroup" style={[styles.rowList, compact && styles.compactRowList]}>
+      {FIRST_PRACTICE_OPTIONS.map((option) => {
+        const selected = option.value === value;
+        const details = SPRINT_MODE_DETAILS[option.value];
+
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => [
+              styles.practiceChoiceRow,
+              compact && styles.compactPracticeChoiceRow,
+              selected && styles.choiceRowSelected,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <View style={[styles.practiceSymbol, { backgroundColor: details.color }]}>
+              <Text
+                style={[
+                  styles.practiceSymbolText,
+                  option.value === "mixed" && styles.mixedPracticeSymbolText,
+                ]}
+              >
+                {details.symbol}
+              </Text>
+            </View>
+            <View style={styles.practiceChoiceCopy}>
+              <Text style={styles.rowText}>{option.label}</Text>
+              <Text style={styles.choiceDetail}>{option.detail}</Text>
+            </View>
+            <View style={[styles.practiceSelection, selected && styles.practiceSelectionActive]}>
+              {selected && <Text style={styles.choiceCheckText}>✓</Text>}
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function AnswerStyleChoices({
+  value,
+  onChange,
+}: {
+  value: "multiple-choice" | "typed";
+  onChange: (value: "multiple-choice" | "typed") => void;
+}) {
+  return <SelectableChoices options={ANSWER_STYLE_OPTIONS} value={value} onChange={onChange} />;
+}
+
+function formatSprintLength(durationSeconds: SprintDurationSeconds) {
+  return durationSeconds === 30 ? "30-second sprint" : `${durationSeconds / 60}-minute sprint`;
+}
+
+function GrowthRows() {
+  return (
+    <View style={styles.benefitList}>
+      {GROWTH_BENEFITS.map((benefit) => (
+        <View key={benefit} style={styles.benefitRow}>
+          <Text style={styles.benefitCheck}>✓</Text>
+          <Text style={styles.benefitText}>{benefit}</Text>
+        </View>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  tabletScroll: { paddingHorizontal: 32, paddingVertical: 24 },
-  tabletWordmark: { fontSize: 36 },
-  visual: { width: "100%", alignItems: "center" },
-  copy: { width: "100%", alignItems: "center" },
-  landscapeMain: { flexDirection: "row", gap: ONBOARDING_COLUMN_GAP },
-  landscapePane: { width: undefined, flexBasis: 0, flexGrow: 1, flexShrink: 1, minWidth: 0 },
-  tabletStage: { maxWidth: 420, height: 340, marginBottom: 24 },
-  tabletTitle: { fontSize: 40, lineHeight: 48 },
-  tabletBody: { fontSize: 20, lineHeight: 29, maxWidth: 460 },
-  tabletSmallText: { fontSize: 16 },
-  tabletLabel: { fontSize: 21 },
-  tabletHelp: { fontSize: 16, lineHeight: 24, maxWidth: 460 },
-  tabletNicknameMascot: { width: 240, height: 240 },
-  landscapeNicknameMascot: { width: "100%", maxWidth: 380, height: 280 },
-  tabletNicknameCard: { padding: 24 },
-  tabletInput: { minHeight: 68, fontSize: 26 },
-  tabletButton: { minHeight: 68 },
-  tabletFooter: { width: "100%", maxWidth: 560, alignSelf: "center", paddingTop: 24 },
   screen: { flex: 1, backgroundColor: COLORS.background },
-  darkScreen: { backgroundColor: WELCOME.background },
-  intro: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  introBrand: { width: "100%", maxWidth: 380, aspectRatio: 1 },
-  compactIntroBrand: { maxWidth: 300 },
+  dark: { backgroundColor: DARK },
   flex: { flex: 1 },
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 12 },
-  page: { flexGrow: 1, width: "100%", maxWidth: 480, alignSelf: "center" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 48 },
-  wordmark: { fontFamily: "NunitoSans_700Bold", fontSize: 30, color: COLORS.card, letterSpacing: -1 },
-  wordmarkDot: { color: WELCOME.accent },
-  steps: { flexDirection: "row", alignItems: "center", gap: 6 },
-  step: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.border },
-  darkStep: { backgroundColor: "#665284" },
-  activeStep: { width: 26, backgroundColor: COLORS.orange },
-  back: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1 },
-  backText: { fontSize: 34, lineHeight: 38, color: COLORS.ink },
-  main: { flexGrow: 1, justifyContent: "center", alignItems: "center", paddingVertical: 20 },
-  mascotStage: { width: "100%", maxWidth: 340, height: 285, alignItems: "center", justifyContent: "center", marginBottom: 18 },
-  compactStage: { height: 205, marginBottom: 12 },
-  orbit: { position: "absolute", width: "92%", height: "94%", borderRadius: 180, borderWidth: 1, borderColor: "#4B3570", transform: [{ rotate: "-15deg" }] },
-  halo: { position: "absolute", width: "72%", height: "80%", borderRadius: 150, backgroundColor: WELCOME.surface },
-  welcomeMascot: { width: "82%", height: "100%" },
-  mathTile: { position: "absolute", overflow: "hidden", width: 49, height: 49, borderRadius: 16, fontFamily: "NunitoSans_700Bold", fontSize: 35, lineHeight: 47, textAlign: "center" },
-  plus: { left: 5, top: "20%", color: COLORS.orange, backgroundColor: COLORS.orangeSoft, transform: [{ rotate: "-14deg" }] },
-  times: { right: 2, top: "10%", color: COLORS.green, backgroundColor: COLORS.greenSoft, transform: [{ rotate: "13deg" }] },
-  minus: { right: 12, bottom: "8%", color: COLORS.blue, backgroundColor: "#E4F0FF", transform: [{ rotate: "10deg" }] },
-  title: { fontFamily: "NunitoSans_700Bold", fontSize: 34, lineHeight: 40, letterSpacing: -0.8, textAlign: "center", color: COLORS.ink },
-  lightTitle: { color: COLORS.card },
-  accent: { color: WELCOME.accent },
-  body: { fontFamily: "NunitoSans_600SemiBold", fontSize: 16, lineHeight: 24, color: COLORS.secondary, textAlign: "center", marginTop: 14, maxWidth: 310 },
-  lightBody: { color: WELCOME.muted },
-  benefits: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 22 },
-  benefit: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 12 },
-  divider: { width: 4, height: 4, borderRadius: 2, backgroundColor: WELCOME.accent },
-  nicknameMascot: { width: 155, height: 155, marginBottom: 16 },
-  compactNicknameMascot: { width: 105, height: 105 },
-  nicknameCard: { width: "100%", marginTop: 24, padding: 20, backgroundColor: COLORS.card, borderRadius: 24, borderWidth: 1, borderColor: COLORS.border },
-  labelRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 },
-  label: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 16 },
-  optional: { color: COLORS.primary, backgroundColor: COLORS.primarySoft, overflow: "hidden", paddingVertical: 4, paddingHorizontal: 10, borderRadius: 9, fontFamily: "NunitoSans_700Bold", fontSize: 12 },
-  input: { borderWidth: 2, borderColor: "#D9D3E8", backgroundColor: COLORS.background, borderRadius: 14, minHeight: 58, paddingHorizontal: 16, paddingVertical: 12, color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 22 },
-  inputHelp: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 13, lineHeight: 19, marginTop: 12 },
-  privacyNote: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 13, lineHeight: 20, textAlign: "center", marginTop: 18, maxWidth: 290 },
-  footer: { gap: 12, paddingTop: 12 },
-  button: { minHeight: 58, paddingVertical: 16, paddingHorizontal: 20, borderRadius: 20, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
-  welcomeButton: { backgroundColor: WELCOME.accent },
-  buttonText: { fontFamily: "NunitoSans_700Bold", color: COLORS.card, fontSize: 18, textAlign: "center" },
-  welcomeButtonText: { color: WELCOME.background },
-  skip: { minHeight: 44, alignItems: "center", justifyContent: "center", padding: 8 },
-  skipText: { fontFamily: "NunitoSans_700Bold", color: COLORS.secondary, fontSize: 15 },
-  error: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 14, lineHeight: 20, textAlign: "center" },
-  pressed: { opacity: 0.75 },
-  disabled: { opacity: 0.6 },
+  brand: { flex: 1, alignSelf: "center", width: "72%" },
+  scroll: { flexGrow: 1, width: "100%", alignSelf: "center", maxWidth: 640 },
+  progressWrap: { paddingHorizontal: 24, paddingTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+  progressLabel: { position: "absolute", top: 26, left: 0, right: 0, textAlign: "center", fontFamily: "NunitoSans_700Bold", fontSize: 10, color: COLORS.primary, letterSpacing: 0.4 },
+  track: { flex: 1, height: 6, marginTop: 28, borderRadius: 10, overflow: "hidden", backgroundColor: COLORS.border },
+  fill: { height: "100%", backgroundColor: COLORS.primary, borderRadius: 10 },
+  progressCount: { marginTop: 28, fontFamily: "NunitoSans_700Bold", color: COLORS.secondary, fontSize: 11 },
+  darkTrack: { backgroundColor: "#5A4387" },
+  goldFill: { backgroundColor: GOLD },
+  goldText: { color: GOLD },
+  content: { flex: 1, alignItems: "center", paddingHorizontal: 28, paddingTop: 22, gap: 14 },
+  stepIntro: { alignItems: "center", gap: 14 },
+  compactStepIntro: { gap: 10 },
+  stepSelection: { width: "100%", alignItems: "center" },
+  compactChoiceContent: { paddingTop: 8, gap: 10 },
+  centeredContent: { justifyContent: "center", paddingBottom: 28 },
+  landscapeChoiceContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: ONBOARDING_COLUMN_GAP,
+    paddingHorizontal: 32,
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  landscapeNicknameContent: { paddingHorizontal: 24, paddingTop: 12 },
+  landscapeStepIntro: { flex: 1, maxWidth: 424 },
+  landscapeStepSelection: { flex: 1, maxWidth: 536 },
+  welcomeContent: { justifyContent: "center", paddingBottom: 30 },
+  mascot: { width: 210, height: 210, marginTop: 2 },
+  compactChoiceMascot: { width: 155, height: 155 },
+  landscapeChoiceMascot: { width: 124, height: 124 },
+  landscapeNicknameMascot: { width: 170, height: 170 },
+  welcomeMascot: { width: 270, height: 270 },
+  title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 31, lineHeight: 39, textAlign: "center" },
+  compactChoiceTitle: { fontSize: 29, lineHeight: 36 },
+  landscapeChoiceTitle: { fontSize: 27, lineHeight: 33 },
+  landscapeNicknameTitle: { fontSize: 29, lineHeight: 36 },
+  body: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 16, lineHeight: 23, textAlign: "center", maxWidth: 350 },
+  landscapeChoiceBody: { maxWidth: 310, fontSize: 15, lineHeight: 21 },
+  light: { color: COLORS.card },
+  lightBody: { color: "#D8CDED" },
+  nickname: { width: "100%", marginTop: 18, gap: 8 },
+  input: { minHeight: 54, backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, fontFamily: "NunitoSans_700Bold", color: COLORS.ink, fontSize: 16 },
+  privacy: { color: COLORS.secondary, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 12 },
+  rowList: { width: "100%", marginTop: 20, gap: 10 },
+  compactRowList: { marginTop: 12, gap: 8 },
+  rowText: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 14 },
+  choiceRow: { minHeight: 58, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  compactChoiceRow: { minHeight: 54 },
+  choiceRowDetailed: { justifyContent: "flex-start" },
+  darkChoiceRow: { borderColor: "#5A4387", backgroundColor: "#51397E" },
+  choiceRowSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft, borderWidth: 2 },
+  darkChoiceRowSelected: { borderColor: GOLD, backgroundColor: "#624796" },
+  choiceCheck: { position: "absolute", right: 14, width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
+  darkChoiceCheck: { backgroundColor: GOLD },
+  choiceCheckText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 17, lineHeight: 20 },
+  darkChoiceCheckText: { color: DARK },
+  choiceDetail: { marginTop: 2, color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 12 },
+  practiceChoiceRow: { minHeight: 66, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, paddingHorizontal: 14, flexDirection: "row", alignItems: "center" },
+  compactPracticeChoiceRow: { minHeight: 58 },
+  practiceSymbol: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  practiceSymbolText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 25, lineHeight: 29 },
+  mixedPracticeSymbolText: { fontSize: 15, lineHeight: 19 },
+  practiceChoiceCopy: { flex: 1, marginLeft: 13, marginRight: 10 },
+  practiceSelection: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: COLORS.border, alignItems: "center", justifyContent: "center" },
+  practiceSelectionActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primary },
+  benefitList: { width: "100%", marginTop: 24, gap: 14 },
+  benefitRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  benefitCheck: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 18 },
+  benefitText: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 15 },
+  firstStep: { width: "100%", backgroundColor: "#51397E", padding: 15, borderRadius: 13, marginTop: 20 },
+  firstStepText: { color: "#D8CDED", textAlign: "center", fontFamily: "NunitoSans_700Bold", fontSize: 14 },
+  firstStepGoal: { color: GOLD, marginBottom: 6 },
+  firstStepDetail: { marginTop: 5, color: "#D8CDED", fontFamily: "NunitoSans_600SemiBold", fontSize: 12 },
+  levelUpNote: { maxWidth: 330, marginTop: 2, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 18 },
+  footer: { width: "100%", alignSelf: "center", maxWidth: 640, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 },
+  landscapeFooter: { paddingHorizontal: 32, paddingTop: 10, paddingBottom: 16 },
+  backButton: { minHeight: 44, alignSelf: "center", justifyContent: "center", alignItems: "center", paddingHorizontal: 12 },
+  backButtonText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 16 },
+  button: { minHeight: 54, borderRadius: 16, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
+  landscapeButton: { alignSelf: "center" },
+  goldButton: { backgroundColor: GOLD },
+  buttonText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 17 },
+  goldButtonText: { color: DARK },
+  buttonPressed: { opacity: 0.72 },
+  buttonDisabled: { opacity: 0.45 },
+  error: { color: COLORS.red, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", marginBottom: 10 },
 });

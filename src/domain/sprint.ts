@@ -11,15 +11,29 @@ export const SPRINT_MODES = [
 export const SPRINT_DURATIONS = [30, 60, 90, 120] as const;
 export const INPUT_STYLES = ["multiple-choice", "typed"] as const;
 export const CARD_LAYOUTS = ["horizontal", "vertical", "both"] as const;
+export const ONBOARDING_GOALS = [
+  "math-facts",
+  "speed",
+  "confidence",
+  "class-ready",
+  "practice",
+] as const;
 
 export type SprintMode = (typeof SPRINT_MODES)[number];
 export type SprintDurationSeconds = (typeof SPRINT_DURATIONS)[number];
 export type InputStyle = (typeof INPUT_STYLES)[number];
 export type CardLayout = (typeof CARD_LAYOUTS)[number];
+export type OnboardingGoal = (typeof ONBOARDING_GOALS)[number];
 export type ConcreteCardLayout = Exclude<CardLayout, "both">;
 
 export type UserPreferences = {
   onboardingCompleted: boolean;
+  /** Whether this device profile has already completed its one introductory sprint. */
+  firstFreeSprintCompleted: boolean;
+  /** Legacy learners are treated as having already seen this new celebration. */
+  firstResultCelebrationSeen: boolean;
+  /** A learner's optional, device-only onboarding motivation. */
+  onboardingGoal: OnboardingGoal | null;
   nickname: string;
   durationSeconds: SprintDurationSeconds;
   inputStyle: InputStyle;
@@ -87,4 +101,8 @@ export function isInputStyle(value: unknown): value is InputStyle {
 
 export function isCardLayout(value: unknown): value is CardLayout {
   return CARD_LAYOUTS.includes(value as CardLayout);
+}
+
+export function isOnboardingGoal(value: unknown): value is OnboardingGoal {
+  return ONBOARDING_GOALS.includes(value as OnboardingGoal);
 }

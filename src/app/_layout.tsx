@@ -4,7 +4,13 @@ import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { useAppFonts } from "@/lib/fonts";
+import {
+  canAccessSubscriptionGatedRoutes,
+  hasPendingFirstResultCelebration,
+  requiresPremiumAfterOnboardingSprint,
+} from "@/domain/subscription";
 import { PreferencesProvider, usePreferences } from "@/providers/PreferencesProvider";
+import { SubscriptionProvider, useSubscription } from "@/providers/SubscriptionProvider";
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
 import { PreferencesRecoveryScreen } from "@/components/preferences/PreferencesRecoveryScreen";
 import { COLORS } from "@/theme/tokens";
@@ -14,6 +20,22 @@ SplashScreen.preventAutoHideAsync();
 
 function AppNavigation() {
   const { isReady, loadError, preferences } = usePreferences();
+  const { isPremium, status: subscriptionStatus } = useSubscription();
+  const requiresPremium = requiresPremiumAfterOnboardingSprint({
+    onboardingCompleted: preferences.onboardingCompleted,
+    firstFreeSprintCompleted: preferences.firstFreeSprintCompleted,
+    firstResultCelebrationSeen: preferences.firstResultCelebrationSeen,
+    isPremium,
+  });
+  const pendingFirstResultCelebration = hasPendingFirstResultCelebration({
+    onboardingCompleted: preferences.onboardingCompleted,
+    firstFreeSprintCompleted: preferences.firstFreeSprintCompleted,
+    firstResultCelebrationSeen: preferences.firstResultCelebrationSeen,
+  });
+  const canAccessAppRoutes = canAccessSubscriptionGatedRoutes({
+    requiresPremium,
+    subscriptionStatus,
+  });
 
   if (!isReady) {
     if (loadError) return <PreferencesRecoveryScreen />;
@@ -30,14 +52,24 @@ function AppNavigation() {
   return <>
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={!preferences.onboardingCompleted}>
-        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={preferences.onboardingCompleted}>
+      <Stack.Protected guard={pendingFirstResultCelebration} redirectTo="/first-result-celebration">
+        <Stack.Screen name="first-result-celebration" options={{ gestureEnabled: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={preferences.onboardingCompleted && !pendingFirstResultCelebration && canAccessAppRoutes} redirectTo="/subscription">
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="streak" />
         <Stack.Screen name="history/[sprintId]" />
         <Stack.Screen name="sprint/setup" />
+      </Stack.Protected>
+      <Stack.Protected guard={preferences.onboardingCompleted && canAccessAppRoutes} redirectTo="/subscription">
+        {/* Keep an in-memory completed first sprint visible. The screen itself
+            sends a fresh launch with a pending celebration to its resume route. */}
         <Stack.Screen name="sprint/play" />
+      </Stack.Protected>
+      <Stack.Protected guard={preferences.onboardingCompleted && !pendingFirstResultCelebration} redirectTo="/first-result-celebration">
+        <Stack.Screen name="subscription" options={{ gestureEnabled: false }} />
       </Stack.Protected>
     </Stack>
     <ProfilePickerController />
@@ -64,7 +96,9 @@ export default function RootLayout() {
 
   return (
     <PreferencesProvider>
-      <AppNavigation />
+      <SubscriptionProvider>
+        <AppNavigation />
+      </SubscriptionProvider>
     </PreferencesProvider>
   );
 }

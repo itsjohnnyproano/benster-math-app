@@ -4,7 +4,7 @@ import { getOnboardingLayout } from "./onboardingLayout";
 describe("onboarding layout", () => {
   it("preserves phone sizing and excludes other platforms", () => {
     expect(getOnboardingLayout(true, 393, 852, 1)).toEqual({
-      tablet: false, twoColumn: false, maxWidth: 480, introSize: undefined, footerWidth: undefined,
+      tablet: false, twoColumn: false, maxWidth: 480, introSize: undefined,
     });
     expect(getOnboardingLayout(false, 1180, 820, 1).tablet).toBe(false);
   });
@@ -17,7 +17,6 @@ describe("onboarding layout", () => {
     "fits landscape panes at %s × %s with text scale %s", (width, height, scale) => {
       const layout = getOnboardingLayout(true, width, height, scale);
       expect(layout.twoColumn).toBe(true);
-      expect(layout.footerWidth! * 2 + 48).toBe(Math.min(width - 64, 1120));
       expect(layout.introSize!).toBeLessThanOrEqual(height - 128);
     },
   );
