@@ -229,7 +229,7 @@ export default function OnboardingScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.navigationHeader}>
-            <Text style={[styles.progressLabel, dark && styles.goldText]}>
+            <Text style={[styles.progressLabel, layout.tablet && styles.tabletProgressLabel, dark && styles.goldText]}>
               STEP {screen} OF 7
             </Text>
             <Pressable
@@ -295,10 +295,10 @@ export default function OnboardingScreen() {
               {screen === 1 && (
               <Nickname value={nickname} onChange={setNickname} disabled={saving} />
               )}
-              {screen === 2 && <OnboardingGoalChoices value={onboardingGoal} onChange={setOnboardingGoal} compact />}
-              {screen === 3 && <FirstPracticeChoices value={mode} onChange={setMode} compact />}
-              {screen === 4 && <SprintLengthChoices value={durationSeconds} onChange={setDurationSeconds} />}
-              {screen === 5 && <AnswerStyleChoices value={inputStyle} onChange={setInputStyle} />}
+              {screen === 2 && <OnboardingGoalChoices value={onboardingGoal} onChange={setOnboardingGoal} compact tablet={layout.tablet} />}
+              {screen === 3 && <FirstPracticeChoices value={mode} onChange={setMode} compact tablet={layout.tablet} />}
+              {screen === 4 && <SprintLengthChoices value={durationSeconds} onChange={setDurationSeconds} tablet={layout.tablet} />}
+              {screen === 5 && <AnswerStyleChoices value={inputStyle} onChange={setInputStyle} tablet={layout.tablet} />}
               {screen === 6 && <GrowthRows />}
               {screen === 7 && (
                 <>
@@ -443,6 +443,7 @@ function SelectableChoices<Value extends string | number>({
   dark = false,
   alignStart = false,
   compact = false,
+  tablet = false,
 }: {
   options: readonly ChoiceOption<Value>[];
   value: Value | null;
@@ -450,6 +451,7 @@ function SelectableChoices<Value extends string | number>({
   dark?: boolean;
   alignStart?: boolean;
   compact?: boolean;
+  tablet?: boolean;
 }) {
   return (
     <View accessibilityRole="radiogroup" style={[styles.rowList, compact && styles.compactRowList]}>
@@ -465,6 +467,7 @@ function SelectableChoices<Value extends string | number>({
             style={({ pressed }) => [
               styles.choiceRow,
               compact && styles.compactChoiceRow,
+              tablet && styles.tabletChoiceRow,
               dark && styles.darkChoiceRow,
               (dark || alignStart) && styles.choiceRowDetailed,
               selected && styles.choiceRowSelected,
@@ -490,25 +493,28 @@ function SelectableChoices<Value extends string | number>({
   );
 }
 
-function OnboardingGoalChoices({ value, onChange, compact = false }: {
+function OnboardingGoalChoices({ value, onChange, compact = false, tablet = false }: {
   value: OnboardingGoal | null;
   onChange: (value: OnboardingGoal) => void;
   compact?: boolean;
+  tablet?: boolean;
 }) {
-  return <SelectableChoices options={ONBOARDING_GOAL_OPTIONS} value={value} onChange={onChange} alignStart compact={compact} />;
+  return <SelectableChoices options={ONBOARDING_GOAL_OPTIONS} value={value} onChange={onChange} alignStart compact={compact} tablet={tablet} />;
 }
 
-function SprintLengthChoices({ value, onChange }: {
+function SprintLengthChoices({ value, onChange, tablet = false }: {
   value: SprintDurationSeconds;
   onChange: (value: SprintDurationSeconds) => void;
+  tablet?: boolean;
 }) {
-  return <SelectableChoices options={SPRINT_LENGTH_OPTIONS} value={value} onChange={onChange} dark />;
+  return <SelectableChoices options={SPRINT_LENGTH_OPTIONS} value={value} onChange={onChange} dark tablet={tablet} />;
 }
 
-function FirstPracticeChoices({ value, onChange, compact = false }: {
+function FirstPracticeChoices({ value, onChange, compact = false, tablet = false }: {
   value: SprintMode;
   onChange: (value: SprintMode) => void;
   compact?: boolean;
+  tablet?: boolean;
 }) {
   return (
     <View accessibilityRole="radiogroup" style={[styles.rowList, compact && styles.compactRowList]}>
@@ -525,6 +531,7 @@ function FirstPracticeChoices({ value, onChange, compact = false }: {
             style={({ pressed }) => [
               styles.practiceChoiceRow,
               compact && styles.compactPracticeChoiceRow,
+              tablet && styles.tabletChoiceRow,
               selected && styles.choiceRowSelected,
               pressed && styles.buttonPressed,
             ]}
@@ -556,11 +563,13 @@ function FirstPracticeChoices({ value, onChange, compact = false }: {
 function AnswerStyleChoices({
   value,
   onChange,
+  tablet = false,
 }: {
   value: "multiple-choice" | "typed";
   onChange: (value: "multiple-choice" | "typed") => void;
+  tablet?: boolean;
 }) {
-  return <SelectableChoices options={ANSWER_STYLE_OPTIONS} value={value} onChange={onChange} />;
+  return <SelectableChoices options={ANSWER_STYLE_OPTIONS} value={value} onChange={onChange} tablet={tablet} />;
 }
 
 function formatSprintLength(durationSeconds: SprintDurationSeconds) {
@@ -592,6 +601,7 @@ const styles = StyleSheet.create({
   backControlText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 24, lineHeight: 28 },
   progressWrap: { flex: 1, alignSelf: "stretch", paddingTop: 0, flexDirection: "row", alignItems: "center", gap: 10 },
   progressLabel: { position: "absolute", top: 17, left: 0, right: 0, textAlign: "center", fontFamily: "NunitoSans_700Bold", fontSize: 12, color: COLORS.primary, letterSpacing: 0.4 },
+  tabletProgressLabel: { top: 13 },
   track: { flex: 1, height: 6, marginTop: 17, borderRadius: 10, overflow: "hidden", backgroundColor: COLORS.border },
   fill: { height: "100%", backgroundColor: COLORS.primary, borderRadius: 10 },
   progressCount: { marginTop: 17, fontFamily: "NunitoSans_700Bold", color: COLORS.secondary, fontSize: 11 },
@@ -638,6 +648,7 @@ const styles = StyleSheet.create({
   rowText: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 14 },
   choiceRow: { minHeight: 58, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   compactChoiceRow: { minHeight: 54 },
+  tabletChoiceRow: { minHeight: 68 },
   choiceRowDetailed: { justifyContent: "flex-start" },
   darkChoiceRow: { borderColor: "#5A4387", backgroundColor: "#51397E" },
   choiceRowSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft, borderWidth: 2 },
