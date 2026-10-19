@@ -5,12 +5,6 @@ const hooks = vi.hoisted(() => ({
   stateIndex: 0,
   states: [] as unknown[],
 }));
-const gate = vi.hoisted(() => ({
-  action: null as (() => void) | null,
-  onResolved: vi.fn(),
-  request: vi.fn(),
-  visible: true,
-}));
 const dependencies = vi.hoisted(() => ({ addLearner: vi.fn() }));
 const platform = vi.hoisted(() => ({
   OS: "ios",
@@ -79,8 +73,6 @@ vi.mock("@/providers/PreferencesProvider", () => ({
     updateLearnerColor: vi.fn(),
   }),
 }));
-vi.mock("./ParentalGate", () => ({ ParentalGate: "ParentalGate" }));
-vi.mock("./useParentalGate", () => ({ useParentalGate: () => gate }));
 
 import { Alert } from "react-native";
 import { ManageLearnersModal } from "./ManageLearnersModal";
@@ -117,41 +109,19 @@ beforeEach(() => {
   hooks.stateIndex = 0;
   hooks.states = [];
   platform.OS = "ios";
-  gate.action = null;
-  gate.visible = true;
-  gate.request.mockReset();
-  gate.onResolved.mockReset();
   dependencies.addLearner.mockReset();
   dependencies.addLearner.mockResolvedValue(undefined);
-  gate.request.mockImplementation((action) => { gate.action = action; });
-  gate.onResolved.mockImplementation((approved: boolean) => {
-    const action = gate.action;
-    gate.action = null;
-    if (approved) action?.();
-  });
   vi.mocked(Alert.alert).mockReset();
 });
 
-describe("Manage learners parental gate", () => {
-  it("renders its parental gate within the full-screen manager modal", () => {
-    const { tree } = render();
-    const manager = find(tree, "Modal").find((modal) => modal.props.presentationStyle === "fullScreen");
-
-    expect(manager).toBeDefined();
-    expect(find(manager, "ParentalGate")).toHaveLength(1);
-  });
-
-  it("requests parental approval before showing the destructive deletion confirmation", () => {
+describe("Manage learners", () => {
+  it("shows the destructive deletion confirmation immediately", () => {
     const { tree } = render();
     const deleteButton = find(tree, "Pressable").find(
       (pressable) => pressable.props.accessibilityLabel === "Delete Jake"
     );
 
     deleteButton?.props.onPress?.();
-    expect(gate.request).toHaveBeenCalledOnce();
-    expect(Alert.alert).not.toHaveBeenCalled();
-
-    gate.onResolved(true);
     expect(Alert.alert).toHaveBeenCalledWith(
       "Delete learner?",
       expect.stringContaining("Jake"),
@@ -159,22 +129,7 @@ describe("Manage learners parental gate", () => {
     );
   });
 
-  it("keeps Add closed when the parent check is cancelled", () => {
-    const onClose = vi.fn();
-    const { tree } = render(onClose);
-    const addButton = find(tree, "Pressable").find(
-      (pressable) => pressable.props.accessibilityLabel === undefined
-        && find(pressable, "Text").some((text) => text.props.children === "+ Add a learner")
-    );
-
-    addButton?.props.onPress?.();
-    gate.onResolved(false);
-    const { tree: cancelledTree } = render(onClose);
-    expect(onClose).not.toHaveBeenCalled();
-    expect(find(cancelledTree, "Modal").find((modal) => modal.props.transparent)?.props.visible).toBe(false);
-  });
-
-  it("opens Add only after parent approval and the manager dismissal", () => {
+  it("opens Add after the manager dismissal on iOS", () => {
     const onClose = vi.fn();
     let { tree } = render(onClose);
     const addButton = find(tree, "Pressable").find(
@@ -183,13 +138,9 @@ describe("Manage learners parental gate", () => {
     );
 
     addButton?.props.onPress?.();
-    expect(gate.request).toHaveBeenCalledOnce();
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
     ({ tree } = render(onClose));
     expect(find(tree, "Modal").find((modal) => modal.props.transparent)?.props.visible).toBe(false);
-
-    gate.onResolved(true);
-    expect(onClose).toHaveBeenCalledOnce();
 
     ({ tree } = render(onClose));
     const manager = find(tree, "Modal").find((modal) => modal.props.presentationStyle === "fullScreen");
@@ -198,7 +149,7 @@ describe("Manage learners parental gate", () => {
     expect(find(tree, "Modal").find((modal) => modal.props.transparent)?.props.visible).toBe(true);
   });
 
-  it("opens Add immediately after approval on Android", () => {
+  it("opens Add immediately on Android", () => {
     platform.OS = "android";
     const onClose = vi.fn();
     let { tree } = render(onClose);
@@ -207,7 +158,6 @@ describe("Manage learners parental gate", () => {
     );
 
     addButton?.props.onPress?.();
-    gate.onResolved(true);
     ({ tree } = render(onClose));
     expect(onClose).toHaveBeenCalledOnce();
     expect(find(tree, "Modal").find((modal) => modal.props.transparent)?.props.visible).toBe(true);
@@ -223,7 +173,6 @@ describe("Manage learners parental gate", () => {
     );
 
     addProfileButton?.props.onPress?.();
-    gate.onResolved(true);
     ({ tree } = render(onClose));
     find(tree, "Modal").find((modal) => modal.props.presentationStyle === "fullScreen")?.props.onDismiss?.();
     ({ tree } = render(onClose));

@@ -29,14 +29,12 @@ import { usePreferences } from "@/providers/PreferencesProvider";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { confirmDeleteSavedData } from "./confirmDeleteSavedData";
 import { ManageLearnersModal } from "./ManageLearnersModal";
-import { ParentalGate } from "./ParentalGate";
 import { SettingsColumns } from "./SettingsColumns";
 import { getSettingsLayout } from "./settingsLayout";
 import { formatResetPracticeMessage } from "./settingsPresentation";
-import { useParentalGate } from "./useParentalGate";
 
 export default function SettingsScreen() {
-  const { contentInset, isIpad } = useTabBarLayout();
+  const { isIpad, overlayContentInset } = useTabBarLayout();
   const { width, height, fontScale } = useWindowDimensions();
   const { twoColumn, maxWidth } = getSettingsLayout(isIpad, width, height, fontScale);
   const {
@@ -61,7 +59,6 @@ export default function SettingsScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const deleting = useRef(false);
   const focused = useRef(false);
-  const gate = useParentalGate();
   useFocusEffect(
     useCallback(() => {
       focused.current = true;
@@ -107,7 +104,7 @@ export default function SettingsScreen() {
           tablet={isIpad}
           twoColumn={twoColumn}
           maxWidth={maxWidth}
-          bottomInset={contentInset}
+          bottomInset={overlayContentInset}
           header={
             <>
               <Text
@@ -213,7 +210,7 @@ export default function SettingsScreen() {
             accessibilityRole="button"
             disabled={!isReady || isDeleting}
             accessibilityState={{ disabled: !isReady || isDeleting }}
-            onPress={() => gate.request(() => setResetOpen(true))}
+            onPress={() => setResetOpen(true)}
             style={({ pressed }) => [styles.reset, pressed && styles.pressed]}
           >
             <Text maxFontSizeMultiplier={1.3} style={[styles.resetText, isIpad && styles.tabletButtonText]}>
@@ -239,11 +236,9 @@ export default function SettingsScreen() {
             disabled={!isReady || isDeleting}
             accessibilityState={{ disabled: !isReady || isDeleting }}
             onPress={() =>
-              gate.request(() =>
-                confirmDeleteSavedData(() => {
-                  void deleteSavedData();
-                })
-              )
+              confirmDeleteSavedData(() => {
+                void deleteSavedData();
+              })
             }
             style={({ pressed }) => [
               styles.deleteButton,
@@ -273,14 +268,10 @@ export default function SettingsScreen() {
             <Text maxFontSizeMultiplier={1.5} style={[styles.help, styles.aboutTagline, isIpad && styles.tabletHelp]}>
               Little moments of practice. Lasting confidence.
             </Text>
-            <LegalLinks tablet={isIpad} requestGate={gate.request} />
+            <LegalLinks tablet={isIpad} />
           </View>
         </SettingsContent>
       </KeyboardAvoidingView>
-      {/* A gate for the base Settings screen belongs above its content. Gates
-          requested from the full-screen learner manager render inside that
-          modal below so they are immediately visible on iPhone and iPad. */}
-      {gate.visible && <ParentalGate onResolved={gate.onResolved} />}
       <ManageLearnersModal
         visible={profilePickerOpen}
         tablet={isIpad}
@@ -363,7 +354,7 @@ function SettingsContent({
   );
 }
 
-function LegalLinks({ tablet, requestGate }: { tablet: boolean; requestGate: (action: () => void) => void }) {
+function LegalLinks({ tablet }: { tablet: boolean }) {
   const opening = useRef(false);
   const openLink = async (url: string) => {
     if (opening.current) return;
@@ -382,12 +373,8 @@ function LegalLinks({ tablet, requestGate }: { tablet: boolean; requestGate: (ac
         <Pressable
           key={url}
           accessibilityRole="link"
-          accessibilityHint="Requires a parental check, then opens in your browser"
-          onPress={() =>
-            requestGate(() => {
-              void openLink(url);
-            })
-          }
+          accessibilityHint="Opens in your browser"
+          onPress={() => void openLink(url)}
           style={({ pressed }) => [styles.legalLink, pressed && styles.pressed]}
         >
           <Text maxFontSizeMultiplier={1.3} style={[styles.resetText, tablet && styles.tabletButtonText]}>

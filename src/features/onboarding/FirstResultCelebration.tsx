@@ -26,9 +26,9 @@ export function FirstResultCelebration({ correctCount }: { correctCount: number 
     setError(false);
     try {
       await completeFirstResultCelebration();
-      // Typed routes are generated at Expo start; this new route is included in
-      // the source stack before that generation occurs.
-      router.replace("/subscription" as never);
+      // Keep the Premium confirmation visible for learners who already have
+      // access, instead of immediately returning them to Home.
+      router.replace("/subscription?firstSprint=1" as never);
     } catch {
       setError(true);
     } finally {
@@ -56,5 +56,5 @@ export function FirstResultCelebration({ correctCount }: { correctCount: number 
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.background }, content: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 12 }, mascot: { width: 230, height: 230 }, title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 33, lineHeight: 41, textAlign: "center" }, body: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 16, textAlign: "center", lineHeight: 23 }, badge: { width: "100%", maxWidth: 360, backgroundColor: COLORS.primarySoft, borderRadius: 13, padding: 14, marginTop: 12 }, badgeText: { color: COLORS.ink, textAlign: "center", fontFamily: "NunitoSans_700Bold", fontSize: 14 }, footer: { padding: 24, gap: 8 }, button: { minHeight: 54, borderRadius: 16, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" }, buttonText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 17 }, error: { color: COLORS.red, fontFamily: "NunitoSans_600SemiBold", textAlign: "center", marginBottom: 3 }, disabled: { opacity: .45 },
+  screen: { flex: 1, backgroundColor: COLORS.background }, content: { flex: 1, width: "100%", alignSelf: "center", alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 12 }, mascot: { width: 230, height: 230 }, title: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 33, lineHeight: 41, textAlign: "center" }, body: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 16, textAlign: "center", lineHeight: 23 }, badge: { width: "100%", maxWidth: 360, backgroundColor: COLORS.primarySoft, borderRadius: 13, padding: 14, marginTop: 12 }, badgeText: { color: COLORS.ink, textAlign: "center", fontFamily: "NunitoSans_700Bold", fontSize: 14 }, footer: { width: "100%", alignSelf: "center", padding: 24, gap: 8 }, button: { minHeight: 54, borderRadius: 16, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" }, buttonText: { color: COLORS.card, fontFamily: "NunitoSans_700Bold", fontSize: 17 }, error: { color: COLORS.red, fontFamily: "NunitoSans_600SemiBold", textAlign: "center", marginBottom: 3 }, disabled: { opacity: .45 },
 });

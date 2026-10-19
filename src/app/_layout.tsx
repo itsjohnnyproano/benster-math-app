@@ -36,6 +36,19 @@ function AppNavigation() {
     requiresPremium,
     subscriptionStatus,
   });
+  const postOnboardingGateRedirect = pendingFirstResultCelebration
+    ? "/first-result-celebration"
+    : "/subscription";
+  // Protected routes are removed from the navigator as soon as saved data is
+  // cleared. Their fallback must remain available in that same render; using
+  // another protected route here can otherwise make Expo Router repeatedly
+  // try to redirect between unavailable screens.
+  const appRouteRedirect = preferences.onboardingCompleted
+    ? postOnboardingGateRedirect
+    : "/onboarding";
+  const firstResultRedirect = preferences.onboardingCompleted
+    ? "/subscription"
+    : "/onboarding";
 
   if (!isReady) {
     if (loadError) return <PreferencesRecoveryScreen />;
@@ -54,21 +67,27 @@ function AppNavigation() {
       <Stack.Protected guard={!preferences.onboardingCompleted}>
         <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={pendingFirstResultCelebration} redirectTo="/first-result-celebration">
+      <Stack.Protected guard={pendingFirstResultCelebration} redirectTo={firstResultRedirect}>
         <Stack.Screen name="first-result-celebration" options={{ gestureEnabled: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={preferences.onboardingCompleted && !pendingFirstResultCelebration && canAccessAppRoutes} redirectTo="/subscription">
+      <Stack.Protected
+        guard={preferences.onboardingCompleted && !pendingFirstResultCelebration && canAccessAppRoutes}
+        redirectTo={appRouteRedirect}
+      >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="streak" />
         <Stack.Screen name="history/[sprintId]" />
         <Stack.Screen name="sprint/setup" />
       </Stack.Protected>
-      <Stack.Protected guard={preferences.onboardingCompleted && canAccessAppRoutes} redirectTo="/subscription">
+      <Stack.Protected
+        guard={preferences.onboardingCompleted && canAccessAppRoutes}
+        redirectTo={appRouteRedirect}
+      >
         {/* Keep an in-memory completed first sprint visible. The screen itself
             sends a fresh launch with a pending celebration to its resume route. */}
         <Stack.Screen name="sprint/play" />
       </Stack.Protected>
-      <Stack.Protected guard={preferences.onboardingCompleted && !pendingFirstResultCelebration} redirectTo="/first-result-celebration">
+      <Stack.Protected guard={preferences.onboardingCompleted && !pendingFirstResultCelebration} redirectTo={appRouteRedirect}>
         <Stack.Screen name="subscription" options={{ gestureEnabled: false }} />
       </Stack.Protected>
     </Stack>

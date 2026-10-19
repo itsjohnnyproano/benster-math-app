@@ -151,6 +151,7 @@ describe("onboarding preference commit", () => {
     await render().deleteAllPreferences();
     expect(render().preferences).toEqual(DEFAULT_PREFERENCES);
     expect(render().activeLearner.colorId).toBe(defaultProfileColorId(LEGACY_LEARNER_ID));
+    expect(render().isReady).toBe(true);
     expect(storage.removeItem).toHaveBeenCalledTimes(3);
     cleanup();
   });
