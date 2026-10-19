@@ -119,6 +119,16 @@ export default function OnboardingScreen() {
   const mounted = useRef(true);
   const submitting = useRef(false);
   const finishIntro = useCallback(() => setShowIntro(false), []);
+  const goBack = useCallback(() => {
+    if (saving || screen === "welcome") return;
+
+    Keyboard.dismiss();
+    setScreen((current) => (
+      typeof current === "number" && current !== 1
+        ? (current - 1) as SetupStep
+        : "welcome"
+    ));
+  }, [saving, screen]);
 
   useIntroAdvance(showIntro && introReady, finishIntro);
 
@@ -134,18 +144,12 @@ export default function OnboardingScreen() {
       // This is the app's root flow, so there is no navigator route to pop
       // from the welcome screen. Consuming the press prevents a dev warning.
       if (saving || screen === "welcome") return true;
-
-      Keyboard.dismiss();
-      setScreen((current) => (
-        typeof current === "number" && current !== 1
-          ? (current - 1) as SetupStep
-          : "welcome"
-      ));
+      goBack();
       return true;
     });
 
     return () => subscription.remove();
-  }, [saving, screen]);
+  }, [goBack, saving, screen]);
 
   const startFirstSprint = async () => {
     if (submitting.current) return;
@@ -306,6 +310,15 @@ export default function OnboardingScreen() {
               We couldn’t save your setup. Please try again.
             </Text>
           )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={screen === 7 ? "Edit your choices" : "Back"}
+            disabled={saving}
+            onPress={goBack}
+            style={({ pressed }) => [styles.backButton, saving && styles.buttonDisabled, pressed && styles.buttonPressed]}
+          >
+            <Text style={[styles.backButtonText, dark && styles.light]}>← {screen === 7 ? "Edit choices" : "Back"}</Text>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ disabled: continueDisabled, busy: saving }}
@@ -641,6 +654,8 @@ const styles = StyleSheet.create({
   levelUpNote: { maxWidth: 330, marginTop: 2, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 18 },
   footer: { width: "100%", alignSelf: "center", maxWidth: 640, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 },
   landscapeFooter: { paddingHorizontal: 32, paddingTop: 10, paddingBottom: 16 },
+  backButton: { minHeight: 44, alignSelf: "center", justifyContent: "center", alignItems: "center", paddingHorizontal: 12 },
+  backButtonText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 16 },
   button: { minHeight: 54, borderRadius: 16, backgroundColor: COLORS.primary, alignItems: "center", justifyContent: "center" },
   landscapeButton: { alignSelf: "center" },
   goldButton: { backgroundColor: GOLD },

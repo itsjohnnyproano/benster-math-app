@@ -36,18 +36,19 @@ export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Pro
     ]);
   }, [onDone]);
 
+  const isFirstSavedSprint = save.status === "saved" && !preferences.firstResultCelebrationSeen;
+  const isFirstFreeSprint = save.status === "saved" && !preferences.firstFreeSprintCompleted;
+
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (save.status === "saved") onDone();
+      if (isFirstSavedSprint) setShowFirstResultCelebration(true);
+      else if (save.status === "saved") onDone();
       else if (save.status === "error") leaveWithoutSaving();
       // Stay on Results while saving; don't silently discard a pending result.
       return true;
     });
     return () => subscription.remove();
-  }, [save.status, onDone, leaveWithoutSaving]);
-
-  const isFirstSavedSprint = save.status === "saved" && !preferences.firstResultCelebrationSeen;
-  const isFirstFreeSprint = save.status === "saved" && !preferences.firstFreeSprintCompleted;
+  }, [isFirstSavedSprint, save.status, onDone, leaveWithoutSaving]);
 
   useEffect(() => {
     if (!isFirstFreeSprint || recordingFirstFreeSprint.current) return;

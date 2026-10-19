@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -31,37 +31,50 @@ export default function SubscriptionTrialScreen() {
   const [status, setStatus] = useState<Status>("loading");
   const [purchaseCompletedInSession, setPurchaseCompletedInSession] = useState(false);
   const busy = useRef(false);
+  const mounted = useRef(true);
+  const offerLoadRequest = useRef(0);
   const { width, height, fontScale } = useWindowDimensions();
   const layout = getSubscriptionLayout(Platform.OS === "ios", width, height, fontScale);
 
-  useEffect(() => {
-    let active = true;
+  const reloadOffers = useCallback(async () => {
+    const request = ++offerLoadRequest.current;
+    setStatus("loading");
 
-    void Promise.all([loadSubscriptionOffers(), refreshSubscription()]).then(
-      ([nextOffers, premium]) => {
-        if (!active) return;
+    try {
+      const [nextOffers, premium] = await Promise.all([loadSubscriptionOffers(), refreshSubscription()]);
+      if (!mounted.current || request !== offerLoadRequest.current) return;
 
-        setOffers(nextOffers);
+      setOffers(nextOffers);
+      setSelectedOfferId((currentOfferId) => {
+        if (currentOfferId && nextOffers.some(({ id }) => id === currentOfferId)) return currentOfferId;
         // Both plans remain equally visible, but yearly is the calm default
         // when it is available. People can always switch before purchasing.
-        setSelectedOfferId((nextOffers.find((offer) => offer.label === "Yearly") ?? nextOffers[0])?.id ?? null);
-        setStatus(premium ? "active" : nextOffers.length === 2 ? "ready" : "unavailable");
-      },
-      () => {
-        if (active) setStatus("unavailable");
-      },
-    );
+        return (nextOffers.find((offer) => offer.label === "Yearly") ?? nextOffers[0])?.id ?? null;
+      });
+      setStatus(premium ? "active" : nextOffers.length === 2 ? "ready" : "unavailable");
+    } catch {
+      if (mounted.current && request === offerLoadRequest.current) setStatus("unavailable");
+    }
+  }, [refreshSubscription]);
+
+  useEffect(() => {
+    mounted.current = true;
+    // Keep the network-triggered state transition asynchronous so mounting the
+    // paywall does not cause a synchronous effect-driven render.
+    void Promise.resolve().then(reloadOffers);
 
     return () => {
-      active = false;
+      mounted.current = false;
+      offerLoadRequest.current += 1;
     };
-  }, [refreshSubscription]);
+  }, [reloadOffers]);
 
   const selectedOffer = offers.find(({ id }) => id === selectedOfferId) ?? null;
   const unavailable = status === "unavailable";
   const busyStatus = status === "purchasing" || status === "restoring";
   const subscriptionActive = status === "active" || isPremium;
   const purchaseActionDisabled = busyStatus || unavailable || (!selectedOffer && !subscriptionActive);
+  const canShowOffers = selectedOffer !== null && offers.length > 0 && status !== "unavailable";
   const goal = preferences.onboardingGoal;
 
   useEffect(() => {
@@ -164,18 +177,28 @@ export default function SubscriptionTrialScreen() {
 
             <View style={[styles.paywallOptions, layout.twoColumn && styles.landscapePaywallOptions]}>
               {status === "loading" && <Text style={styles.note}>Checking available plans…</Text>}
-              {status === "ready" && selectedOffer && (
+              {canShowOffers && selectedOffer && (
                 <OfferChoices
                   offers={offers}
                   selectedOffer={selectedOffer}
                   onSelect={setSelectedOfferId}
                   isTablet={layout.tablet}
+                  disabled={busyStatus}
                 />
               )}
               {unavailable && (
-                <Text accessibilityRole="alert" style={styles.note}>
-                  The yearly 7-day trial and monthly plan aren’t available yet. Please check back after Premium is configured.
-                </Text>
+                <View style={styles.unavailableState}>
+                  <Text accessibilityRole="alert" style={styles.note}>
+                    We couldn’t load plans right now. Check your connection and try again.
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => void reloadOffers()}
+                    style={({ pressed }) => [styles.retryPlans, pressed && styles.disabled]}
+                  >
+                    <Text style={styles.retryPlansText}>Retry plans</Text>
+                  </Pressable>
+                </View>
               )}
               {status === "error" && (
                 <Text accessibilityRole="alert" style={styles.error}>
@@ -253,11 +276,13 @@ function OfferChoices({
   selectedOffer,
   onSelect,
   isTablet,
+  disabled,
 }: {
   offers: readonly SubscriptionOffer[];
   selectedOffer: SubscriptionOffer;
   onSelect: (id: string) => void;
   isTablet: boolean;
+  disabled: boolean;
 }) {
   const yearlyOffer = offers.find((offer) => offer.label === "Yearly");
   const monthlyOffer = offers.find((offer) => offer.label === "Monthly");
@@ -283,8 +308,9 @@ function OfferChoices({
             <Pressable
               key={offer.id}
               accessibilityRole="radio"
-              accessibilityState={{ selected }}
+              accessibilityState={{ selected, disabled }}
               accessibilityLabel={`${offer.label}, ${offer.hasSevenDayTrial ? `7 days free, then ${offer.price} yearly` : `${offer.price} billed ${offer.billingPeriod}`}${yearlySavings ? `, ${yearlySavings}` : ""}`}
+              disabled={disabled}
               onPress={() => onSelect(offer.id)}
               style={({ pressed }) => [
                 styles.offerChoice,
@@ -336,6 +362,7 @@ const styles = StyleSheet.create({
   paywall: { width: "100%", alignItems: "center", gap: 16 },
   paywallIntro: { width: "100%", alignItems: "center", gap: 12 },
   paywallOptions: { width: "100%", alignItems: "center", gap: 12 },
+  unavailableState: { alignItems: "center", gap: 8 },
   landscapePaywall: { flexDirection: "row", alignItems: "center", gap: SUBSCRIPTION_COLUMN_GAP },
   landscapePaywallIntro: { flex: 1, maxWidth: 440 },
   landscapePaywallOptions: { flex: 1, maxWidth: 536 },
@@ -370,6 +397,8 @@ const styles = StyleSheet.create({
   choicePriceAmount: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 20, lineHeight: 25, textAlign: "right" },
   offerPrice: { color: COLORS.secondary, textAlign: "left", fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 17 },
   note: { color: COLORS.secondary, textAlign: "center", fontFamily: "NunitoSans_600SemiBold", fontSize: 14, lineHeight: 20, marginTop: 8 },
+  retryPlans: { minHeight: 44, justifyContent: "center", alignItems: "center", paddingHorizontal: 12 },
+  retryPlansText: { color: COLORS.primary, fontFamily: "NunitoSans_700Bold", fontSize: 16, textDecorationLine: "underline" },
   purchaseFooter: { backgroundColor: COLORS.background, borderTopColor: COLORS.border, borderTopWidth: StyleSheet.hairlineWidth, alignItems: "center" },
   purchaseFooterContent: { width: "100%", paddingHorizontal: 28, paddingTop: 12, paddingBottom: 8, gap: 8, alignItems: "center" },
   commitment: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 12, lineHeight: 17, textAlign: "center" },

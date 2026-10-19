@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  canAccessSubscriptionGatedRoutes,
   hasPremiumEntitlement,
+  hasPendingFirstResultCelebration,
   isEligibleForSevenDayTrial,
   isSevenDayFreeTrial,
   requiresPremiumAfterOnboardingSprint,
@@ -38,6 +40,34 @@ describe("subscription rules", () => {
     expect(requiresPremiumAfterOnboardingSprint(beforePaywall)).toBe(false);
     expect(requiresPremiumAfterOnboardingSprint({ ...beforePaywall, firstResultCelebrationSeen: true })).toBe(true);
     expect(requiresPremiumAfterOnboardingSprint({ ...beforePaywall, firstResultCelebrationSeen: true, isPremium: true })).toBe(false);
+  });
+
+  it("resumes a pending first-result celebration after an interrupted launch", () => {
+    expect(hasPendingFirstResultCelebration({
+      onboardingCompleted: true,
+      firstFreeSprintCompleted: true,
+      firstResultCelebrationSeen: false,
+    })).toBe(true);
+    expect(hasPendingFirstResultCelebration({
+      onboardingCompleted: true,
+      firstFreeSprintCompleted: true,
+      firstResultCelebrationSeen: true,
+    })).toBe(false);
+  });
+
+  it("keeps a returning subscriber's requested route mounted while their entitlement loads", () => {
+    expect(canAccessSubscriptionGatedRoutes({
+      requiresPremium: true,
+      subscriptionStatus: "loading",
+    })).toBe(true);
+    expect(canAccessSubscriptionGatedRoutes({
+      requiresPremium: true,
+      subscriptionStatus: "ready",
+    })).toBe(false);
+    expect(canAccessSubscriptionGatedRoutes({
+      requiresPremium: false,
+      subscriptionStatus: "ready",
+    })).toBe(true);
   });
 
   it("shows the Premium confirmation only after an in-session purchase or restore", () => {

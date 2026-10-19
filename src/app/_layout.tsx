@@ -4,7 +4,11 @@ import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { useAppFonts } from "@/lib/fonts";
-import { requiresPremiumAfterOnboardingSprint } from "@/domain/subscription";
+import {
+  canAccessSubscriptionGatedRoutes,
+  hasPendingFirstResultCelebration,
+  requiresPremiumAfterOnboardingSprint,
+} from "@/domain/subscription";
 import { PreferencesProvider, usePreferences } from "@/providers/PreferencesProvider";
 import { SubscriptionProvider, useSubscription } from "@/providers/SubscriptionProvider";
 import { PreferenceSaveStatus } from "@/components/preferences/PreferenceSaveStatus";
@@ -16,12 +20,21 @@ SplashScreen.preventAutoHideAsync();
 
 function AppNavigation() {
   const { isReady, loadError, preferences } = usePreferences();
-  const { isPremium } = useSubscription();
+  const { isPremium, status: subscriptionStatus } = useSubscription();
   const requiresPremium = requiresPremiumAfterOnboardingSprint({
     onboardingCompleted: preferences.onboardingCompleted,
     firstFreeSprintCompleted: preferences.firstFreeSprintCompleted,
     firstResultCelebrationSeen: preferences.firstResultCelebrationSeen,
     isPremium,
+  });
+  const pendingFirstResultCelebration = hasPendingFirstResultCelebration({
+    onboardingCompleted: preferences.onboardingCompleted,
+    firstFreeSprintCompleted: preferences.firstFreeSprintCompleted,
+    firstResultCelebrationSeen: preferences.firstResultCelebrationSeen,
+  });
+  const canAccessAppRoutes = canAccessSubscriptionGatedRoutes({
+    requiresPremium,
+    subscriptionStatus,
   });
 
   if (!isReady) {
@@ -41,14 +54,17 @@ function AppNavigation() {
       <Stack.Protected guard={!preferences.onboardingCompleted}>
         <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={preferences.onboardingCompleted && !requiresPremium} redirectTo="/subscription">
+      <Stack.Protected guard={pendingFirstResultCelebration} redirectTo="/first-result-celebration">
+        <Stack.Screen name="first-result-celebration" options={{ gestureEnabled: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={preferences.onboardingCompleted && !pendingFirstResultCelebration && canAccessAppRoutes} redirectTo="/subscription">
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="streak" />
         <Stack.Screen name="history/[sprintId]" />
         <Stack.Screen name="sprint/setup" />
         <Stack.Screen name="sprint/play" />
       </Stack.Protected>
-      <Stack.Protected guard={preferences.onboardingCompleted}>
+      <Stack.Protected guard={preferences.onboardingCompleted && !pendingFirstResultCelebration} redirectTo="/first-result-celebration">
         <Stack.Screen name="subscription" options={{ gestureEnabled: false }} />
       </Stack.Protected>
     </Stack>

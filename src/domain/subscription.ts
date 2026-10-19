@@ -1,6 +1,8 @@
 /** Product rules independent of the RevenueCat SDK. */
 export const PREMIUM_ENTITLEMENT_ID = "premium";
 
+export type SubscriptionCheckStatus = "loading" | "ready" | "unavailable" | "error";
+
 export function hasPremiumEntitlement(activeEntitlements: Record<string, unknown>) {
   return activeEntitlements[PREMIUM_ENTITLEMENT_ID] !== undefined;
 }
@@ -36,6 +38,38 @@ export function requiresPremiumAfterOnboardingSprint({
     && firstFreeSprintCompleted
     && firstResultCelebrationSeen
     && !isPremium;
+}
+
+/**
+ * The first saved sprint must lead through its acknowledgement before the
+ * subscription decision. Keeping this as a distinct pending state lets the
+ * app resume the acknowledgement after an interrupted launch.
+ */
+export function hasPendingFirstResultCelebration({
+  onboardingCompleted,
+  firstFreeSprintCompleted,
+  firstResultCelebrationSeen,
+}: {
+  onboardingCompleted: boolean;
+  firstFreeSprintCompleted: boolean;
+  firstResultCelebrationSeen: boolean;
+}) {
+  return onboardingCompleted && firstFreeSprintCompleted && !firstResultCelebrationSeen;
+}
+
+/**
+ * Keep a deep link mounted while RevenueCat reads the cached entitlement on a
+ * cold launch. Once the initial read settles, non-members are redirected to
+ * the subscription screen as usual.
+ */
+export function canAccessSubscriptionGatedRoutes({
+  requiresPremium,
+  subscriptionStatus,
+}: {
+  requiresPremium: boolean;
+  subscriptionStatus: SubscriptionCheckStatus;
+}) {
+  return subscriptionStatus === "loading" || !requiresPremium;
 }
 
 /**
