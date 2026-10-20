@@ -1,15 +1,43 @@
 import { describe, expect, it } from "vitest";
 
-import { RESULT_PRESENTATION } from "./resultPresentation";
 import { formatResponseTime } from "@/shared/formatResponseTime";
+import { makeResult } from "@/test/resultFixture";
+import { getResultPresentation } from "./resultPresentation";
 
 describe("result presentation", () => {
-  it("preserves wording and mascot choices for every outcome", () => {
-    expect(RESULT_PRESENTATION).toEqual({
-      "no-attempts": { useEncouragementMascot: false, message: "Ready when you are—try another sprint!" },
-      "short-practice": { useEncouragementMascot: false, message: "Every bit of practice counts!" },
-      "needs-encouragement": { useEncouragementMascot: true, message: "Keep practicing—you’re building your skills!" },
-      celebrate: { useEncouragementMascot: false, message: "Great practice. Keep it up!" },
+  it("keeps early perfect practice encouraging without presenting it as an earned perfect sprint", () => {
+    expect(getResultPresentation(makeResult(3, 3))).toMatchObject({
+      mascot: "thumbs-up",
+      title: "Perfect Start!",
+      message: "3 for 3 correct! Answer 7 more to earn a Perfect Sprint.",
+    });
+    expect(getResultPresentation(makeResult(5, 5))).toMatchObject({
+      mascot: "thumbs-up",
+      title: "Perfect Start!",
+      message: "5 for 5 correct! Answer 5 more to earn a Perfect Sprint.",
+    });
+  });
+
+  it("uses a distinct high-tier presentation only after a meaningful number of answers", () => {
+    expect(getResultPresentation(makeResult(3, 5))).toMatchObject({
+      mascot: "fallen",
+      title: "Keep Growing!",
+    });
+    expect(getResultPresentation(makeResult(4, 5))).toMatchObject({
+      mascot: "thumbs-up",
+      title: "Nice Work!",
+    });
+    expect(getResultPresentation(makeResult(9, 10))).toMatchObject({
+      mascot: "celebrate",
+      title: "Amazing Focus!",
+    });
+    expect(getResultPresentation(makeResult(10, 10))).toMatchObject({
+      mascot: "perfect",
+      title: "Perfect Sprint!",
+    });
+    expect(getResultPresentation(makeResult(20, 20))).toMatchObject({
+      mascot: "perfect",
+      title: "Math Superstar!",
     });
   });
 

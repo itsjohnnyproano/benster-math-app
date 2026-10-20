@@ -8,8 +8,11 @@ import { isFactNumberLimit, isPracticeNumberRange, sanitizeFactTables, type Fact
 import { isCardLayout, isInputStyle, isSprintDuration, isSprintMode, type SprintConfiguration } from "./sprint";
 
 export const RESULT_SCHEMA_VERSION = 1;
-export const ENCOURAGEMENT_ACCURACY_THRESHOLD = 0.6;
+export const ENCOURAGEMENT_ACCURACY_THRESHOLD = 0.7;
+export const CELEBRATION_ACCURACY_THRESHOLD = 0.9;
 export const MIN_ATTEMPTS_FOR_ACCURACY_MESSAGE = 5;
+export const MIN_ATTEMPTS_FOR_CELEBRATION = 10;
+export const MIN_ATTEMPTS_FOR_SUPERSTAR_RESULT = 20;
 
 export type PersonalBestStatus = "first" | "new" | "matched" | "unchanged" | "ineligible";
 export type PersonalBestChange = Readonly<{
@@ -45,19 +48,39 @@ export function calculatePersonalBest(result: Pick<SprintResult, "correctCount" 
   };
 }
 
-export type ResultOutcome = "no-attempts" | "short-practice" | "needs-encouragement" | "celebrate";
+export type ResultOutcome =
+  | "no-attempts"
+  | "short-practice"
+  | "needs-encouragement"
+  | "good-start"
+  | "perfect-start"
+  | "solid-work"
+  | "celebrate"
+  | "perfect-sprint"
+  | "math-superstar";
 
 export function getResultOutcome(result: SprintResult): ResultOutcome {
   if (result.attemptedCount === 0) {
     return "no-attempts";
   }
   if (result.attemptedCount < MIN_ATTEMPTS_FOR_ACCURACY_MESSAGE) {
-    return "short-practice";
+    return result.accuracy === 1 ? "perfect-start" : "short-practice";
   }
   if (result.accuracy < ENCOURAGEMENT_ACCURACY_THRESHOLD) {
     return "needs-encouragement";
   }
-  return "celebrate";
+  if (result.attemptedCount < MIN_ATTEMPTS_FOR_CELEBRATION) {
+    return result.accuracy === 1 ? "perfect-start" : "good-start";
+  }
+  if (result.accuracy < CELEBRATION_ACCURACY_THRESHOLD) {
+    return "solid-work";
+  }
+  if (result.accuracy < 1) {
+    return "celebrate";
+  }
+  return result.attemptedCount >= MIN_ATTEMPTS_FOR_SUPERSTAR_RESULT
+    ? "math-superstar"
+    : "perfect-sprint";
 }
 
 // Local record identity only, not a password, token, or security boundary.

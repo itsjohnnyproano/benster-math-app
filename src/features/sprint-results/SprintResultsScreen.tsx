@@ -4,12 +4,12 @@ import { Alert, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, 
 
 import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
 import type { SprintResult } from "@/domain/math-engine";
-import { getResultOutcome, type PersonalBestChange } from "@/domain/results";
+import type { PersonalBestChange } from "@/domain/results";
 import { formatDurationLabel } from "@/shared/formatSprintDuration";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { AnswerReview } from "./components/AnswerReview";
 import { useSavedSprint } from "./useSavedSprint";
-import { RESULT_PRESENTATION } from "./resultPresentation";
+import { getResultPresentation } from "./resultPresentation";
 import { formatResponseTime } from "@/shared/formatResponseTime";
 import { CARD_LAYOUT_LABELS } from "@/components/preferences/practiceOptions";
 import { getResultsLayout } from "./resultsLayout";
@@ -18,6 +18,14 @@ import { FirstResultCelebration } from "@/features/onboarding/FirstResultCelebra
 
 type Props = { learnerId: string; sprintId: string; result: SprintResult; onDone: () => void };
 
+const MASCOT_SOURCES = {
+  "gentle-reminder": require("../../../assets/mascot/penguin-no-practice-gentle-reminder.png"),
+  "thumbs-up": require("../../../assets/mascot/penguin-thumbs-up.png"),
+  fallen: require("../../../assets/mascot/penguin-score-lower-than-expected.png"),
+  celebrate: require("../../../assets/mascot/penguin-celebrate.png"),
+  perfect: require("../../../assets/mascot/penguin-jumping-celebration-confetti.png"),
+} as const;
+
 export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Props) {
   const { preferences, completeFirstFreeSprint } = usePreferences();
   const { width, height, fontScale } = useWindowDimensions();
@@ -25,7 +33,7 @@ export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Pro
   const save = useSavedSprint(learnerId, sprintId, result);
   const [showFirstResultCelebration, setShowFirstResultCelebration] = useState(false);
   const recordingFirstFreeSprint = useRef(false);
-  const encouragement = RESULT_PRESENTATION[getResultOutcome(result)];
+  const presentation = getResultPresentation(result);
   const { configuration } = result;
   const duration = formatDurationLabel(configuration.durationSeconds);
 
@@ -74,16 +82,14 @@ export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Pro
         <View style={[styles.summary, isTwoColumn && styles.summaryColumns]}>
           <View style={[styles.hero, isTwoColumn && styles.heroColumn]}>
             <Image
-              source={encouragement.useEncouragementMascot
-                ? require("../../../assets/mascot/penguin-score-lower-than-expected.png")
-                : require("../../../assets/mascot/penguin-thumbs-up.png")}
+              source={MASCOT_SOURCES[presentation.mascot]}
               contentFit="contain"
               style={[styles.mascot, isTablet && styles.tabletMascot]}
               accessible={false}
             />
             <Text style={styles.eyebrow}>SPRINT COMPLETE</Text>
-            <Text style={[styles.title, isTablet && styles.tabletTitle]}>You showed up!</Text>
-            <Text style={[styles.message, isTablet && styles.tabletMessage]}>{encouragement.message}</Text>
+            <Text style={[styles.title, isTablet && styles.tabletTitle]}>{presentation.title}</Text>
+            <Text style={[styles.message, isTablet && styles.tabletMessage]}>{presentation.message}</Text>
             <Text style={styles.context}>{SPRINT_MODE_DETAILS[configuration.mode].title} · {duration}</Text>
           </View>
 

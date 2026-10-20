@@ -61,13 +61,20 @@ describe("results", () => {
     expect(calculatePersonalBest(makeResult(0, 5), null).status).toBe("first");
   });
 
-  it("selects encouragement below 60%, only after five attempts", () => {
+  it("uses attempt gates before accuracy can earn a result tier", () => {
     expect(getResultOutcome(makeResult(2, 5))).toBe("needs-encouragement");
-    expect(getResultOutcome(makeResult(3, 5))).toBe("celebrate");
-    expect(getResultOutcome(makeResult(0, 4))).toBe("short-practice");
+    expect(getResultOutcome(makeResult(4, 5))).toBe("good-start");
+    expect(getResultOutcome(makeResult(5, 5))).toBe("perfect-start");
+    expect(getResultOutcome(makeResult(6, 10))).toBe("needs-encouragement");
+    expect(getResultOutcome(makeResult(7, 10))).toBe("solid-work");
+    expect(getResultOutcome(makeResult(9, 10))).toBe("celebrate");
+    expect(getResultOutcome(makeResult(10, 10))).toBe("perfect-sprint");
+    expect(getResultOutcome(makeResult(20, 20))).toBe("math-superstar");
+    expect(getResultOutcome(makeResult(3, 3))).toBe("perfect-start");
+    expect(getResultOutcome(makeResult(2, 3))).toBe("short-practice");
     expect(getResultOutcome(makeResult(0, 0))).toBe("no-attempts");
-    // Do not round 59.5% up to the celebratory side of the threshold.
-    expect(getResultOutcome({ ...makeResult(), accuracy: 0.595 })).toBe("needs-encouragement");
+    // Do not round 69.5% up to the thumbs-up side of the threshold.
+    expect(getResultOutcome({ ...makeResult(), accuracy: 0.695 })).toBe("needs-encouragement");
   });
 
   it("rejects malformed or inconsistent saved data", () => {
