@@ -179,15 +179,17 @@ async function migrateV4ToV5(database: ResultsDatabase) {
       // A damaged legacy receipt must not prevent the schema upgrade or the
       // device-wide reset path. Its nullable compact fields keep it out of
       // achievement calculations while normal history reads still report it.
+      let result: ReturnType<typeof readStoredResult>;
       try {
-        const result = readStoredResult(row);
-        await database.runAsync(
-          "UPDATE sprints SET correct_count = ?, attempted_count = ? WHERE id = ?",
-          [result.correctCount, result.attemptedCount, row.id],
-        );
+        result = readStoredResult(row);
       } catch {
         // Leave corrupt legacy rows without compact achievement fields.
+        continue;
       }
+      await database.runAsync(
+        "UPDATE sprints SET correct_count = ?, attempted_count = ? WHERE id = ?",
+        [result.correctCount, result.attemptedCount, row.id],
+      );
     }
     await database.execAsync("PRAGMA user_version = 5; COMMIT");
   } catch (error) {

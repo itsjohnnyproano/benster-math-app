@@ -121,6 +121,60 @@ describe("SQLite results repository", () => {
     expect((await repo.save("after-reset", makeResult())).personalBest.status).toBe("first");
   });
 
+  it("rolls back a failed achievement migration so it can retry later", async () => {
+    const { adapter, db } = databaseAdapter();
+    const valid = makeResult();
+    db.exec(`
+      CREATE TABLE sprints (
+        id TEXT PRIMARY KEY NOT NULL,
+        learner_id TEXT NOT NULL,
+        schema_version INTEGER NOT NULL,
+        mode TEXT NOT NULL,
+        duration_seconds INTEGER NOT NULL,
+        completed_at_ms INTEGER NOT NULL,
+        result_json TEXT NOT NULL,
+        previous_best INTEGER,
+        updated_best INTEGER,
+        best_status TEXT NOT NULL
+      );
+      CREATE TABLE personal_bests (
+        learner_id TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        duration_seconds INTEGER NOT NULL,
+        practice_key TEXT NOT NULL,
+        correct_count INTEGER NOT NULL,
+        sprint_id TEXT NOT NULL,
+        PRIMARY KEY (learner_id, mode, duration_seconds, practice_key)
+      );
+      PRAGMA user_version = 4;
+    `);
+    db.prepare("INSERT INTO sprints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      "valid", "legacy-learner", 1, "addition", 30, valid.completedAtMs,
+      JSON.stringify(valid), null, valid.correctCount, "first",
+    );
+    const originalRun = adapter.runAsync;
+    let failMigrationWrite = true;
+    adapter.runAsync = async (sql, params) => {
+      if (failMigrationWrite && sql.includes("UPDATE sprints SET correct_count")) {
+        throw new Error("Disk write failed");
+      }
+      return originalRun(sql, params);
+    };
+    // Keep the in-memory test database available for the retry after the
+    // repository releases its failed migration candidate.
+    adapter.closeAsync = async () => undefined;
+
+    const repo = createResultsRepository(async () => adapter);
+    await expect(repo.listAchievementSprints()).rejects.toThrow("Disk write failed");
+    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(4);
+    expect(db.prepare("PRAGMA table_info(sprints)").all().map(({ name }) => name))
+      .not.toContain("correct_count");
+
+    failMigrationWrite = false;
+    expect((await repo.listAchievementSprints()).map(({ id }) => id)).toEqual(["valid"]);
+    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(5);
+  });
+
   it("migrates v2 records into the original local learner without losing personal bests", async () => {
     const { adapter, db } = databaseAdapter();
     const legacyResult = makeResult();
