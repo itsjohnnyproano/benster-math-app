@@ -124,7 +124,7 @@ export default function AchievementsScreen() {
           ? <GroupBadges achievements={achievements.data.filter((achievement) => achievement.group === selectedGroup.id)} columns={columns} onSelect={setSelected} reduceMotionEnabled={reduceMotionEnabled} sourceFor={sourceFor} />
           : <AchievementGroupCards achievements={achievements.data} columns={columns} onSelect={openGroup} onPreload={preloadGroup} sourceFor={sourceFor} />)}
       </ScrollView>
-      <AchievementDetail achievement={selected} onClose={() => setSelected(null)} sourceFor={sourceFor} width={detailModalWidth} />
+      <AchievementDetail achievement={selected} onClose={() => setSelected(null)} reduceMotionEnabled={reduceMotionEnabled} sourceFor={sourceFor} width={detailModalWidth} />
     </SafeAreaView>
   );
 }
@@ -224,36 +224,65 @@ function useReduceMotionEnabled() {
   return enabled;
 }
 
-function AchievementTile({ achievement, columns, onPress, reduceMotionEnabled, sourceFor }: { achievement: AchievementProgress; columns: number; onPress: () => void; reduceMotionEnabled: boolean; sourceFor: (id: AchievementId) => BadgeSource }) {
+function useBadgePressAnimation(reduceMotionEnabled: boolean) {
   const scale = useAnimatedValue(1);
   const rotation = useAnimatedValue(0);
+  const lift = useAnimatedValue(0);
+
+  const play = useCallback(() => {
+    if (reduceMotionEnabled) return;
+    scale.stopAnimation();
+    rotation.stopAnimation();
+    lift.stopAnimation();
+    scale.setValue(1);
+    rotation.setValue(0);
+    lift.setValue(0);
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 0.86, duration: 85, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1.18, useNativeDriver: true, speed: 22, bounciness: 14 }),
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 8 }),
+      ]),
+      Animated.sequence([
+        Animated.timing(rotation, { toValue: -1, duration: 85, useNativeDriver: true }),
+        Animated.timing(rotation, { toValue: 1, duration: 125, useNativeDriver: true }),
+        Animated.timing(rotation, { toValue: -0.55, duration: 115, useNativeDriver: true }),
+        Animated.timing(rotation, { toValue: 0, duration: 135, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.timing(lift, { toValue: -8, duration: 85, useNativeDriver: true }),
+        Animated.spring(lift, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 8 }),
+      ]),
+    ]).start();
+  }, [lift, reduceMotionEnabled, rotation, scale]);
+
+  return {
+    play,
+    style: {
+      transform: [
+        { translateY: lift },
+        { scale },
+        { rotate: rotation.interpolate({ inputRange: [-1, 0, 1], outputRange: ["-8deg", "0deg", "8deg"] }) },
+      ],
+    },
+  };
+}
+
+function AchievementTile({ achievement, columns, onPress, reduceMotionEnabled, sourceFor }: { achievement: AchievementProgress; columns: number; onPress: () => void; reduceMotionEnabled: boolean; sourceFor: (id: AchievementId) => BadgeSource }) {
+  const badgeAnimation = useBadgePressAnimation(reduceMotionEnabled);
   const earned = achievement.earnedAtMs !== null;
   const progress = Math.min(achievement.current / achievement.target, 1);
   const badgeSize = columns >= 4 ? 112 : columns === 3 ? 126 : 136;
-
-  const handlePress = () => {
-    onPress();
-    if (reduceMotionEnabled) return;
-    Animated.parallel([
-      Animated.sequence([
-        Animated.spring(scale, { toValue: 1.08, useNativeDriver: true, speed: 26, bounciness: 10 }),
-        Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 8 }),
-      ]),
-      Animated.sequence([
-        Animated.timing(rotation, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.timing(rotation, { toValue: 0, duration: 300, useNativeDriver: true }),
-      ]),
-    ]).start();
-  };
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${achievement.title}. ${earned ? `Earned ${formatDate(achievement.earnedAtMs)}` : progressText(achievement)}`}
-      onPress={handlePress}
+      onPress={onPress}
+      onPressIn={badgeAnimation.play}
       style={({ pressed }) => [styles.tile, { width: `${100 / columns}%` }, pressed && styles.tilePressed]}
     >
-      <Animated.View style={{ transform: [{ scale }, { rotate: rotation.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "5deg"] }) }] }}>
+      <Animated.View style={badgeAnimation.style}>
         <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.badge, { width: badgeSize, height: badgeSize }, !earned && styles.lockedBadge]} />
       </Animated.View>
       <Text numberOfLines={2} style={[styles.badgeTitle, !earned && styles.lockedText]}>{achievement.title}</Text>
@@ -266,14 +295,19 @@ function AchievementTile({ achievement, columns, onPress, reduceMotionEnabled, s
   );
 }
 
-function AchievementDetail({ achievement, onClose, sourceFor, width }: { achievement: AchievementProgress | null; onClose: () => void; sourceFor: (id: AchievementId) => BadgeSource; width?: number }) {
+function AchievementDetail({ achievement, onClose, reduceMotionEnabled, sourceFor, width }: { achievement: AchievementProgress | null; onClose: () => void; reduceMotionEnabled: boolean; sourceFor: (id: AchievementId) => BadgeSource; width?: number }) {
+  const badgeAnimation = useBadgePressAnimation(reduceMotionEnabled);
   if (!achievement) return null;
   const earned = achievement.earnedAtMs !== null;
   return (
     <Modal animationType="fade" transparent visible onRequestClose={onClose}>
       <Pressable accessibilityRole="button" accessibilityLabel="Close achievement details" onPress={onClose} style={styles.backdrop}>
         <Pressable accessibilityViewIsModal onPress={(event) => event.stopPropagation()} style={[styles.detail, CARD_SHADOW, width !== undefined && { width, alignSelf: "center" }]}>
-          <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.detailBadge, !earned && styles.lockedBadge]} />
+          <Pressable accessibilityRole="button" accessibilityLabel={`Animate ${achievement.title} badge`} accessibilityHint="Plays the badge animation" hitSlop={12} onPress={badgeAnimation.play}>
+            <Animated.View style={badgeAnimation.style}>
+              <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.detailBadge, !earned && styles.lockedBadge]} />
+            </Animated.View>
+          </Pressable>
           <Text accessibilityRole="header" style={styles.detailTitle}>{achievement.title}</Text>
           <Text style={styles.detailBody}>{achievement.description}</Text>
           <Text style={styles.detailStatus}>{earned ? `${achievement.earnedCount > 1 ? `Earned ${achievement.earnedCount} times · ` : "Earned "}${formatDate(achievement.earnedAtMs)}` : progressText(achievement)}</Text>
