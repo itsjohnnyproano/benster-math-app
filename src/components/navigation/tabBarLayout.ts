@@ -15,11 +15,17 @@ export function useTabBarLayout() {
   // need a small visual gap; nested scroll views need the remaining safe-area
   // space as well. Other platforms render our floating bar over content.
   const usesNativeTabs = Platform.OS === "ios";
-  const floatingTabBarClearance = TAB_BAR_HEIGHT + bottom + 20;
+  const tabBarClearance = TAB_BAR_HEIGHT + bottom;
+  const floatingTabBarClearance = tabBarClearance + 20;
 
   return {
     bottom,
     contentInset: usesNativeTabs ? 20 : floatingTabBarClearance,
+    // Use this only for a scroll view that remains covered by the tab bar
+    // instead of receiving the system's automatic iOS inset adjustment.
+    // NativeTabs already contributes the bar height for this scroll view.
+    // Add only a modest safe-area gap so the last tile finishes near, not under, it.
+    coveredTabBarInset: bottom + 24,
     isIpad,
     overlayContentInset: usesNativeTabs ? bottom + 20 : floatingTabBarClearance,
     top,

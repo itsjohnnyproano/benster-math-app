@@ -44,6 +44,13 @@ function IOSNativeTabs() {
         />
         <NativeTabs.Trigger.Label>History</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="achievements">
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "rosette", selected: "rosette" }}
+          md={{ default: "emoji_events", selected: "emoji_events" }}
+        />
+        <NativeTabs.Trigger.Label>Achievements</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Icon
           sf={{ default: "gearshape", selected: "gearshape.fill" }}
@@ -107,6 +114,15 @@ function JavascriptTabs() {
               size={size}
               tintColor={color}
             />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="achievements"
+        options={{
+          title: "Achievements",
+          tabBarIcon: ({ color, size }) => (
+            <SymbolView name={{ ios: "rosette", android: "emoji_events", web: "emoji_events" }} size={size} tintColor={color} />
           ),
         }}
       />

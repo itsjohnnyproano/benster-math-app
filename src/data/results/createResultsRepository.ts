@@ -2,10 +2,11 @@ import type { SprintResult } from "@/domain/math-engine";
 import { isValidTimestamp } from "@/shared/isValidTimestamp";
 import {
   assertSprintResult, calculatePersonalBest, RESULT_SCHEMA_VERSION,
-  type SavedSprint,
+  type AchievementSprint, type SavedSprint,
 } from "@/domain/results";
 import {
   isSprintMode,
+  isSprintDuration,
   getPracticeSelectionKey,
   SPRINT_MODES,
   type SprintDurationSeconds,
@@ -25,7 +26,12 @@ export interface ResultsDatabase {
 type ResultRow = {
   id: string;
   schema_version: number;
+  mode: string;
+  duration_seconds: number;
+  completed_at_ms: number;
   result_json: string;
+  correct_count: number;
+  attempted_count: number;
   previous_best: number | null;
   updated_best: number | null;
   best_status: string;
@@ -34,7 +40,7 @@ export type PersonalBests = Partial<Record<SprintMode, number>>;
 export type HistoryCursor = Readonly<{ completedAtMs: number; id: string }>;
 export type HistoryPage = Readonly<{ records: SavedSprint[]; nextCursor: HistoryCursor | null }>;
 
-const DATABASE_SCHEMA_VERSION = 4;
+const DATABASE_SCHEMA_VERSION = 5;
 const SPRINT_ID_PATTERN = /^[a-zA-Z0-9-]{1,128}$/;
 const SPRINT_MODE_SQL_LIST = SPRINT_MODES.map((mode) => `'${mode}'`).join(",");
 
@@ -51,6 +57,8 @@ const CREATE_TABLES = `
     duration_seconds INTEGER NOT NULL CHECK (duration_seconds IN (30,60,90,120)),
     completed_at_ms INTEGER NOT NULL,
     result_json TEXT NOT NULL,
+    correct_count INTEGER NOT NULL CHECK (correct_count >= 0),
+    attempted_count INTEGER NOT NULL CHECK (attempted_count >= correct_count),
     previous_best INTEGER,
     updated_best INTEGER,
     best_status TEXT NOT NULL
@@ -152,8 +160,31 @@ const MIGRATE_V3_TO_V4 = `
   INSERT INTO personal_bests (learner_id, mode, duration_seconds, practice_key, correct_count, sprint_id)
     SELECT learner_id, mode, duration_seconds, 'normal', correct_count, sprint_id FROM personal_bests_v3;
   DROP TABLE personal_bests_v3;
-  PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};
+  PRAGMA user_version = 4;
 `;
+
+type LegacyAchievementMigrationRow = Pick<ResultRow, "id" | "schema_version" | "mode" | "duration_seconds" | "completed_at_ms" | "result_json">;
+
+async function migrateV4ToV5(database: ResultsDatabase) {
+  await database.execAsync("BEGIN IMMEDIATE");
+  try {
+    await database.execAsync("ALTER TABLE sprints ADD COLUMN correct_count INTEGER; ALTER TABLE sprints ADD COLUMN attempted_count INTEGER;");
+    const rows = await database.getAllAsync<LegacyAchievementMigrationRow>(
+      "SELECT id, schema_version, mode, duration_seconds, completed_at_ms, result_json FROM sprints", [],
+    );
+    for (const row of rows) {
+      const result = readStoredResult(row);
+      await database.runAsync(
+        "UPDATE sprints SET correct_count = ?, attempted_count = ? WHERE id = ?",
+        [result.correctCount, result.attemptedCount, row.id],
+      );
+    }
+    await database.execAsync("PRAGMA user_version = 5; COMMIT");
+  } catch (error) {
+    await database.execAsync("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
+}
 
 async function applySchemaUpdate(database: ResultsDatabase, sql: string) {
   await database.execAsync("BEGIN IMMEDIATE");
@@ -172,16 +203,58 @@ function checkBest(value: unknown): asserts value is number | null {
   }
 }
 
-function readResult(row: ResultRow): SavedSprint {
+function readStoredResult(row: LegacyAchievementMigrationRow) {
   if (row.schema_version !== RESULT_SCHEMA_VERSION) throw new Error("Unsupported result version");
   const result: unknown = JSON.parse(row.result_json);
   assertSprintResult(result);
+  if (!isValidSprintId(row.id) || !isSprintMode(row.mode) || !isSprintDuration(row.duration_seconds)
+    || !isValidTimestamp(row.completed_at_ms)
+    || result.configuration.mode !== row.mode || result.configuration.durationSeconds !== row.duration_seconds
+    || result.completedAtMs !== row.completed_at_ms) throw new Error("Invalid saved result receipt");
+  return result;
+}
+
+function readResult(row: ResultRow): SavedSprint {
+  const result = readStoredResult(row);
+  if (!isCount(row.correct_count) || !isCount(row.attempted_count)
+    || row.correct_count !== result.correctCount || row.attempted_count !== result.attemptedCount) {
+    throw new Error("Invalid saved achievement counts");
+  }
   checkBest(row.previous_best);
   const personalBest = calculatePersonalBest(result, row.previous_best);
   if (personalBest.updated !== row.updated_best || personalBest.status !== row.best_status) {
     throw new Error("Invalid personal-best receipt");
   }
   return { id: row.id, schemaVersion: RESULT_SCHEMA_VERSION, result, personalBest };
+}
+
+function readAchievementSprint(row: Omit<ResultRow, "result_json">): AchievementSprint {
+  if (row.schema_version !== RESULT_SCHEMA_VERSION || !isValidSprintId(row.id)
+    || !isSprintMode(row.mode) || !isSprintDuration(row.duration_seconds)
+    || !isValidTimestamp(row.completed_at_ms) || !isCount(row.correct_count)
+    || !isCount(row.attempted_count) || row.correct_count > row.attempted_count) {
+    throw new Error("Invalid saved achievement record");
+  }
+  checkBest(row.previous_best);
+  const personalBest = calculatePersonalBest(
+    { correctCount: row.correct_count, attemptedCount: row.attempted_count }, row.previous_best,
+  );
+  if (personalBest.updated !== row.updated_best || personalBest.status !== row.best_status) {
+    throw new Error("Invalid personal-best receipt");
+  }
+  return {
+    id: row.id,
+    completedAtMs: row.completed_at_ms,
+    mode: row.mode,
+    durationSeconds: row.duration_seconds,
+    correctCount: row.correct_count,
+    attemptedCount: row.attempted_count,
+    personalBest,
+  };
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 export function createResultsRepository(openDatabase: () => Promise<ResultsDatabase>) {
@@ -209,11 +282,16 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
         await applySchemaUpdate(candidate, MIGRATE_V1_TO_V2);
         await applySchemaUpdate(candidate, MIGRATE_V2_TO_V3);
         await applySchemaUpdate(candidate, MIGRATE_V3_TO_V4);
+        await migrateV4ToV5(candidate);
       } else if (version.user_version === 2) {
         await applySchemaUpdate(candidate, MIGRATE_V2_TO_V3);
         await applySchemaUpdate(candidate, MIGRATE_V3_TO_V4);
+        await migrateV4ToV5(candidate);
       } else if (version.user_version === 3) {
         await applySchemaUpdate(candidate, MIGRATE_V3_TO_V4);
+        await migrateV4ToV5(candidate);
+      } else if (version.user_version === 4) {
+        await migrateV4ToV5(candidate);
       }
       database = candidate;
       return candidate;
@@ -237,6 +315,17 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
           }
           return timestamp;
         });
+      });
+    },
+
+    listAchievementSprints(learnerId = LEGACY_LEARNER_ID): Promise<AchievementSprint[]> {
+      if (!isValidLearnerId(learnerId)) return Promise.reject(new Error("Invalid learner ID"));
+      return serialize(async () => {
+        const db = await getDatabase();
+        const rows = await db.getAllAsync<Omit<ResultRow, "result_json">>(
+          "SELECT id, schema_version, mode, duration_seconds, completed_at_ms, correct_count, attempted_count, previous_best, updated_best, best_status FROM sprints WHERE learner_id = ? ORDER BY completed_at_ms, id", [learnerId],
+        );
+        return rows.map(readAchievementSprint);
       });
     },
 
@@ -310,9 +399,10 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
           const personalBest = calculatePersonalBest(snapshot, previousScore);
           await db.runAsync(
             `INSERT INTO sprints (id, learner_id, schema_version, mode, duration_seconds, completed_at_ms,
-              result_json, previous_best, updated_best, best_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              result_json, correct_count, attempted_count, previous_best, updated_best, best_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [id, learnerId, RESULT_SCHEMA_VERSION, mode, durationSeconds, snapshot.completedAtMs,
-              resultJson, personalBest.previous, personalBest.updated, personalBest.status],
+              resultJson, snapshot.correctCount, snapshot.attemptedCount,
+              personalBest.previous, personalBest.updated, personalBest.status],
           );
           if (personalBest.status === "first" || personalBest.status === "new") {
             await db.runAsync(

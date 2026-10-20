@@ -69,7 +69,9 @@ describe("SQLite results repository", () => {
     const divisionResult = makeResult(4, 5, { mode: "division" });
     expect((await repo.save("division", divisionResult)).personalBest.status).toBe("first");
     expect(await repo.getPersonalBests(30)).toEqual({ addition: 3, division: 4 });
-    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(4);
+    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(5);
+    expect(db.prepare("SELECT correct_count, attempted_count FROM sprints WHERE id = 'legacy'").get())
+      .toEqual({ correct_count: 3, attempted_count: 5 });
   });
 
   it("migrates v2 records into the original local learner without losing personal bests", async () => {
@@ -115,6 +117,19 @@ describe("SQLite results repository", () => {
     expect(await repo.listCompletionTimes()).toEqual(Array(25).fill(makeResult().completedAtMs));
     db.exec("UPDATE sprints SET completed_at_ms = -1 WHERE id = 'streak-0'");
     await expect(repo.listCompletionTimes()).rejects.toThrow("Invalid saved completion date");
+  });
+
+  it("reads a learner's compact chronological achievement history", async () => {
+    const { adapter, db } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save("learner-a", "later", makeResult(3, 5, { durationSeconds: 120 }));
+    await repo.save("learner-a", "first", makeResult(3, 5));
+    await repo.save("learner-b", "other", makeResult(3, 5));
+
+    expect((await repo.listAchievementSprints("learner-a")).map((record) => record.id)).toEqual(["first", "later"]);
+    expect((await repo.listAchievementSprints("learner-b")).map((record) => record.id)).toEqual(["other"]);
+    db.exec("UPDATE sprints SET best_status = 'invalid' WHERE id = 'first'");
+    await expect(repo.listAchievementSprints("learner-a")).rejects.toThrow("Invalid personal-best receipt");
   });
 
   it("paginates timestamp ties without duplicates and filters before limiting", async () => {
