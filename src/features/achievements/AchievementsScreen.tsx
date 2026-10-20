@@ -22,6 +22,7 @@ import { usePreferences } from "@/providers/PreferencesProvider";
 import { useAnimatedValue } from "@/shared/useAnimatedValue";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { achievementColumns, achievementDetailModalWidth } from "./achievementsLayout";
+import { formatAchievementProgress } from "./achievementProgressText";
 import { useAchievements } from "./useAchievements";
 
 const BADGES: Record<AchievementId, number> = {
@@ -297,21 +298,24 @@ function AchievementTile({ achievement, columns, onPress, reduceMotionEnabled, s
 
 function AchievementDetail({ achievement, onClose, reduceMotionEnabled, sourceFor, width }: { achievement: AchievementProgress | null; onClose: () => void; reduceMotionEnabled: boolean; sourceFor: (id: AchievementId) => BadgeSource; width?: number }) {
   const badgeAnimation = useBadgePressAnimation(reduceMotionEnabled);
+  const { height } = useWindowDimensions();
   if (!achievement) return null;
   const earned = achievement.earnedAtMs !== null;
   return (
     <Modal animationType="fade" transparent visible onRequestClose={onClose}>
       <Pressable accessibilityRole="button" accessibilityLabel="Close achievement details" onPress={onClose} style={styles.backdrop}>
-        <Pressable accessibilityViewIsModal onPress={(event) => event.stopPropagation()} style={[styles.detail, CARD_SHADOW, width !== undefined && { width, alignSelf: "center" }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Animate ${achievement.title} badge`} accessibilityHint="Plays the badge animation" hitSlop={12} onPress={badgeAnimation.play}>
-            <Animated.View style={badgeAnimation.style}>
-              <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.detailBadge, !earned && styles.lockedBadge]} />
-            </Animated.View>
-          </Pressable>
-          <Text accessibilityRole="header" style={styles.detailTitle}>{achievement.title}</Text>
-          <Text style={styles.detailBody}>{achievement.description}</Text>
-          <Text style={styles.detailStatus}>{earned ? `${achievement.earnedCount > 1 ? `Earned ${achievement.earnedCount} times · ` : "Earned "}${formatDate(achievement.earnedAtMs)}` : progressText(achievement)}</Text>
-          <Pressable accessibilityRole="button" onPress={onClose} style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}><Text style={styles.closeText}>Done</Text></Pressable>
+        <Pressable accessibilityViewIsModal onPress={(event) => event.stopPropagation()} style={[styles.detail, CARD_SHADOW, { maxHeight: Math.max(1, height - 52) }, width !== undefined && { width, alignSelf: "center" }]}>
+          <ScrollView contentContainerStyle={styles.detailContent} style={styles.detailScroll} showsVerticalScrollIndicator>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Animate ${achievement.title} badge`} accessibilityHint="Plays the badge animation" hitSlop={12} onPress={badgeAnimation.play}>
+              <Animated.View style={badgeAnimation.style}>
+                <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.detailBadge, !earned && styles.lockedBadge]} />
+              </Animated.View>
+            </Pressable>
+            <Text accessibilityRole="header" style={styles.detailTitle}>{achievement.title}</Text>
+            <Text style={styles.detailBody}>{achievement.description}</Text>
+            <Text style={styles.detailStatus}>{earned ? `${achievement.earnedCount > 1 ? `Earned ${achievement.earnedCount} times · ` : "Earned "}${formatDate(achievement.earnedAtMs)}` : progressText(achievement)}</Text>
+            <Pressable accessibilityRole="button" onPress={onClose} style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}><Text style={styles.closeText}>Done</Text></Pressable>
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -323,8 +327,7 @@ function State({ icon, title, body, actionLabel, onAction }: { icon: "hourglass"
 }
 
 function progressText(achievement: AchievementProgress) {
-  const unit = achievement.metric === "minutes" ? "minutes" : achievement.metric === "modes" ? "modes" : achievement.metric === "correct-answers" ? "correct" : achievement.metric === "single-sprint" ? "sprint" : achievement.metric === "personal-bests" ? "personal bests" : achievement.metric === "comebacks" ? "comebacks" : achievement.metric === "mode-sprints" || achievement.metric === "sprints" ? "sprints" : achievement.metric === "perfect-sprints" ? "perfect sprints" : "days";
-  return `${Math.min(achievement.current, achievement.target)} of ${achievement.target} ${unit}`;
+  return formatAchievementProgress(achievement);
 }
 
 function formatDate(timestamp: number | null) {
@@ -386,7 +389,9 @@ const styles = StyleSheet.create({
   retry: { minHeight: 44, paddingHorizontal: 18, marginTop: 4, justifyContent: "center" },
   retryText: { fontFamily: "NunitoSans_700Bold", color: COLORS.primary, fontSize: 16 },
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(16,24,39,0.38)", padding: 16, paddingBottom: 36 },
-  detail: { borderRadius: 28, backgroundColor: COLORS.card, alignItems: "center", padding: 24, gap: 8 },
+  detail: { borderRadius: 28, backgroundColor: COLORS.card, overflow: "hidden" },
+  detailScroll: { width: "100%", flexShrink: 1 },
+  detailContent: { alignItems: "center", padding: 24, gap: 8 },
   detailBadge: { width: 156, height: 156 },
   detailTitle: { fontFamily: "NunitoSans_700Bold", fontSize: 25, color: COLORS.ink, textAlign: "center" },
   detailBody: { fontFamily: "NunitoSans_600SemiBold", fontSize: 15, lineHeight: 22, color: COLORS.secondary, textAlign: "center", maxWidth: 310 },

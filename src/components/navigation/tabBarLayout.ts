@@ -25,7 +25,7 @@ export function useTabBarLayout() {
     // instead of receiving the system's automatic iOS inset adjustment.
     // NativeTabs already contributes the bar height for this scroll view.
     // Add only a modest safe-area gap so the last tile finishes near, not under, it.
-    coveredTabBarInset: bottom + 24,
+    coveredTabBarInset: usesNativeTabs ? bottom + 24 : floatingTabBarClearance,
     isIpad,
     overlayContentInset: usesNativeTabs ? bottom + 20 : floatingTabBarClearance,
     top,

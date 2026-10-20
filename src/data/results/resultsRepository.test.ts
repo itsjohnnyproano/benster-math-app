@@ -74,6 +74,53 @@ describe("SQLite results repository", () => {
       .toEqual({ correct_count: 3, attempted_count: 5 });
   });
 
+  it("migrates around a damaged legacy receipt so achievements and device reset recover", async () => {
+    const { adapter, db } = databaseAdapter();
+    const valid = makeResult();
+    db.exec(`
+      CREATE TABLE sprints (
+        id TEXT PRIMARY KEY NOT NULL,
+        learner_id TEXT NOT NULL,
+        schema_version INTEGER NOT NULL,
+        mode TEXT NOT NULL,
+        duration_seconds INTEGER NOT NULL,
+        completed_at_ms INTEGER NOT NULL,
+        result_json TEXT NOT NULL,
+        previous_best INTEGER,
+        updated_best INTEGER,
+        best_status TEXT NOT NULL
+      );
+      CREATE TABLE personal_bests (
+        learner_id TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        duration_seconds INTEGER NOT NULL,
+        practice_key TEXT NOT NULL,
+        correct_count INTEGER NOT NULL,
+        sprint_id TEXT NOT NULL,
+        PRIMARY KEY (learner_id, mode, duration_seconds, practice_key)
+      );
+      PRAGMA user_version = 4;
+    `);
+    db.prepare("INSERT INTO sprints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      "valid", "legacy-learner", 1, "addition", 30, valid.completedAtMs,
+      JSON.stringify(valid), null, valid.correctCount, "first",
+    );
+    db.prepare("INSERT INTO sprints VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      "damaged", "legacy-learner", 1, "addition", 30, valid.completedAtMs,
+      "{", null, null, "ineligible",
+    );
+
+    const repo = createResultsRepository(async () => adapter);
+    expect((await repo.listAchievementSprints()).map(({ id }) => id)).toEqual(["valid"]);
+    expect(db.prepare("PRAGMA user_version").get()?.user_version).toBe(5);
+    expect(db.prepare("SELECT correct_count, attempted_count FROM sprints WHERE id = 'damaged'").get())
+      .toEqual({ correct_count: null, attempted_count: null });
+
+    await repo.clearDevice();
+    expect(await repo.listAchievementSprints()).toEqual([]);
+    expect((await repo.save("after-reset", makeResult())).personalBest.status).toBe("first");
+  });
+
   it("migrates v2 records into the original local learner without losing personal bests", async () => {
     const { adapter, db } = databaseAdapter();
     const legacyResult = makeResult();
@@ -129,10 +176,30 @@ describe("SQLite results repository", () => {
     expect((await repo.listAchievementSprints("learner-a")).map((record) => record.id)).toEqual(["first", "later"]);
     expect((await repo.listAchievementSprints("learner-b")).map((record) => record.id)).toEqual(["other"]);
     db.exec("UPDATE sprints SET correct_count = 4, updated_best = 4 WHERE id = 'first'");
-    await expect(repo.listAchievementSprints("learner-a")).rejects.toThrow("Invalid saved achievement counts");
+    expect((await repo.listAchievementSprints("learner-a")).map(({ id }) => id)).toEqual(["later"]);
     db.exec("UPDATE sprints SET correct_count = 3, updated_best = 3 WHERE id = 'first'");
     db.exec("UPDATE sprints SET best_status = 'invalid' WHERE id = 'first'");
-    await expect(repo.listAchievementSprints("learner-a")).rejects.toThrow("Invalid personal-best receipt");
+    expect((await repo.listAchievementSprints("learner-a")).map(({ id }) => id)).toEqual(["later"]);
+  });
+
+  it("reuses validated compact achievement records until a row changes", async () => {
+    const { adapter, db } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save("first", makeResult());
+    const originalGetAll = adapter.getAllAsync;
+    let receiptQueryCount = 0;
+    adapter.getAllAsync = async (sql, params) => {
+      if (sql.includes("result_json")) receiptQueryCount++;
+      return originalGetAll(sql, params);
+    };
+
+    await repo.listAchievementSprints();
+    await repo.listAchievementSprints();
+
+    expect(receiptQueryCount).toBe(1);
+    db.exec("UPDATE sprints SET correct_count = 4, updated_best = 4 WHERE id = 'first'");
+    expect(await repo.listAchievementSprints()).toEqual([]);
+    expect(receiptQueryCount).toBe(2);
   });
 
   it("paginates timestamp ties without duplicates and filters before limiting", async () => {

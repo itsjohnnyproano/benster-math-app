@@ -43,6 +43,7 @@ export type HistoryPage = Readonly<{ records: SavedSprint[]; nextCursor: History
 const DATABASE_SCHEMA_VERSION = 5;
 const SPRINT_ID_PATTERN = /^[a-zA-Z0-9-]{1,128}$/;
 const SPRINT_MODE_SQL_LIST = SPRINT_MODES.map((mode) => `'${mode}'`).join(",");
+const ACHIEVEMENT_RECEIPT_BATCH_SIZE = 500;
 
 export function isValidSprintId(value: unknown): value is string {
   return typeof value === "string" && SPRINT_ID_PATTERN.test(value);
@@ -164,6 +165,8 @@ const MIGRATE_V3_TO_V4 = `
 `;
 
 type LegacyAchievementMigrationRow = Pick<ResultRow, "id" | "schema_version" | "mode" | "duration_seconds" | "completed_at_ms" | "result_json">;
+type CompactAchievementRow = Omit<ResultRow, "result_json">;
+type CachedAchievementSprint = Readonly<{ signature: string; sprint: AchievementSprint }>;
 
 async function migrateV4ToV5(database: ResultsDatabase) {
   await database.execAsync("BEGIN IMMEDIATE");
@@ -173,11 +176,18 @@ async function migrateV4ToV5(database: ResultsDatabase) {
       "SELECT id, schema_version, mode, duration_seconds, completed_at_ms, result_json FROM sprints", [],
     );
     for (const row of rows) {
-      const result = readStoredResult(row);
-      await database.runAsync(
-        "UPDATE sprints SET correct_count = ?, attempted_count = ? WHERE id = ?",
-        [result.correctCount, result.attemptedCount, row.id],
-      );
+      // A damaged legacy receipt must not prevent the schema upgrade or the
+      // device-wide reset path. Its nullable compact fields keep it out of
+      // achievement calculations while normal history reads still report it.
+      try {
+        const result = readStoredResult(row);
+        await database.runAsync(
+          "UPDATE sprints SET correct_count = ?, attempted_count = ? WHERE id = ?",
+          [result.correctCount, result.attemptedCount, row.id],
+        );
+      } catch {
+        // Leave corrupt legacy rows without compact achievement fields.
+      }
     }
     await database.execAsync("PRAGMA user_version = 5; COMMIT");
   } catch (error) {
@@ -230,14 +240,23 @@ function readResult(row: ResultRow): SavedSprint {
 
 function readAchievementSprint(row: ResultRow): AchievementSprint {
   const result = readStoredResult(row);
-  if (!isSprintMode(row.mode) || !isSprintDuration(row.duration_seconds) || !isCount(row.correct_count)
-    || !isCount(row.attempted_count) || row.correct_count > row.attempted_count
-    || row.correct_count !== result.correctCount || row.attempted_count !== result.attemptedCount) {
+  const achievement = readCompactAchievementSprint(row);
+  if (achievement.correctCount !== result.correctCount || achievement.attemptedCount !== result.attemptedCount) {
+    throw new Error("Invalid saved achievement counts");
+  }
+  return achievement;
+}
+
+function readCompactAchievementSprint(row: CompactAchievementRow): AchievementSprint {
+  if (row.schema_version !== RESULT_SCHEMA_VERSION || !isValidSprintId(row.id)
+    || !isValidTimestamp(row.completed_at_ms) || !isSprintMode(row.mode)
+    || !isSprintDuration(row.duration_seconds) || !isCount(row.correct_count)
+    || !isCount(row.attempted_count) || row.correct_count > row.attempted_count) {
     throw new Error("Invalid saved achievement counts");
   }
   checkBest(row.previous_best);
   const personalBest = calculatePersonalBest(
-    result, row.previous_best,
+    { correctCount: row.correct_count, attemptedCount: row.attempted_count }, row.previous_best,
   );
   if (personalBest.updated !== row.updated_best || personalBest.status !== row.best_status) {
     throw new Error("Invalid personal-best receipt");
@@ -247,10 +266,18 @@ function readAchievementSprint(row: ResultRow): AchievementSprint {
     completedAtMs: row.completed_at_ms,
     mode: row.mode,
     durationSeconds: row.duration_seconds,
-    correctCount: result.correctCount,
-    attemptedCount: result.attemptedCount,
+    correctCount: row.correct_count,
+    attemptedCount: row.attempted_count,
     personalBest,
   };
+}
+
+function achievementSignature(row: CompactAchievementRow) {
+  return JSON.stringify([
+    row.schema_version, row.mode, row.duration_seconds, row.completed_at_ms,
+    row.correct_count, row.attempted_count, row.previous_best, row.updated_best,
+    row.best_status,
+  ]);
 }
 
 function isCount(value: unknown): value is number {
@@ -260,6 +287,7 @@ function isCount(value: unknown): value is number {
 export function createResultsRepository(openDatabase: () => Promise<ResultsDatabase>) {
   let database: ResultsDatabase | null = null;
   let queue: Promise<unknown> = Promise.resolve();
+  const achievementCache = new Map<string, CachedAchievementSprint>();
 
   // This dedicated connection is private to this repository. Every read and
   // write is serialized so no query can accidentally join another transaction.
@@ -322,10 +350,43 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       if (!isValidLearnerId(learnerId)) return Promise.reject(new Error("Invalid learner ID"));
       return serialize(async () => {
         const db = await getDatabase();
-        const rows = await db.getAllAsync<ResultRow>(
-          "SELECT id, schema_version, mode, duration_seconds, completed_at_ms, result_json, correct_count, attempted_count, previous_best, updated_best, best_status FROM sprints WHERE learner_id = ? ORDER BY completed_at_ms, id", [learnerId],
+        const rows = await db.getAllAsync<CompactAchievementRow>(
+          "SELECT id, schema_version, mode, duration_seconds, completed_at_ms, correct_count, attempted_count, previous_best, updated_best, best_status FROM sprints WHERE learner_id = ? ORDER BY completed_at_ms, id", [learnerId],
         );
-        return rows.map(readAchievementSprint);
+        const uncached = rows.filter((row) => achievementCache.get(row.id)?.signature !== achievementSignature(row));
+        const receipts = new Map<string, ResultRow>();
+        for (let index = 0; index < uncached.length; index += ACHIEVEMENT_RECEIPT_BATCH_SIZE) {
+          const batch = uncached.slice(index, index + ACHIEVEMENT_RECEIPT_BATCH_SIZE);
+          const placeholders = batch.map(() => "?").join(", ");
+          const receiptRows = await db.getAllAsync<ResultRow>(
+            `SELECT id, schema_version, mode, duration_seconds, completed_at_ms, result_json, correct_count, attempted_count, previous_best, updated_best, best_status FROM sprints WHERE learner_id = ? AND id IN (${placeholders})`,
+            [learnerId, ...batch.map((row) => row.id)],
+          );
+          for (const row of receiptRows) receipts.set(row.id, row);
+        }
+
+        const records: AchievementSprint[] = [];
+        for (const row of rows) {
+          const signature = achievementSignature(row);
+          const cached = achievementCache.get(row.id);
+          if (cached?.signature === signature) {
+            records.push(cached.sprint);
+            continue;
+          }
+          try {
+            const receipt = receipts.get(row.id);
+            if (!receipt) throw new Error("Missing saved achievement receipt");
+            const sprint = readAchievementSprint(receipt);
+            achievementCache.set(row.id, { signature, sprint });
+            records.push(sprint);
+          } catch {
+            // Achievement summaries are optional views over local history. A
+            // damaged receipt is retained for normal history/recovery flows,
+            // but cannot alter or block the learner's badge calculations.
+            achievementCache.delete(row.id);
+          }
+        }
+        return records;
       });
     },
 
@@ -413,6 +474,7 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
             );
           }
           await db.execAsync("COMMIT");
+          achievementCache.delete(id);
           return { id, schemaVersion: RESULT_SCHEMA_VERSION, result: snapshot, personalBest };
         } catch (error) {
           try { await db.execAsync("ROLLBACK"); } catch {
@@ -466,6 +528,7 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
           await db.runAsync("DELETE FROM personal_bests WHERE learner_id = ?", [learnerId]);
           await db.runAsync("DELETE FROM sprints WHERE learner_id = ?", [learnerId]);
           await db.execAsync("COMMIT");
+          achievementCache.clear();
         } catch (error) {
           try {
             await db.execAsync("ROLLBACK");
@@ -485,6 +548,7 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
         try {
           await db.execAsync("DELETE FROM personal_bests; DELETE FROM sprints;");
           await db.execAsync("COMMIT");
+          achievementCache.clear();
         } catch (error) {
           try {
             await db.execAsync("ROLLBACK");
