@@ -5,7 +5,7 @@ import {
   type SprintResult,
 } from "./math-engine";
 import { isFactNumberLimit, isPracticeNumberRange, sanitizeFactTables, type FactTable } from "./practiceSelection";
-import { isCardLayout, isInputStyle, isSprintDuration, isSprintMode } from "./sprint";
+import { isCardLayout, isInputStyle, isSprintDuration, isSprintMode, type SprintConfiguration } from "./sprint";
 
 export const RESULT_SCHEMA_VERSION = 1;
 export const ENCOURAGEMENT_ACCURACY_THRESHOLD = 0.6;
@@ -24,7 +24,18 @@ export type SavedSprint = Readonly<{
   personalBest: PersonalBestChange;
 }>;
 
-export function calculatePersonalBest(result: SprintResult, previous: number | null): PersonalBestChange {
+/** The validated, minimal local record required to calculate achievements. */
+export type AchievementSprint = Readonly<{
+  id: string;
+  completedAtMs: number;
+  mode: SprintConfiguration["mode"];
+  durationSeconds: SprintConfiguration["durationSeconds"];
+  correctCount: number;
+  attemptedCount: number;
+  personalBest: PersonalBestChange;
+}>;
+
+export function calculatePersonalBest(result: Pick<SprintResult, "correctCount" | "attemptedCount">, previous: number | null): PersonalBestChange {
   if (result.attemptedCount === 0) return { previous, updated: previous, status: "ineligible" };
   if (previous === null) return { previous, updated: result.correctCount, status: "first" };
   return {

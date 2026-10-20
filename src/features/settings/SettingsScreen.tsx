@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import { useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { SymbolView } from "expo-symbols";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
@@ -150,7 +151,11 @@ export default function SettingsScreen() {
                     Choose who is practicing
                   </Text>
                 </View>
-                <Text style={styles.chevron}>›</Text>
+                <SymbolView
+                  name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }}
+                  size={24}
+                  tintColor={COLORS.secondary}
+                />
               </Pressable>
               <Text
                 accessibilityRole="header"
@@ -502,7 +507,6 @@ const styles = StyleSheet.create({
   profileName: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 18 },
   noBottomMargin: { marginBottom: 0 },
   nicknameSection: { marginTop: 18 },
-  chevron: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 32, lineHeight: 32 },
   input: {
     minHeight: 52,
     borderWidth: 1.5,
