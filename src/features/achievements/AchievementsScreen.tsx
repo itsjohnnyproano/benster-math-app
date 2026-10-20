@@ -21,7 +21,7 @@ import { ACHIEVEMENTS, ACHIEVEMENT_GROUPS, type AchievementGroupId, type Achieve
 import { usePreferences } from "@/providers/PreferencesProvider";
 import { useAnimatedValue } from "@/shared/useAnimatedValue";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
-import { achievementColumns } from "./achievementsLayout";
+import { achievementColumns, achievementDetailModalWidth } from "./achievementsLayout";
 import { useAchievements } from "./useAchievements";
 
 const BADGES: Record<AchievementId, number> = {
@@ -81,6 +81,7 @@ export default function AchievementsScreen() {
   const { coveredTabBarInset, isIpad } = useTabBarLayout();
   const { width, height, fontScale } = useWindowDimensions();
   const columns = achievementColumns(isIpad, width, height, fontScale);
+  const detailModalWidth = achievementDetailModalWidth(isIpad, width, height);
   const achievements = useAchievements(activeLearner.id);
   const [selectedGroupId, setSelectedGroupId] = useState<AchievementGroupId | null>(null);
   const [selected, setSelected] = useState<AchievementProgress | null>(null);
@@ -123,7 +124,7 @@ export default function AchievementsScreen() {
           ? <GroupBadges achievements={achievements.data.filter((achievement) => achievement.group === selectedGroup.id)} columns={columns} onSelect={setSelected} reduceMotionEnabled={reduceMotionEnabled} sourceFor={sourceFor} />
           : <AchievementGroupCards achievements={achievements.data} columns={columns} onSelect={openGroup} onPreload={preloadGroup} sourceFor={sourceFor} />)}
       </ScrollView>
-      <AchievementDetail achievement={selected} onClose={() => setSelected(null)} sourceFor={sourceFor} />
+      <AchievementDetail achievement={selected} onClose={() => setSelected(null)} sourceFor={sourceFor} width={detailModalWidth} />
     </SafeAreaView>
   );
 }
@@ -265,13 +266,13 @@ function AchievementTile({ achievement, columns, onPress, reduceMotionEnabled, s
   );
 }
 
-function AchievementDetail({ achievement, onClose, sourceFor }: { achievement: AchievementProgress | null; onClose: () => void; sourceFor: (id: AchievementId) => BadgeSource }) {
+function AchievementDetail({ achievement, onClose, sourceFor, width }: { achievement: AchievementProgress | null; onClose: () => void; sourceFor: (id: AchievementId) => BadgeSource; width?: number }) {
   if (!achievement) return null;
   const earned = achievement.earnedAtMs !== null;
   return (
     <Modal animationType="fade" transparent visible onRequestClose={onClose}>
       <Pressable accessibilityRole="button" accessibilityLabel="Close achievement details" onPress={onClose} style={styles.backdrop}>
-        <Pressable accessibilityViewIsModal onPress={(event) => event.stopPropagation()} style={[styles.detail, CARD_SHADOW]}>
+        <Pressable accessibilityViewIsModal onPress={(event) => event.stopPropagation()} style={[styles.detail, CARD_SHADOW, width !== undefined && { width, alignSelf: "center" }]}>
           <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.detailBadge, !earned && styles.lockedBadge]} />
           <Text accessibilityRole="header" style={styles.detailTitle}>{achievement.title}</Text>
           <Text style={styles.detailBody}>{achievement.description}</Text>
@@ -350,7 +351,7 @@ const styles = StyleSheet.create({
   stateBody: { fontFamily: "NunitoSans_600SemiBold", color: COLORS.secondary, fontSize: 14, lineHeight: 20, textAlign: "center" },
   retry: { minHeight: 44, paddingHorizontal: 18, marginTop: 4, justifyContent: "center" },
   retryText: { fontFamily: "NunitoSans_700Bold", color: COLORS.primary, fontSize: 16 },
-  backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(16,24,39,0.38)", padding: 16 },
+  backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(16,24,39,0.38)", padding: 16, paddingBottom: 36 },
   detail: { borderRadius: 28, backgroundColor: COLORS.card, alignItems: "center", padding: 24, gap: 8 },
   detailBadge: { width: 156, height: 156 },
   detailTitle: { fontFamily: "NunitoSans_700Bold", fontSize: 25, color: COLORS.ink, textAlign: "center" },
