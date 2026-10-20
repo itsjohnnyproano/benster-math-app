@@ -1,11 +1,11 @@
 # Achievement roadmap
 
-Benster launches with 25 achievements. The next update should expand the
-catalogue to 100 total achievements, adding the 75 non-holiday achievements
+Benster launches with 40 achievements. A future update should expand the
+catalogue to 100 total achievements, adding the 60 non-holiday achievements
 below. Thresholds are product proposals and should be calibrated against
 launch-player data before implementation.
 
-## Launch catalogue (1–25)
+## Launch catalogue (1–40)
 
 1. First Step — practice on 1 day
 2. Back Again — practice 2 consecutive days
@@ -33,8 +33,6 @@ launch-player data before implementation.
 24. Personal Best — beat a previous correct-answer record
 25. Hundred Correct — 100 correct answers across completed sprints
 
-## Next update catalogue (26–100)
-
 ### Consistency
 
 26. Ten-Day Trail — practice 10 consecutive days
@@ -55,6 +53,8 @@ launch-player data before implementation.
 38. Sprint Legend — complete 250 sprints
 39. Sprint Elite — complete 500 sprints
 40. Sprint Hall of Fame — complete 1,000 sprints
+
+## Future catalogue (41–100)
 
 ### Accuracy and speed
 

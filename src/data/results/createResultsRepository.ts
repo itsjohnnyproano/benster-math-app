@@ -228,16 +228,16 @@ function readResult(row: ResultRow): SavedSprint {
   return { id: row.id, schemaVersion: RESULT_SCHEMA_VERSION, result, personalBest };
 }
 
-function readAchievementSprint(row: Omit<ResultRow, "result_json">): AchievementSprint {
-  if (row.schema_version !== RESULT_SCHEMA_VERSION || !isValidSprintId(row.id)
-    || !isSprintMode(row.mode) || !isSprintDuration(row.duration_seconds)
-    || !isValidTimestamp(row.completed_at_ms) || !isCount(row.correct_count)
-    || !isCount(row.attempted_count) || row.correct_count > row.attempted_count) {
-    throw new Error("Invalid saved achievement record");
+function readAchievementSprint(row: ResultRow): AchievementSprint {
+  const result = readStoredResult(row);
+  if (!isSprintMode(row.mode) || !isSprintDuration(row.duration_seconds) || !isCount(row.correct_count)
+    || !isCount(row.attempted_count) || row.correct_count > row.attempted_count
+    || row.correct_count !== result.correctCount || row.attempted_count !== result.attemptedCount) {
+    throw new Error("Invalid saved achievement counts");
   }
   checkBest(row.previous_best);
   const personalBest = calculatePersonalBest(
-    { correctCount: row.correct_count, attemptedCount: row.attempted_count }, row.previous_best,
+    result, row.previous_best,
   );
   if (personalBest.updated !== row.updated_best || personalBest.status !== row.best_status) {
     throw new Error("Invalid personal-best receipt");
@@ -247,8 +247,8 @@ function readAchievementSprint(row: Omit<ResultRow, "result_json">): Achievement
     completedAtMs: row.completed_at_ms,
     mode: row.mode,
     durationSeconds: row.duration_seconds,
-    correctCount: row.correct_count,
-    attemptedCount: row.attempted_count,
+    correctCount: result.correctCount,
+    attemptedCount: result.attemptedCount,
     personalBest,
   };
 }
@@ -322,8 +322,8 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       if (!isValidLearnerId(learnerId)) return Promise.reject(new Error("Invalid learner ID"));
       return serialize(async () => {
         const db = await getDatabase();
-        const rows = await db.getAllAsync<Omit<ResultRow, "result_json">>(
-          "SELECT id, schema_version, mode, duration_seconds, completed_at_ms, correct_count, attempted_count, previous_best, updated_best, best_status FROM sprints WHERE learner_id = ? ORDER BY completed_at_ms, id", [learnerId],
+        const rows = await db.getAllAsync<ResultRow>(
+          "SELECT id, schema_version, mode, duration_seconds, completed_at_ms, result_json, correct_count, attempted_count, previous_best, updated_best, best_status FROM sprints WHERE learner_id = ? ORDER BY completed_at_ms, id", [learnerId],
         );
         return rows.map(readAchievementSprint);
       });

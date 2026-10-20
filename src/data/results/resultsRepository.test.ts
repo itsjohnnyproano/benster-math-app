@@ -128,6 +128,9 @@ describe("SQLite results repository", () => {
 
     expect((await repo.listAchievementSprints("learner-a")).map((record) => record.id)).toEqual(["first", "later"]);
     expect((await repo.listAchievementSprints("learner-b")).map((record) => record.id)).toEqual(["other"]);
+    db.exec("UPDATE sprints SET correct_count = 4, updated_best = 4 WHERE id = 'first'");
+    await expect(repo.listAchievementSprints("learner-a")).rejects.toThrow("Invalid saved achievement counts");
+    db.exec("UPDATE sprints SET correct_count = 3, updated_best = 3 WHERE id = 'first'");
     db.exec("UPDATE sprints SET best_status = 'invalid' WHERE id = 'first'");
     await expect(repo.listAchievementSprints("learner-a")).rejects.toThrow("Invalid personal-best receipt");
   });
