@@ -5,7 +5,10 @@ import type { SprintConfiguration } from "@/domain/sprint";
 import { generateQuestion } from "./questionGenerator";
 import {
   createSprint,
+  getSprintMilestone,
   LEVEL_UP_STREAK_THRESHOLD,
+  MATH_MASTER_STREAK_THRESHOLD,
+  ON_FIRE_STREAK_THRESHOLD,
   submitAnswer,
   tickSprint,
 } from "./sprintEngine";
@@ -352,6 +355,14 @@ describe("sprint state", () => {
       ) as typeof state;
     }
     expect(state.difficultyLevel).toBe(1);
+  });
+
+  it("celebrates a level-up, then mastery streaks at the top difficulty", () => {
+    expect(getSprintMilestone(1, 2, LEVEL_UP_STREAK_THRESHOLD)).toEqual({ kind: "level-up", level: 2 });
+    expect(getSprintMilestone(4, 4, ON_FIRE_STREAK_THRESHOLD)).toEqual({ kind: "on-fire" });
+    expect(getSprintMilestone(4, 4, MATH_MASTER_STREAK_THRESHOLD)).toEqual({ kind: "math-master" });
+    expect(getSprintMilestone(3, 3, ON_FIRE_STREAK_THRESHOLD)).toBeNull();
+    expect(getSprintMilestone(4, 4, ON_FIRE_STREAK_THRESHOLD + 1)).toBeNull();
   });
 
   it("does not count the visible unanswered question when time expires", () => {
