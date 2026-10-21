@@ -76,23 +76,6 @@ const BADGE_IMAGE_PROPS = {
   transition: null,
 };
 
-// Temporary visual QA for the repeat-count chip. This code is removed from
-// production bundles because __DEV__ is false there. Set to false after review.
-const SHOW_DEVELOPMENT_REPEAT_COUNT_PREVIEW = __DEV__ && true;
-
-function withDevelopmentRepeatCountPreview(achievements: AchievementProgress[]) {
-  if (!SHOW_DEVELOPMENT_REPEAT_COUNT_PREVIEW) return achievements;
-
-  return achievements.map((achievement) => achievement.id === "high-five"
-    ? {
-        ...achievement,
-        current: Math.max(achievement.current, achievement.target),
-        earnedAtMs: achievement.earnedAtMs ?? Date.now(),
-        earnedCount: Math.max(achievement.earnedCount, 2),
-      }
-    : achievement);
-}
-
 export default function AchievementsScreen() {
   const router = useRouter();
   const { activeLearner } = usePreferences();
@@ -101,9 +84,6 @@ export default function AchievementsScreen() {
   const columns = achievementColumns(isIpad, width, height, fontScale);
   const detailModalWidth = achievementDetailModalWidth(isIpad, width, height);
   const achievements = useAchievements(activeLearner.id);
-  const displayedAchievements = achievements.status === "ready"
-    ? withDevelopmentRepeatCountPreview(achievements.data)
-    : [];
   const [selectedGroupId, setSelectedGroupId] = useState<AchievementGroupId | null>(null);
   const [selected, setSelected] = useState<AchievementProgress | null>(null);
   const reduceMotionEnabled = useReduceMotionEnabled();
@@ -129,7 +109,7 @@ export default function AchievementsScreen() {
               <Text accessibilityRole="header" style={[styles.title, isIpad && styles.tabletTitle]}>Achievements</Text>
               <Text style={[styles.subtitle, isIpad && styles.tabletSubtitle]}>Every sprint tells a story.</Text>
             </View>
-            {achievements.status === "ready" && <View style={styles.countPill}><Text style={styles.countText}>{displayedAchievements.filter((item) => item.earnedAtMs !== null).length} / {ACHIEVEMENTS.length}</Text></View>}
+            {achievements.status === "ready" && <View style={styles.countPill}><Text style={styles.countText}>{achievements.data.filter((item) => item.earnedAtMs !== null).length} / {ACHIEVEMENTS.length}</Text></View>}
           </View>
 
           <Pressable accessibilityRole="button" accessibilityLabel="Open practice streak" onPress={() => router.push("/streak")} style={({ pressed }) => [styles.streakPill, pressed && styles.pressed]}>
@@ -142,8 +122,8 @@ export default function AchievementsScreen() {
         {achievements.status === "loading" && <State icon="hourglass" title="Loading your badges…" body="Checking your practice on this device." />}
         {achievements.status === "error" && <State icon="exclamationmark.circle" title="Couldn’t load achievements" body="Your saved sprints haven’t been changed." actionLabel="Try again" onAction={achievements.retry} />}
         {achievements.status === "ready" && (selectedGroup
-          ? <GroupBadges achievements={displayedAchievements.filter((achievement) => achievement.group === selectedGroup.id)} columns={columns} onSelect={setSelected} reduceMotionEnabled={reduceMotionEnabled} sourceFor={sourceFor} />
-          : <AchievementGroupCards achievements={displayedAchievements} columns={columns} onSelect={openGroup} onPreload={preloadGroup} sourceFor={sourceFor} />)}
+          ? <GroupBadges achievements={achievements.data.filter((achievement) => achievement.group === selectedGroup.id)} columns={columns} onSelect={setSelected} reduceMotionEnabled={reduceMotionEnabled} sourceFor={sourceFor} />
+          : <AchievementGroupCards achievements={achievements.data} columns={columns} onSelect={openGroup} onPreload={preloadGroup} sourceFor={sourceFor} />)}
       </ScrollView>
       <AchievementDetail achievement={selected} onClose={() => setSelected(null)} reduceMotionEnabled={reduceMotionEnabled} sourceFor={sourceFor} width={detailModalWidth} />
     </SafeAreaView>

@@ -4,7 +4,7 @@
 
 1. Confirm the requested outcome and whether design changes are authorized.
 2. Inspect the current branch, worktree, relevant tests, and nearby architecture.
-3. Check the exact Expo SDK 57 documentation when the task touches Expo, native configuration, routing, builds, or supported devices.
+3. Check the exact Expo SDK 58 documentation when the task touches Expo, native configuration, routing, builds, or supported devices.
 4. Identify persistence compatibility, privacy implications, and device-only behavior before editing.
 
 ## During implementation
@@ -40,7 +40,7 @@ Choose **Review uncommitted changes** for a completed feature, bug fix, refactor
 
 Use this custom review instruction:
 
-> Review these uncommitted changes as a senior React Native, Expo, and application-security engineer. Do not modify any files. Focus on correctness, regressions, state management, async lifecycle, data loss, privacy, security, accessibility, iPhone and iPad layouts, Expo SDK 57 compatibility, and missing tests. Rank findings by severity and include exact file and line references. Ignore minor style preferences unless they create a genuine maintenance risk. Distinguish verified defects from speculative risks.
+> Review these uncommitted changes as a senior React Native, Expo, and application-security engineer. Do not modify any files. Focus on correctness, regressions, state management, async lifecycle, data loss, privacy, security, accessibility, iPhone and iPad layouts, Expo SDK 58 compatibility, and missing tests. Rank findings by severity and include exact file and line references. Ignore minor style preferences unless they create a genuine maintenance risk. Distinguish verified defects from speculative risks.
 
 Review uncommitted changes only after the implementation diff is coherent and its focused tests pass; otherwise the reviewer spends time reporting known unfinished work.
 
@@ -48,7 +48,7 @@ Review uncommitted changes only after the implementation diff is coherent and it
 
 Choose **Review against a base branch** and select `main`. Use this after the feature has been committed to its branch and before merging a substantial feature, creating a release candidate, or uploading a TestFlight build:
 
-> Review this branch against `main` as a release-blocking pull request. Do not modify files. Report only actionable bugs, regressions, privacy or security risks, data-loss risks, accessibility problems, Expo SDK 57 incompatibilities, and important missing tests. Rank findings by severity and include exact file and line references. Distinguish verified defects from speculative risks.
+> Review this branch against `main` as a release-blocking pull request. Do not modify files. Report only actionable bugs, regressions, privacy or security risks, data-loss risks, accessibility problems, Expo SDK 58 incompatibilities, and important missing tests. Rank findings by severity and include exact file and line references. Distinguish verified defects from speculative risks.
 
 ### Handling findings
 
@@ -64,11 +64,10 @@ Use a separate security-focused audit before the first external TestFlight relea
 
 ### Web preview and SQLite
 
-Benster uses `web.output: "single"` (client-rendered SPA). With SDK 57,
-`static` output reproduced a development-server error: `Worker chunk not found`
-for `expo-sqlite/web/worker.ts`, even though production export succeeded.
-Keep the single-page setting unless static rendering is deliberately reintroduced
-and tested with SQLite in both development and production. This does not change
+Benster uses `web.output: "single"` (a client-rendered SPA). Keep the
+single-page setting unless static or server rendering is deliberately introduced
+and tested with SQLite in both development and production. The SDK 58 SQLite web
+setup requires WebAssembly support and COOP/COEP headers. This does not change
 native iPhone/iPad layouts or the separate benster.app marketing website.
 
 After package or Metro configuration updates, stop existing Expo servers and run
@@ -81,7 +80,7 @@ COOP/COEP headers required by Expo SQLite. Do not treat an export-only check as
 browser runtime verification. Verify onboarding, database-backed screens, and
 direct route reloads in a browser too.
 
-References: [SDK 57 web output](https://docs.expo.dev/versions/v57.0.0/config/app/#output)
-and [SDK 57 SQLite web setup](https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/#web-setup).
+References: [SDK 58 web output](https://docs.expo.dev/versions/v58.0.0/config/app/#web-output)
+and [SDK 58 SQLite web setup](https://docs.expo.dev/versions/v58.0.0/sdk/sqlite/#web-setup).
 
 Summarize what changed, where, why, and what was verified. State remaining manual checks explicitly. Commit only after the user has reviewed the result or requested the commit; push, pull, merge, and release actions require separate user direction.
