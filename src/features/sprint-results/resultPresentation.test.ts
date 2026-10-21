@@ -9,12 +9,12 @@ describe("result presentation", () => {
     expect(getResultPresentation(makeResult(3, 3))).toMatchObject({
       mascot: "thumbs-up",
       title: "Perfect Start!",
-      message: "3 for 3 correct! Answer 7 more to earn a Perfect Sprint.",
+      message: "3 for 3 correct! Get at least 10 answers correct with no mistakes in your next sprint to earn a Perfect Sprint.",
     });
     expect(getResultPresentation(makeResult(5, 5))).toMatchObject({
       mascot: "thumbs-up",
       title: "Perfect Start!",
-      message: "5 for 5 correct! Answer 5 more to earn a Perfect Sprint.",
+      message: "5 for 5 correct! Get at least 10 answers correct with no mistakes in your next sprint to earn a Perfect Sprint.",
     });
   });
 

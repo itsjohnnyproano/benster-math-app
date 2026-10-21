@@ -33,7 +33,7 @@ const RESULT_PRESENTATION: Record<ResultOutcome, ResultPresentation> = {
   "perfect-start": {
     mascot: "thumbs-up",
     title: "Perfect Start!",
-    message: ({ correctCount, attemptedCount }) => `${correctCount} for ${attemptedCount} correct! Answer ${10 - attemptedCount} more to earn a Perfect Sprint.`,
+    message: ({ correctCount, attemptedCount }) => `${correctCount} for ${attemptedCount} correct! Get at least 10 answers correct with no mistakes in your next sprint to earn a Perfect Sprint.`,
   },
   "solid-work": {
     mascot: "thumbs-up",

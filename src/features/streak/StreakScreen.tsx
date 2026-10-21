@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
-import type { PropsWithChildren } from "react";
+import { useState, type PropsWithChildren } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
@@ -13,13 +13,12 @@ import { getStreakLayout } from "./streakLayout";
 
 const CELEBRATING_PENGUIN = require("../../../assets/mascot/penguin-jumping-celebration-confetti.png");
 const SLEEPING_PENGUIN = require("../../../assets/mascot/penguin-sleeping-z-running-shoes.png");
-const STICKY_ACTION_HEIGHT = 80;
-
 export default function StreakScreen() {
   const { activeLearner } = usePreferences();
   const router = useRouter();
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const [stickyActionHeight, setStickyActionHeight] = useState(0);
   const { tablet, twoColumn, maxWidth } = getStreakLayout(width, height, Platform.OS, fontScale);
   const streak = usePracticeStreak(activeLearner.id);
   const showStickyPracticeButton = !twoColumn && streak.status === "ready";
@@ -44,7 +43,7 @@ export default function StreakScreen() {
     <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="dark" />
-      <ScrollView bounces={!twoColumn} alwaysBounceVertical={!twoColumn} contentContainerStyle={[styles.content, { maxWidth, paddingBottom: showStickyPracticeButton ? STICKY_ACTION_HEIGHT + insets.bottom + 20 : 24 }, tablet && styles.tabletContent]} showsVerticalScrollIndicator={false}>
+      <ScrollView bounces={!twoColumn} alwaysBounceVertical={!twoColumn} contentContainerStyle={[styles.content, { maxWidth, paddingBottom: showStickyPracticeButton ? stickyActionHeight + 20 : 24 }, tablet && styles.tabletContent]} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} style={styles.back}>
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={22} tintColor={COLORS.ink} />
@@ -104,7 +103,7 @@ export default function StreakScreen() {
         {(!twoColumn || streak.status !== "ready") && !showStickyPracticeButton && practiceButton}
       </ScrollView>
       {showStickyPracticeButton && (
-        <View style={[styles.stickyAction, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View onLayout={({ nativeEvent }) => setStickyActionHeight(nativeEvent.layout.height)} style={[styles.stickyAction, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <View style={[styles.stickyActionContent, { maxWidth }]}>{practiceButton}</View>
         </View>
       )}
