@@ -1,12 +1,30 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { SymbolView } from "expo-symbols";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SPRINT_MODE_DETAILS } from "@/config/sprintModeDetails";
-import { ONBOARDING_GOAL_DETAILS } from "@/config/onboardingGoals";
-import { createSprint, getRemainingMs, submitAnswer, tickSprint, type SprintState } from "@/domain/math-engine";
+import {
+  createSprint,
+  getRemainingMs,
+  getSprintMilestone,
+  submitAnswer,
+  tickSprint,
+  type SprintMilestone,
+  type SprintState,
+} from "@/domain/math-engine";
 import { createLocalSprintId } from "@/domain/results";
 import { parseFactNumberLimit, parseFactTables, parsePracticeNumberRange } from "@/domain/practiceSelection";
 import {
@@ -17,6 +35,7 @@ import {
   type SprintConfiguration,
 } from "@/domain/sprint";
 import { SprintResultsScreen } from "@/features/sprint-results/SprintResultsScreen";
+import { useAnimatedValue } from "@/shared/useAnimatedValue";
 import { getAdaptiveLayout } from "@/shared/responsiveLayout";
 import { COLORS } from "@/theme/tokens";
 import { usePreferences } from "@/providers/PreferencesProvider";
@@ -34,10 +53,31 @@ import type { AnswerFeedback } from "./types";
 import { hasPendingFirstResultCelebration } from "@/domain/subscription";
 
 const FEEDBACK_DURATION_MS = 650;
-const LEVEL_UP_NOTICE_DURATION_MS = 1_800;
+const SPRINT_MILESTONE_DURATION_MS = 1_800;
 
 function readBoolean(value: string | undefined) {
   return value === "true";
+}
+
+function useReduceMotionEnabled() {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((value) => {
+        if (active) setEnabled(value);
+      })
+      .catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setEnabled);
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return enabled;
 }
 
 export default function SprintPlayScreen() {
@@ -80,15 +120,17 @@ export default function SprintPlayScreen() {
   const [remainingMs, setRemainingMs] = useState(configuration.durationSeconds * 1000);
   const [typedAnswer, setTypedAnswer] = useState("");
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null);
-  const [levelUpNotice, setLevelUpNotice] = useState<string | null>(null);
+  const [sprintMilestone, setSprintMilestone] = useState<SprintMilestone | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const levelUpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const milestoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const levelUpAnimation = useAnimatedValue(0);
   const submissionLockedRef = useRef(false);
   const clockRef = useRef<ReturnType<typeof createSprintClock> | null>(null);
   const modeDetails = SPRINT_MODE_DETAILS[configuration.mode];
   const adaptiveLayout = Platform.OS === "ios" ? getAdaptiveLayout(window.width, window.height) : "phone";
   const isIpad = adaptiveLayout !== "phone";
   const isLandscapeIpad = adaptiveLayout === "tablet-landscape";
+  const reduceMotionEnabled = useReduceMotionEnabled();
   const layout = getGameplayLayout(
     measuredHeight ?? window.height - insets.top - insets.bottom,
     configuration.inputStyle,
@@ -107,6 +149,22 @@ export default function SprintPlayScreen() {
   });
   const shouldResumePendingCelebration = pendingFirstResultCelebration && sprintState?.status !== "completed";
   const canStartCountdown = canStartSprintCountdown({ subscriptionCheckPending, requiresPremium });
+  const milestoneCopy = sprintMilestone === null
+    ? null
+    : sprintMilestone.kind === "level-up"
+      ? {
+          accessibilityLabel: `Level up! You reached level ${sprintMilestone.level}.`,
+          label: `Level ${sprintMilestone.level}`,
+        }
+      : sprintMilestone.kind === "on-fire"
+        ? {
+            accessibilityLabel: "On fire! Twenty correct answers in a row.",
+            label: "On Fire!",
+          }
+        : {
+            accessibilityLabel: "Math Master! Thirty correct answers in a row.",
+            label: "Math Master!",
+          };
 
   useEffect(() => {
     if (!canStartCountdown || shouldResumePendingCelebration || countdown <= 0) return;
@@ -141,9 +199,10 @@ export default function SprintPlayScreen() {
   useEffect(
     () => () => {
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-      if (levelUpTimeoutRef.current) clearTimeout(levelUpTimeoutRef.current);
+      if (milestoneTimeoutRef.current) clearTimeout(milestoneTimeoutRef.current);
+      levelUpAnimation.stopAnimation();
     },
-    []
+    [levelUpAnimation]
   );
 
   useEffect(() => {
@@ -183,20 +242,40 @@ export default function SprintPlayScreen() {
           nextQuestionPresentedAtMs
         );
         setSprintState(nextState);
-        if (
-          nextState.status === "active"
-          && nextState.difficultyLevel > sprintState.difficultyLevel
-        ) {
-          if (levelUpTimeoutRef.current) clearTimeout(levelUpTimeoutRef.current);
-          setLevelUpNotice(
-            preferences.onboardingGoal
-              ? ONBOARDING_GOAL_DETAILS[preferences.onboardingGoal].levelUpMessage
-              : "The next questions are a little harder."
-          );
-          levelUpTimeoutRef.current = setTimeout(() => {
-            setLevelUpNotice(null);
-            levelUpTimeoutRef.current = null;
-          }, LEVEL_UP_NOTICE_DURATION_MS);
+        const milestone = nextState.status === "active"
+          ? getSprintMilestone(
+              sprintState.difficultyLevel,
+              nextState.difficultyLevel,
+              nextState.currentStreak,
+            )
+          : null;
+        if (milestone) {
+          if (milestoneTimeoutRef.current) clearTimeout(milestoneTimeoutRef.current);
+          levelUpAnimation.stopAnimation();
+          levelUpAnimation.setValue(0);
+          setSprintMilestone(milestone);
+          if (reduceMotionEnabled) {
+            levelUpAnimation.setValue(1);
+          } else {
+            Animated.sequence([
+              Animated.spring(levelUpAnimation, {
+                toValue: 1,
+                useNativeDriver: true,
+                speed: 20,
+                bounciness: 12,
+              }),
+              Animated.delay(950),
+              Animated.timing(levelUpAnimation, {
+                toValue: 0,
+                duration: 220,
+                useNativeDriver: true,
+              }),
+            ]).start();
+          }
+          milestoneTimeoutRef.current = setTimeout(() => {
+            setSprintMilestone(null);
+            milestoneTimeoutRef.current = null;
+          }, SPRINT_MILESTONE_DURATION_MS);
         }
         setTypedAnswer("");
         setFeedback(null);
@@ -204,14 +283,15 @@ export default function SprintPlayScreen() {
         feedbackTimeoutRef.current = null;
       }, FEEDBACK_DURATION_MS);
     },
-    [preferences.onboardingGoal, sprintState]
+    [levelUpAnimation, reduceMotionEnabled, sprintState]
   );
 
   const leaveSprint = () => {
     if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-    if (levelUpTimeoutRef.current) clearTimeout(levelUpTimeoutRef.current);
+    if (milestoneTimeoutRef.current) clearTimeout(milestoneTimeoutRef.current);
     feedbackTimeoutRef.current = null;
-    levelUpTimeoutRef.current = null;
+    milestoneTimeoutRef.current = null;
+    levelUpAnimation.stopAnimation();
     submissionLockedRef.current = false;
     // Onboarding replaces its route with the sprint, so it has no previous
     // navigator entry to pop. A root replacement also works for later sprints.
@@ -343,11 +423,56 @@ export default function SprintPlayScreen() {
             Level {sprintState.difficultyLevel}
             {configuration.levelUpEnabled ? " · Level Up on" : ""}
           </Text>
-          {levelUpNotice && (
-            <View accessibilityLiveRegion="polite" style={styles.levelUpToast}>
-              <Text style={styles.levelUpToastTitle}>Level Up!</Text>
-              <Text style={styles.levelUpToastBody}>{levelUpNotice}</Text>
-            </View>
+          {sprintMilestone !== null && milestoneCopy !== null && (
+            <Animated.View
+              accessible
+              accessibilityLabel={milestoneCopy.accessibilityLabel}
+              accessibilityLiveRegion="polite"
+              pointerEvents="none"
+              style={[
+                styles.levelUpCelebration,
+                {
+                  opacity: levelUpAnimation,
+                  transform: [
+                    {
+                      scale: levelUpAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.7, 1],
+                      }),
+                    },
+                    {
+                      translateY: levelUpAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-10, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={[styles.levelUpMedallion, sprintMilestone.kind === "on-fire" && styles.onFireMedallion]}>
+                {sprintMilestone.kind === "on-fire" ? (
+                  <SymbolView
+                    name={{ ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }}
+                    size={27}
+                    tintColor="#FFD552"
+                  />
+                ) : sprintMilestone.kind === "math-master" ? (
+                  <SymbolView
+                    name={{ ios: "star.fill", android: "star", web: "star" }}
+                    size={26}
+                    tintColor="#FFD552"
+                  />
+                ) : (
+                  <SymbolView
+                    name={{ ios: "bolt.fill", android: "bolt", web: "bolt" }}
+                    size={27}
+                    tintColor="#FFD552"
+                  />
+                )}
+              </View>
+              <Text style={styles.levelUpLabel}>{milestoneCopy.label}</Text>
+            </Animated.View>
           )}
         </View>
       </View>
@@ -378,22 +503,38 @@ const styles = StyleSheet.create({
   // Let the keypad reach the safe-area edges without widening the header.
   playArea: { flex: 1, marginHorizontal: -24 },
   subscriptionLoading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  levelUpToast: {
+  levelUpCelebration: {
     position: "absolute",
     zIndex: 1,
-    top: 14,
-    left: 36,
-    right: 36,
+    top: 12,
+    alignSelf: "center",
     alignItems: "center",
-    borderRadius: 16,
-    backgroundColor: "#FFF2CC",
-    borderWidth: 1,
-    borderColor: "#F5C95F",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
   },
-  levelUpToastTitle: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 16, lineHeight: 21 },
-  levelUpToastBody: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 13, lineHeight: 18, textAlign: "center", marginTop: 1 },
+  levelUpMedallion: {
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 26,
+    backgroundColor: COLORS.primary,
+    borderWidth: 2,
+    borderColor: "#FFD552",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  onFireMedallion: { backgroundColor: COLORS.orange },
+  levelUpLabel: {
+    marginTop: 3,
+    color: COLORS.primary,
+    fontFamily: "NunitoSans_800ExtraBold",
+    fontSize: 12,
+    letterSpacing: 0.6,
+    lineHeight: 16,
+    textTransform: "uppercase",
+  },
   questionArea: { flex: 1, minHeight: 0, alignItems: "center", justifyContent: "center" },
   prompt: {
     color: COLORS.secondary,

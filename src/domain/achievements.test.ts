@@ -38,6 +38,21 @@ describe("calculateAchievements", () => {
     expect(badges.find((badge) => badge.id === "personal-best")).toMatchObject({ earnedCount: 2, earnedAtMs: returnOne.completedAtMs });
   });
 
+  it("counts each completed recurring challenge without repeating lifetime milestones", () => {
+    const firstDay = Date.UTC(2026, 0, 1);
+    const records = [
+      saved("sharp-one", firstDay, 18, 20),
+      saved("double-one", firstDay + 1_000, 3, 5),
+      saved("sharp-two", firstDay + 86_400_000, 19, 20),
+      saved("double-two", firstDay + 86_401_000, 3, 5),
+    ];
+    const badges = calculateAchievements(records);
+
+    expect(badges.find((badge) => badge.id === "sharp-shooter")).toMatchObject({ earnedCount: 2 });
+    expect(badges.find((badge) => badge.id === "daily-double")).toMatchObject({ earnedCount: 2 });
+    expect(badges.find((badge) => badge.id === "first-sprint")).toMatchObject({ earnedCount: 1 });
+  });
+
   it("does not award Personal Best for a small sprint", () => {
     const early = { ...saved("early", Date.UTC(2026, 0, 1), 2, MIN_ATTEMPTS_FOR_PERSONAL_BEST_ACHIEVEMENT - 1), personalBest: { previous: 1, updated: 2, status: "new" as const } };
     const qualifying = { ...saved("qualifying", Date.UTC(2026, 0, 2), 3, MIN_ATTEMPTS_FOR_PERSONAL_BEST_ACHIEVEMENT), personalBest: { previous: 2, updated: 3, status: "new" as const } };
@@ -54,7 +69,7 @@ describe("calculateAchievements", () => {
     const badges = calculateAchievements(records);
 
     expect(badges.find((badge) => badge.id === "ten-day-trail")).toMatchObject({ earnedAtMs: records.at(-1)?.completedAtMs });
-    expect(badges.find((badge) => badge.id === "weekend-warrior")).toMatchObject({ current: 1, earnedAtMs: records[2].completedAtMs });
+    expect(badges.find((badge) => badge.id === "weekend-warrior")).toMatchObject({ current: 2, earnedCount: 2, earnedAtMs: records[2].completedAtMs });
     expect(badges.find((badge) => badge.id === "daily-double")).toMatchObject({ current: 2, earnedAtMs: records[1].completedAtMs });
     expect(badges.find((badge) => badge.id === "steady-starter")).toMatchObject({ current: 10, earnedAtMs: records.at(-1)?.completedAtMs });
   });

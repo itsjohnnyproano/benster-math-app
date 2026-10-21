@@ -11,7 +11,29 @@ import type {
 } from "./types";
 
 export const LEVEL_UP_STREAK_THRESHOLD = 5;
-const MAX_DIFFICULTY_LEVEL: DifficultyLevel = 4;
+export const MAX_DIFFICULTY_LEVEL: DifficultyLevel = 4;
+export const ON_FIRE_STREAK_THRESHOLD = 20;
+export const MATH_MASTER_STREAK_THRESHOLD = 30;
+
+export type SprintMilestone =
+  | Readonly<{ kind: "level-up"; level: DifficultyLevel }>
+  | Readonly<{ kind: "on-fire" }>
+  | Readonly<{ kind: "math-master" }>;
+
+export function getSprintMilestone(
+  previousDifficultyLevel: DifficultyLevel,
+  difficultyLevel: DifficultyLevel,
+  currentStreak: number,
+): SprintMilestone | null {
+  if (difficultyLevel > previousDifficultyLevel) {
+    return Object.freeze({ kind: "level-up", level: difficultyLevel });
+  }
+  if (difficultyLevel !== MAX_DIFFICULTY_LEVEL) return null;
+  if (currentStreak === ON_FIRE_STREAK_THRESHOLD) return Object.freeze({ kind: "on-fire" });
+  if (currentStreak === MATH_MASTER_STREAK_THRESHOLD) return Object.freeze({ kind: "math-master" });
+
+  return null;
+}
 
 function createResult(state: ActiveSprintState, completedAtMs: number): SprintResult {
   return Object.freeze({

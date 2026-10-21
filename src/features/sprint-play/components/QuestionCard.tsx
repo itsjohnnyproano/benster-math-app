@@ -29,8 +29,11 @@ export function QuestionCard({
   const leftDigits = String(question.leftOperand).length;
   const rightDigits = String(question.rightOperand).length;
   const digitCount = isVertical ? Math.max(leftDigits, rightDigits) : leftDigits + rightDigits;
-  // Reserve padding, operator width, and gaps even for equations like 100 + 100.
-  const widthLimit = (cardWidth - 64) / (digitCount * 0.65 + 0.8);
+  // A vertical equation has a dedicated numeral column. Size its digits to the
+  // answer line rather than letting the operator consume that column's width.
+  const widthLimit = isVertical
+    ? verticalLineWidth / (digitCount * 0.72)
+    : (cardWidth - 64) / (digitCount * 0.65 + 0.8);
   const fontSize = Math.min(maxFontSize, widthLimit, Math.max(24, (height - 20) / 2.6));
   const numberStyle = { fontSize, lineHeight: fontSize * 1.15 };
   const operatorStyle = { fontSize: fontSize * 0.8, lineHeight: fontSize * 1.15 };
@@ -49,8 +52,18 @@ export function QuestionCard({
         <View style={[styles.verticalProblem, { width: verticalLineWidth }]}>
           <Text maxFontSizeMultiplier={1} style={[styles.verticalNumber, numberStyle]}>{question.leftOperand}</Text>
           <View style={styles.verticalSecondRow}>
-            <Text maxFontSizeMultiplier={1} style={[styles.operator, operatorStyle]}>{question.operator}</Text>
             <Text maxFontSizeMultiplier={1} style={[styles.verticalNumber, numberStyle]}>{question.rightOperand}</Text>
+            <Text
+              maxFontSizeMultiplier={1}
+              style={[
+                styles.operator,
+                styles.verticalOperator,
+                operatorStyle,
+                { top: fontSize * 0.115 },
+              ]}
+            >
+              {question.operator}
+            </Text>
           </View>
           <View style={styles.answerLine} />
         </View>
@@ -101,18 +114,23 @@ const styles = StyleSheet.create({
   },
   verticalProblem: { minWidth: 112, alignItems: "flex-end" },
   verticalNumber: {
+    width: "100%",
+    textAlign: "right",
     color: COLORS.ink,
     fontFamily: "NunitoSans_700Bold",
   },
   verticalSecondRow: {
     alignSelf: "stretch",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    position: "relative",
   },
   operator: {
     color: COLORS.primary,
     fontFamily: "NunitoSans_700Bold",
+  },
+  verticalOperator: {
+    position: "absolute",
+    right: "100%",
+    marginRight: 6,
   },
   answerLine: {
     alignSelf: "stretch",

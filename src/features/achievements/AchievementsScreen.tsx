@@ -278,20 +278,24 @@ function AchievementTile({ achievement, columns, onPress, reduceMotionEnabled, s
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${achievement.title}. ${earned ? `Earned ${formatDate(achievement.earnedAtMs)}` : progressText(achievement)}`}
+      accessibilityLabel={`${achievement.title}. ${earned
+        ? achievement.earnedCount > 1
+          ? `Earned ${achievement.earnedCount} times. First earned ${formatDate(achievement.earnedAtMs)}`
+          : `Earned ${formatDate(achievement.earnedAtMs)}`
+        : progressText(achievement)}`}
       onPress={onPress}
       onPressIn={badgeAnimation.play}
       style={({ pressed }) => [styles.tile, { width: `${100 / columns}%` }, pressed && styles.tilePressed]}
     >
-      <Animated.View style={badgeAnimation.style}>
-        <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.badge, { width: badgeSize, height: badgeSize }, !earned && styles.lockedBadge]} />
+      <Animated.View style={[styles.badgeVisual, { width: badgeSize, height: badgeSize }, badgeAnimation.style]}>
+          <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.badge, { width: badgeSize, height: badgeSize }, !earned && styles.lockedBadge]} />
+        {earned && achievement.earnedCount > 1 && <RepeatCount count={achievement.earnedCount} />}
       </Animated.View>
       <Text numberOfLines={2} style={[styles.badgeTitle, !earned && styles.lockedText]}>{achievement.title}</Text>
-      {earned ? <Text style={styles.earnedText}>{achievement.earnedCount > 1 ? `Earned ${achievement.earnedCount} times` : formatDate(achievement.earnedAtMs)}</Text> : <>
+      {earned ? <Text style={styles.earnedText}>{formatDate(achievement.earnedAtMs)}</Text> : <>
         <Text style={styles.progressText}>{progressText(achievement)}</Text>
         <View style={styles.track}><View style={[styles.fill, { width: `${progress * 100}%` }]} /></View>
       </>}
-      {earned && achievement.earnedCount > 1 && <View style={styles.repeatCount}><Text style={styles.repeatText}>{achievement.earnedCount}</Text></View>}
     </Pressable>
   );
 }
@@ -307,19 +311,30 @@ function AchievementDetail({ achievement, onClose, reduceMotionEnabled, sourceFo
         <Pressable accessibilityViewIsModal onPress={(event) => event.stopPropagation()} style={[styles.detail, CARD_SHADOW, { maxHeight: Math.max(1, height - 52) }, width !== undefined && { width, alignSelf: "center" }]}>
           <ScrollView contentContainerStyle={styles.detailContent} style={styles.detailScroll} showsVerticalScrollIndicator>
             <Pressable accessibilityRole="button" accessibilityLabel={`Animate ${achievement.title} badge`} accessibilityHint="Plays the badge animation" hitSlop={12} onPress={badgeAnimation.play}>
-              <Animated.View style={badgeAnimation.style}>
-                <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.detailBadge, !earned && styles.lockedBadge]} />
+              <Animated.View style={[styles.detailBadgeVisual, badgeAnimation.style]}>
+                  <Image source={sourceFor(achievement.id)} contentFit="contain" {...BADGE_IMAGE_PROPS} style={[styles.detailBadge, !earned && styles.lockedBadge]} />
+                {earned && achievement.earnedCount > 1 && <RepeatCount count={achievement.earnedCount} detail />}
               </Animated.View>
             </Pressable>
             <Text accessibilityRole="header" style={styles.detailTitle}>{achievement.title}</Text>
             <Text style={styles.detailBody}>{achievement.description}</Text>
-            <Text style={styles.detailStatus}>{earned ? `${achievement.earnedCount > 1 ? `Earned ${achievement.earnedCount} times · ` : "Earned "}${formatDate(achievement.earnedAtMs)}` : progressText(achievement)}</Text>
+            <Text style={styles.detailStatus}>{earned
+              ? achievement.earnedCount > 1
+                ? `You’ve earned this badge ${achievement.earnedCount} times. First earned ${formatDate(achievement.earnedAtMs)}.`
+                : `Earned ${formatDate(achievement.earnedAtMs)}`
+              : progressText(achievement)}</Text>
             <Pressable accessibilityRole="button" onPress={onClose} style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}><Text style={styles.closeText}>Done</Text></Pressable>
           </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
   );
+}
+
+function RepeatCount({ count, detail = false }: { count: number; detail?: boolean }) {
+  return <View accessible={false} style={[styles.repeatCount, detail && styles.detailRepeatCount]}>
+    <Text style={[styles.repeatText, detail && styles.detailRepeatText]}>×{count}</Text>
+  </View>;
 }
 
 function State({ icon, title, body, actionLabel, onAction }: { icon: "hourglass" | "exclamationmark.circle"; title: string; body: string; actionLabel?: string; onAction?: () => void }) {
@@ -371,17 +386,18 @@ const styles = StyleSheet.create({
   wideGrid: { rowGap: 22 },
   tile: { alignItems: "center", paddingHorizontal: 4, minHeight: 224, position: "relative" },
   tilePressed: { opacity: 0.82 },
-  badge: { marginBottom: 7 },
+  badgeVisual: { position: "relative", marginBottom: 2 },
+  badge: { width: "100%", height: "100%" },
   // Keep the original artwork recognizable; a muted preview is more motivating
   // than a single-color silhouette because it shows what the learner can earn.
   lockedBadge: { opacity: 0.42 },
-  badgeTitle: { minHeight: 36, fontFamily: "NunitoSans_700Bold", fontSize: 14, lineHeight: 18, textAlign: "center", color: COLORS.ink },
+  badgeTitle: { fontFamily: "NunitoSans_700Bold", fontSize: 14, lineHeight: 18, textAlign: "center", color: COLORS.ink },
   lockedText: { color: COLORS.secondary },
-  earnedText: { marginTop: 3, fontFamily: "NunitoSans_600SemiBold", fontSize: 11, lineHeight: 16, color: COLORS.secondary, textAlign: "center" },
-  progressText: { marginTop: 3, fontFamily: "NunitoSans_600SemiBold", fontSize: 11, lineHeight: 16, color: COLORS.secondary, textAlign: "center" },
-  track: { width: "82%", height: 5, borderRadius: 3, backgroundColor: COLORS.border, overflow: "hidden", marginTop: 7 },
+  earnedText: { marginTop: 1, fontFamily: "NunitoSans_600SemiBold", fontSize: 11, lineHeight: 16, color: COLORS.secondary, textAlign: "center" },
+  progressText: { marginTop: 1, fontFamily: "NunitoSans_600SemiBold", fontSize: 11, lineHeight: 16, color: COLORS.secondary, textAlign: "center" },
+  track: { width: "82%", height: 5, borderRadius: 3, backgroundColor: COLORS.border, overflow: "hidden", marginTop: 4 },
   fill: { height: "100%", borderRadius: 3, backgroundColor: COLORS.primary },
-  repeatCount: { position: "absolute", top: 104, right: 18, minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 5, backgroundColor: COLORS.ink, alignItems: "center", justifyContent: "center" },
+  repeatCount: { position: "absolute", top: "8%", right: "7%", minWidth: 30, height: 24, borderRadius: 12, paddingHorizontal: 6, backgroundColor: COLORS.primary, borderWidth: 2, borderColor: COLORS.card, alignItems: "center", justifyContent: "center" },
   repeatText: { fontFamily: "NunitoSans_700Bold", fontSize: 11, color: COLORS.card, fontVariant: ["tabular-nums"] },
   state: { minHeight: 240, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
   stateTitle: { fontFamily: "NunitoSans_700Bold", color: COLORS.ink, fontSize: 21, textAlign: "center" },
@@ -392,7 +408,10 @@ const styles = StyleSheet.create({
   detail: { borderRadius: 28, backgroundColor: COLORS.card, overflow: "hidden" },
   detailScroll: { width: "100%", flexShrink: 1 },
   detailContent: { alignItems: "center", padding: 24, gap: 8 },
+  detailBadgeVisual: { width: 156, height: 156, position: "relative" },
   detailBadge: { width: 156, height: 156 },
+  detailRepeatCount: { minWidth: 42, height: 32, borderRadius: 16, paddingHorizontal: 8 },
+  detailRepeatText: { fontSize: 14 },
   detailTitle: { fontFamily: "NunitoSans_700Bold", fontSize: 25, color: COLORS.ink, textAlign: "center" },
   detailBody: { fontFamily: "NunitoSans_600SemiBold", fontSize: 15, lineHeight: 22, color: COLORS.secondary, textAlign: "center", maxWidth: 310 },
   detailStatus: { fontFamily: "NunitoSans_700Bold", fontSize: 14, color: COLORS.primary, textAlign: "center", marginTop: 2 },
