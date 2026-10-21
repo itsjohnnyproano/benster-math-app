@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
 import type { PropsWithChildren } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { usePracticeStreak } from "./usePracticeStreak";
 import { usePreferences } from "@/providers/PreferencesProvider";
@@ -13,13 +13,17 @@ import { getStreakLayout } from "./streakLayout";
 
 const CELEBRATING_PENGUIN = require("../../../assets/mascot/penguin-jumping-celebration-confetti.png");
 const SLEEPING_PENGUIN = require("../../../assets/mascot/penguin-sleeping-z-running-shoes.png");
+const STICKY_ACTION_HEIGHT = 80;
 
 export default function StreakScreen() {
   const { activeLearner } = usePreferences();
   const router = useRouter();
   const { width, height, fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { tablet, twoColumn, maxWidth } = getStreakLayout(width, height, Platform.OS, fontScale);
   const streak = usePracticeStreak(activeLearner.id);
+  const showStickyPracticeButton = !twoColumn && streak.status === "ready";
+  const practiceButtonLabel = streak.status === "ready" && streak.data.practicedToday ? "Practice again" : "Practice now";
   const encouragement = streak.status === "ready" && (
     <View style={styles.encouragement}>
       <Image
@@ -32,15 +36,15 @@ export default function StreakScreen() {
     </View>
   );
   const practiceButton = (
-    <Pressable accessibilityRole="button" onPress={() => router.dismissTo("/")} style={({ pressed }) => [styles.button, tablet && styles.tabletButton, twoColumn && styles.landscapeButton, pressed && styles.pressed]}>
-      <Text style={[styles.buttonText, tablet && styles.tabletButtonText]}>Practice now</Text>
+    <Pressable accessibilityLabel={practiceButtonLabel} accessibilityRole="button" onPress={() => router.dismissTo("/")} style={({ pressed }) => [styles.button, tablet && styles.tabletButton, twoColumn && styles.landscapeButton, pressed && styles.pressed]}>
+      <Text style={[styles.buttonText, tablet && styles.tabletButtonText]}>{practiceButtonLabel}</Text>
     </Pressable>
   );
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="dark" />
-      <ScrollView bounces={!twoColumn} alwaysBounceVertical={!twoColumn} contentContainerStyle={[styles.content, { maxWidth }, tablet && styles.tabletContent]} showsVerticalScrollIndicator={false}>
+      <ScrollView bounces={!twoColumn} alwaysBounceVertical={!twoColumn} contentContainerStyle={[styles.content, { maxWidth, paddingBottom: showStickyPracticeButton ? STICKY_ACTION_HEIGHT + insets.bottom + 20 : 24 }, tablet && styles.tabletContent]} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/")} style={styles.back}>
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={22} tintColor={COLORS.ink} />
@@ -85,7 +89,7 @@ export default function StreakScreen() {
                   </View>
                 ))}
               </WeekRow>
-              <Text style={[styles.caption, tablet && styles.tabletCaption]}>One completed sprint makes a practice day.</Text>
+              <Text style={[styles.caption, tablet && styles.tabletCaption]}>Finish one sprint each day to build your streak. A missed day starts a fresh one.</Text>
             </View>
 
             <View style={styles.stats}>
@@ -93,13 +97,17 @@ export default function StreakScreen() {
               <Stat tablet={tablet} value={streak.data.totalPracticeDays} label="Total practice days" />
             </View>
             {!twoColumn && encouragement}
-            <Text style={[styles.caption, tablet && styles.tabletCaption]}>Finish a sprint each day to build your streak. A missed day starts a fresh one.</Text>
             {twoColumn && practiceButton}
             </View>
           </View>
         )}
-        {(!twoColumn || streak.status !== "ready") && practiceButton}
+        {(!twoColumn || streak.status !== "ready") && !showStickyPracticeButton && practiceButton}
       </ScrollView>
+      {showStickyPracticeButton && (
+        <View style={[styles.stickyAction, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={[styles.stickyActionContent, { maxWidth }]}>{practiceButton}</View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -139,6 +147,18 @@ const styles = StyleSheet.create({
   tabletButtonText: { fontSize: 21 },
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24, gap: 20, maxWidth: 520, width: "100%", alignSelf: "center" },
+  stickyAction: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    left: 0,
+    paddingTop: 10,
+    paddingHorizontal: 24,
+    backgroundColor: COLORS.background,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  stickyActionContent: { width: "100%", alignSelf: "center" },
   header: { flexDirection: "row", alignItems: "center", gap: 8 },
   back: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, alignItems: "center", justifyContent: "center" },
   headerSpacer: { width: 44 },
