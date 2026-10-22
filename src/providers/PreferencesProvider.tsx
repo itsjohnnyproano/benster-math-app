@@ -78,10 +78,12 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
       preferencesRef.current = learnerPreferences;
       setRegistry(loadedRegistry);
       setPreferences(learnerPreferences);
-      setIsReady(true);
       const shouldChooseProfile = loadedRegistry.learners.length > 1;
       setProfilePickerIsLaunchScreen(shouldChooseProfile);
       setProfilePickerVisible(shouldChooseProfile);
+      // Publish readiness last so a multi-profile cold launch cannot render
+      // the last active dashboard before the opaque picker is available.
+      setIsReady(true);
     })().catch(() => { if (isMounted) setLoadError(true); });
     return () => { isMounted = false; mounted.current = false; };
   }, [loadAttempt]);
