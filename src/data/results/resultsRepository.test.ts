@@ -355,6 +355,16 @@ describe("SQLite results repository", () => {
     expect(await repo.getPersonalBests(30)).toEqual({ multiplication: 4 });
   });
 
+  it("skips a damaged best receipt without hiding unaffected dashboard bests", async () => {
+    const { adapter, db } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save("damaged", makeResult(5));
+    await repo.save("unaffected", makeResult(4, 5, { mode: "subtraction" }));
+    db.prepare("UPDATE sprints SET result_json = ? WHERE id = ?").run("{", "damaged");
+
+    expect(await repo.getPersonalBests(30)).toEqual({ subtraction: 4 });
+  });
+
   it("saves narrow selections as focused practice without a personal best", async () => {
     const { adapter } = databaseAdapter();
     const repo = createResultsRepository(async () => adapter);

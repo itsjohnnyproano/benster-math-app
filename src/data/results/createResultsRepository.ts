@@ -558,8 +558,16 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
         for (const row of rows) {
           checkBest(row.correct_count);
           if (!isSprintMode(row.mode)) throw new Error("Invalid saved mode");
-          const result: unknown = JSON.parse(row.result_json);
-          assertSprintResult(result);
+          let result: SprintResult;
+          try {
+            const parsed: unknown = JSON.parse(row.result_json);
+            assertSprintResult(parsed);
+            result = parsed;
+          } catch {
+            // Keep a damaged receipt available for recovery, but do not let it
+            // hide unaffected dashboard bests for this duration.
+            continue;
+          }
           if (!getPracticeEligibility(result.configuration).qualifiesForCompetitiveRecognition) continue;
           bests[row.mode] = Math.max(bests[row.mode] ?? 0, row.correct_count);
         }

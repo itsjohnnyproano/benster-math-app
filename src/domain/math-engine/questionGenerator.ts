@@ -23,6 +23,10 @@ const TIMES_TABLE_MAX: Record<DifficultyLevel, number> = {
   4: 12,
 };
 
+export function getTableFactorMax(levelUpEnabled: boolean, difficultyLevel: DifficultyLevel) {
+  return levelUpEnabled ? TIMES_TABLE_MAX[difficultyLevel] : TIMES_TABLE_MAX[4];
+}
+
 function randomInteger(min: number, max: number, random: RandomSource) {
   return Math.floor(random() * (max - min + 1)) + min;
 }
@@ -45,7 +49,7 @@ function createOperands(
   factNumberLimit?: FactNumberLimit,
 ) {
   if (operation === "multiplication" || operation === "division") {
-    const max = factNumberLimit ?? (levelUpEnabled ? TIMES_TABLE_MAX[difficultyLevel] : TIMES_TABLE_MAX[4]);
+    const max = factNumberLimit ?? getTableFactorMax(levelUpEnabled, difficultyLevel);
 
     // No selection means this is the original adaptive sprint path.
     if (!tables || tables.length === 0) {
@@ -101,8 +105,8 @@ function findUnseenOperands(
   excluded: ReadonlySet<string>,
 ) {
   const max = factNumberLimit ?? (operation === "addition" || operation === "subtraction"
-    ? levelUpEnabled ? ADDITION_MAX[difficultyLevel] : 12
-    : levelUpEnabled ? TIMES_TABLE_MAX[difficultyLevel] : TIMES_TABLE_MAX[4]);
+    ? range ?? (levelUpEnabled ? ADDITION_MAX[difficultyLevel] : 12)
+    : getTableFactorMax(levelUpEnabled, difficultyLevel));
   const candidates: [number, number][] = [];
   if (operation === "multiplication") {
     if (tables && tables.length > 0) {

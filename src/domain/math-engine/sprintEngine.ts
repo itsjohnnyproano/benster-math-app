@@ -1,6 +1,6 @@
 import type { SprintConfiguration } from "@/domain/sprint";
 
-import { generateQuestion, getQuestionFactKey } from "./questionGenerator";
+import { generateQuestion, getQuestionFactKey, getTableFactorMax } from "./questionGenerator";
 import { getPracticeEligibility } from "@/domain/practiceEligibility";
 import type {
   ActiveSprintState,
@@ -66,6 +66,30 @@ function completeSprint(
     configuration: state.configuration,
     result: createResult(state, completedAtMs),
   });
+}
+
+function getCustomFactPoolSize(
+  configuration: SprintConfiguration,
+  difficultyLevel: DifficultyLevel,
+) {
+  if (configuration.mode !== "multiplication" && configuration.mode !== "division") {
+    return getPracticeEligibility(configuration).factCount;
+  }
+
+  const max = configuration.factNumberLimit
+    ?? getTableFactorMax(configuration.levelUpEnabled, difficultyLevel);
+  if (configuration.mode === "division") {
+    return configuration.tables?.length ? configuration.tables.length * max : max * max;
+  }
+
+  if (!configuration.tables?.length) return max * (max + 1) / 2;
+  const facts = new Set<string>();
+  for (const table of configuration.tables) {
+    for (let otherFactor = 1; otherFactor <= max; otherFactor += 1) {
+      facts.add(getQuestionFactKey("multiplication", table, otherFactor));
+    }
+  }
+  return facts.size;
 }
 
 export function createSprint(
@@ -172,7 +196,9 @@ export function submitAnswer(
   const hasCustomFactPool = state.configuration.range !== undefined
     || state.configuration.tables !== undefined
     || state.configuration.factNumberLimit !== undefined;
-  const poolSize = getPracticeEligibility(state.configuration).factCount;
+  // Eligibility deliberately reports 10 facts for legacy custom settings
+  // without a limit. The cycle must instead use the actual generated pool.
+  const poolSize = getCustomFactPoolSize(state.configuration, difficultyLevel);
   const excludedFactKeys = hasCustomFactPool && state.factKeysInCurrentCycle.length < poolSize
     ? state.factKeysInCurrentCycle
     : [];

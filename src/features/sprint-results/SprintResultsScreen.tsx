@@ -9,9 +9,9 @@ import { formatDurationLabel } from "@/shared/formatSprintDuration";
 import { CARD_SHADOW, COLORS } from "@/theme/tokens";
 import { AnswerReview } from "./components/AnswerReview";
 import { useSavedSprint } from "./useSavedSprint";
-import { getResultPresentation } from "./resultPresentation";
+import { getPracticeSessionSavedTitle, getResultPresentation } from "./resultPresentation";
 import { formatResponseTime } from "@/shared/formatResponseTime";
-import { getPracticeEligibility } from "@/domain/practiceEligibility";
+import { getPracticeEligibility, type PracticeSessionKind } from "@/domain/practiceEligibility";
 import { CARD_LAYOUT_LABELS } from "@/components/preferences/practiceOptions";
 import { getResultsLayout } from "./resultsLayout";
 import { usePreferences } from "@/providers/PreferencesProvider";
@@ -116,7 +116,7 @@ export function SprintResultsScreen({ learnerId, sprintId, result, onDone }: Pro
                 <PersonalBest
                   best={save.saved.personalBest}
                   duration={duration}
-                  isFocusedPractice={!getPracticeEligibility(configuration).qualifiesForCompetitiveRecognition}
+                  practiceKind={getPracticeEligibility(configuration).kind}
                 />
               ) : save.status === "saving" ? (
                 <Text style={styles.bestTitle}>Saving your sprint…</Text>
@@ -171,23 +171,24 @@ function Stat({ label, value }: { label: string; value: string }) {
 function PersonalBest({
   best,
   duration,
-  isFocusedPractice,
+  practiceKind,
 }: {
   best: PersonalBestChange;
   duration: string;
-  isFocusedPractice: boolean;
+  practiceKind: PracticeSessionKind;
 }) {
   const titles = {
     first: "First sprint recorded!", new: "New personal best!", matched: "Matched your best!",
     unchanged: "Another practice in the books", ineligible: "A fresh start next time",
   };
+  const practiceSavedTitle = getPracticeSessionSavedTitle(practiceKind);
   return (
     <>
       <Text style={styles.bestTitle}>
-        {isFocusedPractice ? "Focused practice saved!" : titles[best.status]}
+        {practiceSavedTitle ?? titles[best.status]}
       </Text>
       <Text style={styles.note}>
-        {isFocusedPractice ? "History and streaks count. Choose 10 or more facts to set a personal best."
+        {practiceSavedTitle ? "History and streaks count. Choose 10 or more facts to set a personal best."
           : best.updated === null ? "Submit an answer to establish your first best."
           : best.status === "new" ? `Previous best: ${best.previous} → New best: ${best.updated} · ${duration}`
             : `Personal best: ${best.updated} correct · ${duration}`}
