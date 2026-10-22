@@ -14,6 +14,7 @@ import {
   type PracticeRange,
 } from "@/domain/practiceSelection";
 import type { SprintMode } from "@/domain/sprint";
+import { getPracticeEligibility } from "@/domain/practiceEligibility";
 import { COLORS } from "@/theme/tokens";
 import { getRangeExamples } from "./practiceChoicePresentation";
 
@@ -101,6 +102,35 @@ function SaveChoiceButton({ onPress }: { onPress: () => void }) {
     >
       <Text style={styles.saveButtonText}>Save</Text>
     </Pressable>
+  );
+}
+
+function PracticeEligibilityNotice({
+  mode,
+  range,
+  tables,
+  factNumberLimit,
+}: Pick<PracticeChoicePickerProps, "mode" | "range" | "tables" | "factNumberLimit">) {
+  const hasCustomSelection = range !== null || tables !== null || factNumberLimit !== null;
+  if (!hasCustomSelection) return null;
+  const eligibility = getPracticeEligibility({
+    mode,
+    ...(range !== null ? { range } : {}),
+    ...(tables !== null ? { tables } : {}),
+    ...(factNumberLimit !== null ? { factNumberLimit } : {}),
+  });
+  const isFull = eligibility.kind === "full";
+  const title = isFull ? "Full Sprint" : eligibility.kind === "focused" ? "Focused Practice" : "Varied Practice";
+
+  return (
+    <View style={[styles.eligibilityNotice, isFull && styles.fullEligibilityNotice]}>
+      <Text style={styles.eligibilityTitle}>{title} · {eligibility.factCount.toLocaleString()} facts</Text>
+      <Text style={styles.eligibilitySubtitle}>
+        {isFull
+          ? "Personal bests and mastery badges are on."
+          : "History and streaks count. Full Sprint badges unlock with 10 facts."}
+      </Text>
+    </View>
   );
 }
 
@@ -232,6 +262,7 @@ function RangeChoices({
           value={draftRange ?? 25}
         />
       )}
+      <PracticeEligibilityNotice mode={mode} range={draftRange} tables={null} factNumberLimit={null} />
       <ExampleProblems examples={getRangeExamples(mode, draftRange)} />
       <SaveChoiceButton onPress={() => {
         onChange(draftRange);
@@ -364,6 +395,12 @@ function TableChoices({
           />
         )}
       </>
+      <PracticeEligibilityNotice
+        mode={mode}
+        range={null}
+        tables={draftTables}
+        factNumberLimit={draftTables !== null && draftTables.length > 0 ? draftLimit ?? 12 : null}
+      />
       <ExampleProblems examples={examples} />
       <SaveChoiceButton onPress={() => {
         onChange(draftTables);
@@ -578,6 +615,16 @@ const styles = StyleSheet.create({
   slider: { height: 32, width: "100%" },
   sliderBounds: { flexDirection: "row", justifyContent: "space-between", marginTop: -2 },
   sliderBound: { color: COLORS.secondary, fontFamily: "NunitoSans_600SemiBold", fontSize: 13, lineHeight: 18 },
+  eligibilityNotice: {
+    gap: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 16,
+    backgroundColor: "#FFF3E4",
+  },
+  fullEligibilityNotice: { backgroundColor: COLORS.greenSoft },
+  eligibilityTitle: { color: COLORS.ink, fontFamily: "NunitoSans_700Bold", fontSize: 14, lineHeight: 19 },
+  eligibilitySubtitle: { color: COLORS.secondary, fontFamily: "NunitoSans_400Regular", fontSize: 12, lineHeight: 17 },
   tableCheckmark: {
     width: 25,
     height: 25,

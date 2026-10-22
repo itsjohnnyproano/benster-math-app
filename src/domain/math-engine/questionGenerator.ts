@@ -83,6 +83,51 @@ function createOperands(
   return [first, second] as const;
 }
 
+/** Maps commutative display variants, such as 12 × 1 and 1 × 12, to one fact. */
+export function getQuestionFactKey(operation: MathOperation, leftOperand: number, rightOperand: number) {
+  if (operation === "addition" || operation === "multiplication") {
+    return `${operation}:${Math.min(leftOperand, rightOperand)}:${Math.max(leftOperand, rightOperand)}`;
+  }
+  return `${operation}:${leftOperand}:${rightOperand}`;
+}
+
+function findUnseenOperands(
+  operation: MathOperation,
+  difficultyLevel: DifficultyLevel,
+  levelUpEnabled: boolean,
+  range: PracticeNumberRange | undefined,
+  tables: readonly FactTable[] | undefined,
+  factNumberLimit: FactNumberLimit | undefined,
+  excluded: ReadonlySet<string>,
+) {
+  const max = factNumberLimit ?? (operation === "addition" || operation === "subtraction"
+    ? levelUpEnabled ? ADDITION_MAX[difficultyLevel] : 12
+    : levelUpEnabled ? TIMES_TABLE_MAX[difficultyLevel] : TIMES_TABLE_MAX[4]);
+  const candidates: [number, number][] = [];
+  if (operation === "multiplication") {
+    if (tables && tables.length > 0) {
+      for (const table of tables) for (let other = 1; other <= max; other += 1) candidates.push([table, other]);
+    } else {
+      for (let left = 1; left <= max; left += 1) for (let right = left; right <= max; right += 1) candidates.push([left, right]);
+    }
+  } else if (operation === "division") {
+    if (tables && tables.length > 0) {
+      for (const table of tables) for (let quotient = 1; quotient <= max; quotient += 1) candidates.push([table * quotient, table]);
+    } else {
+      for (let quotient = 1; quotient <= max; quotient += 1) for (let divisor = 1; divisor <= max; divisor += 1) candidates.push([quotient * divisor, divisor]);
+    }
+  } else if (operation === "addition") {
+    const sumMax = range ?? max;
+    for (let left = 0; left <= sumMax; left += 1) {
+      const rightMax = range === undefined ? sumMax : sumMax - left;
+      for (let right = left; right <= rightMax; right += 1) candidates.push([left, right]);
+    }
+  } else {
+    for (let left = 0; left <= max; left += 1) for (let right = 0; right <= left; right += 1) candidates.push([left, right]);
+  }
+  return candidates.find(([left, right]) => !excluded.has(getQuestionFactKey(operation, left, right)));
+}
+
 export function calculateCorrectAnswer(
   operation: MathOperation,
   leftOperand: number,
@@ -158,10 +203,11 @@ export function generateQuestion({
   range,
   tables,
   factNumberLimit,
+  excludedFactKeys,
   random = Math.random,
 }: QuestionGenerationInput): MathQuestion {
   const operation = chooseOperation(mode, random);
-  const [leftOperand, rightOperand] = createOperands(
+  let [leftOperand, rightOperand] = createOperands(
     operation,
     difficultyLevel,
     levelUpEnabled,
@@ -170,6 +216,12 @@ export function generateQuestion({
     tables,
     factNumberLimit,
   );
+  if (excludedFactKeys?.length && excludedFactKeys.includes(getQuestionFactKey(operation, leftOperand, rightOperand))) {
+    const fallback = findUnseenOperands(
+      operation, difficultyLevel, levelUpEnabled, range, tables, factNumberLimit, new Set(excludedFactKeys),
+    );
+    if (fallback) [leftOperand, rightOperand] = fallback;
+  }
   const correctAnswer = calculateCorrectAnswer(
     operation,
     leftOperand,

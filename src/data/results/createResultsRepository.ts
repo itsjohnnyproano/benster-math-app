@@ -13,6 +13,7 @@ import {
   type SprintMode,
 } from "@/domain/sprint";
 import { LEGACY_LEARNER_ID, isValidLearnerId } from "@/domain/learner";
+import { getPracticeEligibility } from "@/domain/practiceEligibility";
 
 type SqlValue = string | number | null;
 export interface ResultsDatabase {
@@ -233,8 +234,23 @@ function readResult(row: ResultRow): SavedSprint {
     throw new Error("Invalid saved achievement counts");
   }
   checkBest(row.previous_best);
-  const personalBest = calculatePersonalBest(result, row.previous_best);
-  if (personalBest.updated !== row.updated_best || personalBest.status !== row.best_status) {
+  const qualifiesForCompetitiveRecognition = getPracticeEligibility(
+    result.configuration,
+  ).qualifiesForCompetitiveRecognition;
+  const personalBest = calculatePersonalBest(
+    result,
+    row.previous_best,
+    qualifiesForCompetitiveRecognition,
+  );
+  const receiptMatches = personalBest.updated === row.updated_best
+    && personalBest.status === row.best_status;
+  // Releases before focused practice was excluded may have a valid legacy
+  // receipt. Keep it readable while presenting it as ineligible today.
+  const legacyPersonalBest = calculatePersonalBest(result, row.previous_best);
+  const legacyReceiptMatches = !qualifiesForCompetitiveRecognition
+    && legacyPersonalBest.updated === row.updated_best
+    && legacyPersonalBest.status === row.best_status;
+  if (!receiptMatches && !legacyReceiptMatches) {
     throw new Error("Invalid personal-best receipt");
   }
   return { id: row.id, schemaVersion: RESULT_SCHEMA_VERSION, result, personalBest };
@@ -242,14 +258,14 @@ function readResult(row: ResultRow): SavedSprint {
 
 function readAchievementSprint(row: ResultRow): AchievementSprint {
   const result = readStoredResult(row);
-  const achievement = readCompactAchievementSprint(row);
+  const achievement = readCompactAchievementSprint(row, result.configuration);
   if (achievement.correctCount !== result.correctCount || achievement.attemptedCount !== result.attemptedCount) {
     throw new Error("Invalid saved achievement counts");
   }
   return achievement;
 }
 
-function readCompactAchievementSprint(row: CompactAchievementRow): AchievementSprint {
+function readCompactAchievementSprint(row: CompactAchievementRow, configuration: SprintResult["configuration"]): AchievementSprint {
   if (row.schema_version !== RESULT_SCHEMA_VERSION || !isValidSprintId(row.id)
     || !isValidTimestamp(row.completed_at_ms) || !isSprintMode(row.mode)
     || !isSprintDuration(row.duration_seconds) || !isCount(row.correct_count)
@@ -257,15 +273,28 @@ function readCompactAchievementSprint(row: CompactAchievementRow): AchievementSp
     throw new Error("Invalid saved achievement counts");
   }
   checkBest(row.previous_best);
+  const compactResult = { correctCount: row.correct_count, attemptedCount: row.attempted_count };
+  const qualifiesForCompetitiveRecognition = getPracticeEligibility(
+    configuration,
+  ).qualifiesForCompetitiveRecognition;
   const personalBest = calculatePersonalBest(
-    { correctCount: row.correct_count, attemptedCount: row.attempted_count }, row.previous_best,
+    compactResult,
+    row.previous_best,
+    qualifiesForCompetitiveRecognition,
   );
-  if (personalBest.updated !== row.updated_best || personalBest.status !== row.best_status) {
+  const receiptMatches = personalBest.updated === row.updated_best
+    && personalBest.status === row.best_status;
+  const legacyPersonalBest = calculatePersonalBest(compactResult, row.previous_best);
+  const legacyReceiptMatches = !qualifiesForCompetitiveRecognition
+    && legacyPersonalBest.updated === row.updated_best
+    && legacyPersonalBest.status === row.best_status;
+  if (!receiptMatches && !legacyReceiptMatches) {
     throw new Error("Invalid personal-best receipt");
   }
   return {
     id: row.id,
     completedAtMs: row.completed_at_ms,
+    configuration,
     mode: row.mode,
     durationSeconds: row.duration_seconds,
     correctCount: row.correct_count,
@@ -453,13 +482,22 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
 
           const { mode, durationSeconds } = snapshot.configuration;
           const practiceKey = getPracticeSelectionKey(snapshot.configuration);
-          const previous = await db.getFirstAsync<{ correct_count: number }>(
-            "SELECT correct_count FROM personal_bests WHERE learner_id = ? AND mode = ? AND duration_seconds = ? AND practice_key = ?",
-            [learnerId, mode, durationSeconds, practiceKey],
-          );
+          const qualifiesForCompetitiveRecognition = getPracticeEligibility(
+            snapshot.configuration,
+          ).qualifiesForCompetitiveRecognition;
+          const previous = qualifiesForCompetitiveRecognition
+            ? await db.getFirstAsync<{ correct_count: number }>(
+              "SELECT correct_count FROM personal_bests WHERE learner_id = ? AND mode = ? AND duration_seconds = ? AND practice_key = ?",
+              [learnerId, mode, durationSeconds, practiceKey],
+            )
+            : null;
           const previousScore = previous?.correct_count ?? null;
           checkBest(previousScore);
-          const personalBest = calculatePersonalBest(snapshot, previousScore);
+          const personalBest = calculatePersonalBest(
+            snapshot,
+            previousScore,
+            qualifiesForCompetitiveRecognition,
+          );
           await db.runAsync(
             `INSERT INTO sprints (id, learner_id, schema_version, mode, duration_seconds, completed_at_ms,
               result_json, correct_count, attempted_count, previous_best, updated_best, best_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -507,18 +545,23 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       if (!isValidLearnerId(learnerId)) return Promise.reject(new Error("Invalid learner ID"));
       return serialize(async () => {
         const db = await getDatabase();
-        const rows = await db.getAllAsync<{ mode: string; correct_count: number }>(
+        const rows = await db.getAllAsync<{ mode: string; correct_count: number; result_json: string }>(
           // The dashboard has one card per mode, not one card per practice
           // selection. Include every completed selection (ranges, tables, and
           // fact limits) so a result visible in History is never missing from
           // that learner's Home-screen best.
-          "SELECT mode, MAX(correct_count) AS correct_count FROM personal_bests WHERE learner_id = ? AND duration_seconds = ? GROUP BY mode", [learnerId, duration],
+          `SELECT personal_bests.mode, personal_bests.correct_count, sprints.result_json
+            FROM personal_bests JOIN sprints ON sprints.id = personal_bests.sprint_id
+            WHERE personal_bests.learner_id = ? AND personal_bests.duration_seconds = ?`, [learnerId, duration],
         );
         const bests: PersonalBests = {};
         for (const row of rows) {
           checkBest(row.correct_count);
           if (!isSprintMode(row.mode)) throw new Error("Invalid saved mode");
-          bests[row.mode] = row.correct_count;
+          const result: unknown = JSON.parse(row.result_json);
+          assertSprintResult(result);
+          if (!getPracticeEligibility(result.configuration).qualifiesForCompetitiveRecognition) continue;
+          bests[row.mode] = Math.max(bests[row.mode] ?? 0, row.correct_count);
         }
         return bests;
       });

@@ -1,4 +1,5 @@
 import type { AchievementSprint } from "./results";
+import { getPracticeEligibility } from "./practiceEligibility";
 import { SPRINT_MODES } from "./sprint";
 
 export const ACHIEVEMENT_IDS = [
@@ -157,24 +158,27 @@ export function calculateAchievements(records: readonly AchievementSprint[]): Ac
 
   for (const record of chronological) {
     const repeatableAwards = new Set<AchievementId>();
+    const competitive = getPracticeEligibility(record.configuration).qualifiesForCompetitiveRecognition;
     values.sprintCount++;
-    values.correctAnswers += record.correctCount;
     values.practiceSeconds += record.durationSeconds;
-    values.modeCounts[record.mode]++;
-    modesSeen.add(record.mode);
-    values.modesPlayed = modesSeen.size;
-    if (record.attemptedCount >= 10 && record.correctCount === record.attemptedCount) values.perfectCount++;
-    if (record.attemptedCount >= 20 && record.correctCount / record.attemptedCount >= 0.9) {
-      values.sharpShooterCount++;
-      repeatableAwards.add("sharp-shooter");
-    }
-    if (record.durationSeconds === 60 && record.correctCount >= 40) {
-      values.lightningCount++;
-      repeatableAwards.add("math-lightning");
-    }
-    if (record.personalBest.status === "new" && record.attemptedCount >= MIN_ATTEMPTS_FOR_PERSONAL_BEST_ACHIEVEMENT) {
-      values.personalBests++;
-      repeatableAwards.add("personal-best");
+    if (competitive) {
+      values.correctAnswers += record.correctCount;
+      values.modeCounts[record.mode]++;
+      modesSeen.add(record.mode);
+      values.modesPlayed = modesSeen.size;
+      if (record.attemptedCount >= 10 && record.correctCount === record.attemptedCount) values.perfectCount++;
+      if (record.attemptedCount >= 20 && record.correctCount / record.attemptedCount >= 0.9) {
+        values.sharpShooterCount++;
+        repeatableAwards.add("sharp-shooter");
+      }
+      if (record.durationSeconds === 60 && record.correctCount >= 40) {
+        values.lightningCount++;
+        repeatableAwards.add("math-lightning");
+      }
+      if (record.personalBest.status === "new" && record.attemptedCount >= MIN_ATTEMPTS_FOR_PERSONAL_BEST_ACHIEVEMENT) {
+        values.personalBests++;
+        repeatableAwards.add("personal-best");
+      }
     }
 
     const day = localDayOrdinal(record.completedAtMs);

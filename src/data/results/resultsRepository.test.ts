@@ -355,6 +355,39 @@ describe("SQLite results repository", () => {
     expect(await repo.getPersonalBests(30)).toEqual({ multiplication: 4 });
   });
 
+  it("saves narrow selections as focused practice without a personal best", async () => {
+    const { adapter } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    const focused = await repo.save(
+      "focused-table",
+      makeResult(20, 20, { mode: "multiplication", tables: [12], factNumberLimit: 3 }),
+    );
+
+    expect(focused.personalBest).toEqual({ previous: null, updated: null, status: "ineligible" });
+    expect((await repo.get("focused-table"))?.personalBest.status).toBe("ineligible");
+    expect(await repo.getPersonalBests(30)).toEqual({});
+    expect((await repo.listAchievementSprints())[0]?.configuration).toMatchObject({
+      mode: "multiplication", tables: [12], factNumberLimit: 3,
+    });
+  });
+
+  it("keeps legacy focused-practice receipts readable without showing their old best", async () => {
+    const { adapter, db } = databaseAdapter();
+    const repo = createResultsRepository(async () => adapter);
+    await repo.save(
+      "legacy-focused",
+      makeResult(20, 20, { mode: "multiplication", tables: [12], factNumberLimit: 3 }),
+    );
+    db.exec(`
+      UPDATE sprints SET updated_best = 20, best_status = 'first' WHERE id = 'legacy-focused';
+      INSERT INTO personal_bests VALUES ('legacy-learner', 'multiplication', 30, 'tables:12|limit:3', 20, 'legacy-focused');
+    `);
+
+    expect((await repo.get("legacy-focused"))?.personalBest.status).toBe("ineligible");
+    expect(await repo.getPersonalBests(30)).toEqual({});
+    expect((await repo.listAchievementSprints())[0]?.personalBest.status).toBe("ineligible");
+  });
+
   it("records zero attempts without establishing or replacing a best", async () => {
     const { adapter } = databaseAdapter();
     const repo = createResultsRepository(async () => adapter);

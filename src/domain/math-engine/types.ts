@@ -64,6 +64,8 @@ export type ActiveSprintState = Readonly<{
   startedAtMs: number;
   endsAtMs: number;
   nextQuestionId: number;
+  /** Equivalent fact keys shown since the last completed custom-practice cycle. */
+  factKeysInCurrentCycle: readonly string[];
 }>;
 
 export type CompletedSprintState = Readonly<{
@@ -84,4 +86,5 @@ export type QuestionGenerationInput = Readonly<{
   range?: PracticeNumberRange;
   tables?: readonly FactTable[];
   factNumberLimit?: FactNumberLimit;
+  excludedFactKeys?: readonly string[];
 }>;

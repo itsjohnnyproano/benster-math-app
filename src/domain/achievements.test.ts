@@ -8,6 +8,7 @@ function saved(id: string, completedAtMs: number, correct = 3, attempted = 5, ov
   return {
     id,
     completedAtMs,
+    configuration: result.configuration,
     mode: result.configuration.mode,
     durationSeconds: result.configuration.durationSeconds,
     correctCount: result.correctCount,
@@ -59,6 +60,19 @@ describe("calculateAchievements", () => {
     const badges = calculateAchievements([early, qualifying]);
 
     expect(badges.find((badge) => badge.id === "personal-best")).toMatchObject({ current: 1, earnedCount: 1, earnedAtMs: qualifying.completedAtMs });
+  });
+
+  it("keeps focused practice in history and streaks but out of competitive badges", () => {
+    const focused = saved("focused", Date.UTC(2026, 0, 1), 20, 20, {
+      mode: "multiplication", tables: [12], factNumberLimit: 3,
+    });
+    const badges = calculateAchievements([focused]);
+
+    expect(badges.find((badge) => badge.id === "first-sprint")).toMatchObject({ current: 1, earnedCount: 1 });
+    expect(badges.find((badge) => badge.id === "first-perfect")).toMatchObject({ current: 0, earnedCount: 0 });
+    expect(badges.find((badge) => badge.id === "math-lightning")).toMatchObject({ current: 0, earnedCount: 0 });
+    expect(badges.find((badge) => badge.id === "hundred-correct")).toMatchObject({ current: 0, earnedCount: 0 });
+    expect(badges.find((badge) => badge.id === "multiplication-master")).toMatchObject({ current: 0, earnedCount: 0 });
   });
 
   it("tracks the added consistency milestones from local calendar days", () => {

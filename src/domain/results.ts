@@ -31,6 +31,7 @@ export type SavedSprint = Readonly<{
 export type AchievementSprint = Readonly<{
   id: string;
   completedAtMs: number;
+  configuration: SprintConfiguration;
   mode: SprintConfiguration["mode"];
   durationSeconds: SprintConfiguration["durationSeconds"];
   correctCount: number;
@@ -38,8 +39,14 @@ export type AchievementSprint = Readonly<{
   personalBest: PersonalBestChange;
 }>;
 
-export function calculatePersonalBest(result: Pick<SprintResult, "correctCount" | "attemptedCount">, previous: number | null): PersonalBestChange {
-  if (result.attemptedCount === 0) return { previous, updated: previous, status: "ineligible" };
+export function calculatePersonalBest(
+  result: Pick<SprintResult, "correctCount" | "attemptedCount">,
+  previous: number | null,
+  qualifiesForCompetitiveRecognition = true,
+): PersonalBestChange {
+  if (result.attemptedCount === 0 || !qualifiesForCompetitiveRecognition) {
+    return { previous, updated: previous, status: "ineligible" };
+  }
   if (previous === null) return { previous, updated: result.correctCount, status: "first" };
   return {
     previous,
