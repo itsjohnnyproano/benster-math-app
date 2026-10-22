@@ -508,7 +508,11 @@ export function createResultsRepository(openDatabase: () => Promise<ResultsDatab
       return serialize(async () => {
         const db = await getDatabase();
         const rows = await db.getAllAsync<{ mode: string; correct_count: number }>(
-          "SELECT mode, correct_count FROM personal_bests WHERE learner_id = ? AND duration_seconds = ? AND practice_key = 'normal'", [learnerId, duration],
+          // The dashboard has one card per mode, not one card per practice
+          // selection. Include every completed selection (ranges, tables, and
+          // fact limits) so a result visible in History is never missing from
+          // that learner's Home-screen best.
+          "SELECT mode, MAX(correct_count) AS correct_count FROM personal_bests WHERE learner_id = ? AND duration_seconds = ? GROUP BY mode", [learnerId, duration],
         );
         const bests: PersonalBests = {};
         for (const row of rows) {

@@ -191,20 +191,23 @@ describe("SQLite results repository", () => {
     expect(db.prepare("SELECT learner_id FROM sprints WHERE id = 'v2'").get()?.learner_id).toBe("legacy-learner");
   });
 
-  it("keeps each learner's history, streak source, and personal bests separate", async () => {
+  it("keeps each learner's history, streak source, and dashboard personal bests separate", async () => {
     const { adapter } = databaseAdapter();
     const repo = createResultsRepository(async () => adapter);
     await repo.save("learner-a", "a", makeResult(4));
+    await repo.save("learner-a", "a-multiplication", makeResult(7, 8, { mode: "multiplication", tables: [6] }));
+    await repo.save("learner-a", "a-division", makeResult(5, 6, { mode: "division", factNumberLimit: 10 }));
     await repo.save("learner-b", "b", makeResult(2));
+    await repo.save("learner-b", "b-subtraction", makeResult(3, 4, { mode: "subtraction", range: 20 }));
 
-    expect((await repo.list("learner-a")).records.map(({ id }) => id)).toEqual(["a"]);
-    expect((await repo.list("learner-b")).records.map(({ id }) => id)).toEqual(["b"]);
-    expect(await repo.getPersonalBests("learner-a", 30)).toEqual({ addition: 4 });
-    expect(await repo.getPersonalBests("learner-b", 30)).toEqual({ addition: 2 });
+    expect((await repo.list("learner-a")).records.map(({ id }) => id).sort()).toEqual(["a", "a-division", "a-multiplication"]);
+    expect((await repo.list("learner-b")).records.map(({ id }) => id).sort()).toEqual(["b", "b-subtraction"]);
+    expect(await repo.getPersonalBests("learner-a", 30)).toEqual({ addition: 4, multiplication: 7, division: 5 });
+    expect(await repo.getPersonalBests("learner-b", 30)).toEqual({ addition: 2, subtraction: 3 });
     expect(await repo.get("learner-b", "a")).toBeNull();
     await repo.clearAll("learner-a");
     expect((await repo.list("learner-a")).records).toEqual([]);
-    expect((await repo.list("learner-b")).records.map(({ id }) => id)).toEqual(["b"]);
+    expect((await repo.list("learner-b")).records.map(({ id }) => id).sort()).toEqual(["b", "b-subtraction"]);
   });
 
   it("reads all completion timestamps beyond the history page across modes", async () => {
@@ -343,13 +346,13 @@ describe("SQLite results repository", () => {
     expect(changed.personalBest).toEqual({ previous: 3, updated: 4, status: "new" });
   });
 
-  it("keeps table-specific personal bests separate from Normal sprints", async () => {
+  it("shows the strongest table-specific personal best on the mode dashboard card", async () => {
     const { adapter } = databaseAdapter();
     const repo = createResultsRepository(async () => adapter);
     await repo.save("normal", makeResult(3, 5, { mode: "multiplication" }));
     const selected = await repo.save("table-six", makeResult(4, 5, { mode: "multiplication", tables: [6] }));
     expect(selected.personalBest).toEqual({ previous: null, updated: 4, status: "first" });
-    expect(await repo.getPersonalBests(30)).toEqual({ multiplication: 3 });
+    expect(await repo.getPersonalBests(30)).toEqual({ multiplication: 4 });
   });
 
   it("records zero attempts without establishing or replacing a best", async () => {
