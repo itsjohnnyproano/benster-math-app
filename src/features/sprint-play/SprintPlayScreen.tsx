@@ -389,6 +389,58 @@ export default function SprintPlayScreen() {
             />
           </View>
 
+          {sprintMilestone !== null && milestoneCopy !== null && (
+            <Animated.View
+              accessible
+              accessibilityLabel={milestoneCopy.accessibilityLabel}
+              accessibilityLiveRegion="polite"
+              pointerEvents="none"
+              style={[
+                styles.levelUpCelebration,
+                styles.levelUpPill,
+                sprintMilestone.kind === "on-fire" && styles.onFirePill,
+                {
+                  opacity: levelUpAnimation,
+                  transform: [
+                    {
+                      scale: levelUpAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.7, 1],
+                      }),
+                    },
+                    {
+                      translateY: levelUpAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-10, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {sprintMilestone.kind === "on-fire" ? (
+                <SymbolView
+                  name={{ ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }}
+                  size={18}
+                  tintColor="#FFD552"
+                />
+              ) : sprintMilestone.kind === "math-master" ? (
+                <SymbolView
+                  name={{ ios: "star.fill", android: "star", web: "star" }}
+                  size={18}
+                  tintColor="#FFD552"
+                />
+              ) : (
+                <SymbolView
+                  name={{ ios: "bolt.fill", android: "bolt", web: "bolt" }}
+                  size={18}
+                  tintColor="#FFD552"
+                />
+              )}
+              <Text style={styles.levelUpPillLabel}>{milestoneCopy.label}</Text>
+            </Animated.View>
+          )}
+
           <View
             style={[
               styles.answerArea,
@@ -423,57 +475,6 @@ export default function SprintPlayScreen() {
             Level {sprintState.difficultyLevel}
             {configuration.levelUpEnabled ? " · Level Up on" : ""}
           </Text>
-          {sprintMilestone !== null && milestoneCopy !== null && (
-            <Animated.View
-              accessible
-              accessibilityLabel={milestoneCopy.accessibilityLabel}
-              accessibilityLiveRegion="polite"
-              pointerEvents="none"
-              style={[
-                styles.levelUpCelebration,
-                {
-                  opacity: levelUpAnimation,
-                  transform: [
-                    {
-                      scale: levelUpAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.7, 1],
-                      }),
-                    },
-                    {
-                      translateY: levelUpAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [-10, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <View style={[styles.levelUpMedallion, sprintMilestone.kind === "on-fire" && styles.onFireMedallion]}>
-                {sprintMilestone.kind === "on-fire" ? (
-                  <SymbolView
-                    name={{ ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }}
-                    size={27}
-                    tintColor="#FFD552"
-                  />
-                ) : sprintMilestone.kind === "math-master" ? (
-                  <SymbolView
-                    name={{ ios: "star.fill", android: "star", web: "star" }}
-                    size={26}
-                    tintColor="#FFD552"
-                  />
-                ) : (
-                  <SymbolView
-                    name={{ ios: "bolt.fill", android: "bolt", web: "bolt" }}
-                    size={27}
-                    tintColor="#FFD552"
-                  />
-                )}
-              </View>
-              <Text style={styles.levelUpLabel}>{milestoneCopy.label}</Text>
-            </Animated.View>
-          )}
         </View>
       </View>
     </SafeAreaView>
@@ -507,33 +508,28 @@ const styles = StyleSheet.create({
     position: "absolute",
     zIndex: 1,
     top: 12,
-    alignSelf: "center",
-    alignItems: "center",
+    right: 24,
   },
-  levelUpMedallion: {
-    width: 52,
-    height: 52,
+  levelUpPill: {
+    height: 38,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 26,
+    gap: 7,
+    paddingHorizontal: 12,
+    borderRadius: 19,
     backgroundColor: COLORS.primary,
-    borderWidth: 2,
-    borderColor: "#FFD552",
     shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowRadius: 6,
     elevation: 5,
   },
-  onFireMedallion: { backgroundColor: COLORS.orange },
-  levelUpLabel: {
-    marginTop: 3,
-    color: COLORS.primary,
+  onFirePill: { backgroundColor: COLORS.orange },
+  levelUpPillLabel: {
+    color: COLORS.card,
     fontFamily: "NunitoSans_800ExtraBold",
     fontSize: 12,
-    letterSpacing: 0.6,
     lineHeight: 16,
-    textTransform: "uppercase",
   },
   questionArea: { flex: 1, minHeight: 0, alignItems: "center", justifyContent: "center" },
   prompt: {
