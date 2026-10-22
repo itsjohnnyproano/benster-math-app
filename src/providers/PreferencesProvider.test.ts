@@ -170,6 +170,26 @@ describe("onboarding preference commit", () => {
     cleanup();
   });
 
+  it("uses the profile picker as the first screen when a device has multiple learners", async () => {
+    storage.getItem
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(JSON.stringify({
+        activeLearnerId: LEGACY_LEARNER_ID,
+        learners: [
+          { id: LEGACY_LEARNER_ID, nickname: "Jo", colorId: "sky", createdAtMs: 0 },
+          { id: "ari", nickname: "Ari", colorId: "coral", createdAtMs: 1 },
+        ],
+      }))
+      .mockResolvedValueOnce(null);
+    const { value, cleanup } = await mount();
+
+    expect(value.profilePickerVisible).toBe(true);
+    expect(value.profilePickerIsLaunchScreen).toBe(true);
+    value.openProfilePicker();
+    expect(render().profilePickerIsLaunchScreen).toBe(false);
+    cleanup();
+  });
+
   it("preserves a color change made alongside a new learner", async () => {
     storage.getItem
       .mockResolvedValueOnce(null)

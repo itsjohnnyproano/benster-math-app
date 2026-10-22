@@ -19,7 +19,13 @@ import { ProfilePickerController } from "@/features/learners/ProfilePickerContro
 SplashScreen.preventAutoHideAsync();
 
 function AppNavigation() {
-  const { isReady, loadError, preferences } = usePreferences();
+  const {
+    isReady,
+    loadError,
+    preferences,
+    profilePickerVisible,
+    profilePickerIsLaunchScreen,
+  } = usePreferences();
   const { isPremium, status: subscriptionStatus } = useSubscription();
   const requiresPremium = requiresPremiumAfterOnboardingSprint({
     onboardingCompleted: preferences.onboardingCompleted,
@@ -91,7 +97,9 @@ function AppNavigation() {
         <Stack.Screen name="subscription" options={{ gestureEnabled: false }} />
       </Stack.Protected>
     </Stack>
-    <ProfilePickerController />
+    <ProfilePickerController
+      presentation={profilePickerVisible && profilePickerIsLaunchScreen ? "screen" : "modal"}
+    />
   </>;
 }
 

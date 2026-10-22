@@ -12,59 +12,83 @@ type Props = {
   error: string | null;
   onChoose: (learnerId: string) => void;
   onManage: () => void;
+  presentation?: "modal" | "screen";
 };
 
-export function ProfilePicker({ activeLearnerId, learners, visible, error, onChoose, onManage }: Props) {
-  return (
-    <Modal animationType="fade" presentationStyle="fullScreen" visible={visible} onRequestClose={() => undefined}>
-      <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.screen}>
-        <View style={styles.header}>
-          <Text accessibilityRole="header" style={styles.title}>
-            Who’s practicing?
-          </Text>
-          <Text style={styles.subtitle}>Choose your profile to keep practice and progress just for you.</Text>
-          {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-        </View>
-        <ScrollView bounces={false} contentContainerStyle={styles.profileContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.grid}>
-            {learners.map((learner) => (
-              <Pressable
-                key={learner.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: learner.id === activeLearnerId }}
-                accessibilityLabel={`Choose ${learnerDisplayName(learner, learners)}`}
-                onPress={() => onChoose(learner.id)}
-                style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
-              >
-                <View style={[styles.avatar, { backgroundColor: PROFILE_COLORS[learner.colorId].background }, learner.id === activeLearnerId && styles.activeAvatar]}>
-                  <Text style={[styles.avatarLetter, { color: PROFILE_COLORS[learner.colorId].foreground }]}>
-                    {learnerDisplayName(learner, learners).slice(0, 1).toUpperCase()}
-                  </Text>
-                </View>
-                <Text numberOfLines={1} style={styles.name}>
-                  {learnerDisplayName(learner, learners)}
-                </Text>
-              </Pressable>
-            ))}
+export function ProfilePicker({
+  activeLearnerId,
+  learners,
+  visible,
+  error,
+  onChoose,
+  onManage,
+  presentation = "modal",
+}: Props) {
+  const content = (
+    <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.screen}>
+      <View style={styles.header}>
+        <Text accessibilityRole="header" style={styles.title}>
+          Who’s practicing?
+        </Text>
+        <Text style={styles.subtitle}>Choose your profile to keep practice and progress just for you.</Text>
+        {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+      </View>
+      <ScrollView bounces={false} contentContainerStyle={styles.profileContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.grid}>
+          {learners.map((learner) => (
             <Pressable
+              key={learner.id}
               accessibilityRole="button"
-              accessibilityLabel="Add or manage learner profiles"
-              onPress={onManage}
+              accessibilityState={{ selected: learner.id === activeLearnerId }}
+              accessibilityLabel={`Choose ${learnerDisplayName(learner, learners)}`}
+              onPress={() => onChoose(learner.id)}
               style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
             >
-              <View style={styles.addAvatar}>
-                <Text style={styles.addSymbol}>+</Text>
+              <View style={[styles.avatar, { backgroundColor: PROFILE_COLORS[learner.colorId].background }, learner.id === activeLearnerId && styles.activeAvatar]}>
+                <Text style={[styles.avatarLetter, { color: PROFILE_COLORS[learner.colorId].foreground }]}>
+                  {learnerDisplayName(learner, learners).slice(0, 1).toUpperCase()}
+                </Text>
               </View>
-              <Text style={styles.name}>Add</Text>
+              <Text numberOfLines={1} style={styles.name}>
+                {learnerDisplayName(learner, learners)}
+              </Text>
             </Pressable>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+          ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add or manage learner profiles"
+            onPress={onManage}
+            style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
+          >
+            <View style={styles.addAvatar}>
+              <Text style={styles.addSymbol}>+</Text>
+            </View>
+            <Text style={styles.name}>Add</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+
+  if (presentation === "screen") return <View style={styles.launchOverlay}>{content}</View>;
+
+  return (
+    <Modal animationType="fade" presentationStyle="fullScreen" visible={visible} onRequestClose={() => undefined}>
+      {content}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  launchOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 1,
+    elevation: 1,
+  },
   screen: { flex: 1, backgroundColor: COLORS.background },
   // Modal safe-area propagation is inconsistent on some iPhones. This extra
   // clearance keeps the title below the Dynamic Island even when it reports 0.
