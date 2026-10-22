@@ -61,6 +61,11 @@ describe("results", () => {
     expect(calculatePersonalBest(makeResult(0, 5), null).status).toBe("first");
   });
 
+  it("does not establish a competitive personal best for a narrow fact pool", () => {
+    const focused = makeResult(10, 10, { mode: "multiplication", tables: [12], factNumberLimit: 3 });
+    expect(calculatePersonalBest(focused, null, false)).toEqual({ previous: null, updated: null, status: "ineligible" });
+  });
+
   it("uses attempt gates before accuracy can earn a result tier", () => {
     expect(getResultOutcome(makeResult(2, 5))).toBe("needs-encouragement");
     expect(getResultOutcome(makeResult(4, 5))).toBe("good-start");

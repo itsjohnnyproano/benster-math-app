@@ -1,4 +1,5 @@
 import type { SprintResult } from "@/domain/math-engine";
+import type { PracticeSessionKind } from "@/domain/practiceEligibility";
 import { getResultOutcome, type ResultOutcome } from "@/domain/results";
 
 type ResultMascot = "gentle-reminder" | "thumbs-up" | "fallen" | "celebrate" | "perfect";
@@ -64,4 +65,10 @@ export function getResultPresentation(result: SprintResult) {
     title: presentation.title,
     message: presentation.message(result),
   };
+}
+
+export function getPracticeSessionSavedTitle(kind: PracticeSessionKind) {
+  if (kind === "focused") return "Focused practice saved!";
+  if (kind === "varied") return "Varied practice saved!";
+  return null;
 }

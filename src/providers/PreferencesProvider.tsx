@@ -30,6 +30,8 @@ type PreferencesContextValue = {
   removeLearner: (learnerId: string) => Promise<{ localPreferencesCleared: boolean }>;
   retryRemovedLearnerPreferencesCleanup: (learnerId: string) => Promise<boolean>;
   profilePickerVisible: boolean;
+  /** True only for the mandatory profile choice shown at a multi-profile launch. */
+  profilePickerIsLaunchScreen: boolean;
   openProfilePicker: () => void;
   closeProfilePicker: () => void;
 };
@@ -47,6 +49,7 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [saveStatus, setSaveStatus] = useState<PreferencesContextValue["saveStatus"]>("idle");
   const [profilePickerVisible, setProfilePickerVisible] = useState(false);
+  const [profilePickerIsLaunchScreen, setProfilePickerIsLaunchScreen] = useState(false);
   const preferencesRef = useRef(preferences);
   const registryRef = useRef<LearnerRegistry | null>(null);
   const mounted = useRef(false);
@@ -75,8 +78,12 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
       preferencesRef.current = learnerPreferences;
       setRegistry(loadedRegistry);
       setPreferences(learnerPreferences);
+      const shouldChooseProfile = loadedRegistry.learners.length > 1;
+      setProfilePickerIsLaunchScreen(shouldChooseProfile);
+      setProfilePickerVisible(shouldChooseProfile);
+      // Publish readiness last so a multi-profile cold launch cannot render
+      // the last active dashboard before the opaque picker is available.
       setIsReady(true);
-      setProfilePickerVisible(loadedRegistry.learners.length > 1);
     })().catch(() => { if (isMounted) setLoadError(true); });
     return () => { isMounted = false; mounted.current = false; };
   }, [loadAttempt]);
@@ -351,10 +358,17 @@ export function PreferencesProvider({ children }: PropsWithChildren) {
         }
       }),
       profilePickerVisible,
-      openProfilePicker: () => setProfilePickerVisible(true),
-      closeProfilePicker: () => setProfilePickerVisible(false),
+      profilePickerIsLaunchScreen,
+      openProfilePicker: () => {
+        setProfilePickerIsLaunchScreen(false);
+        setProfilePickerVisible(true);
+      },
+      closeProfilePicker: () => {
+        setProfilePickerVisible(false);
+        setProfilePickerIsLaunchScreen(false);
+      },
     };
-  }, [isReady, loadError, preferences, profilePickerVisible, registry, saveStatus]);
+  }, [isReady, loadError, preferences, profilePickerVisible, profilePickerIsLaunchScreen, registry, saveStatus]);
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
 }

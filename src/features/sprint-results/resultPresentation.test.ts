@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { formatResponseTime } from "@/shared/formatResponseTime";
 import { makeResult } from "@/test/resultFixture";
-import { getResultPresentation } from "./resultPresentation";
+import { getPracticeSessionSavedTitle, getResultPresentation } from "./resultPresentation";
 
 describe("result presentation", () => {
   it("keeps early perfect practice encouraging without presenting it as an earned perfect sprint", () => {
@@ -45,5 +45,11 @@ describe("result presentation", () => {
     expect(formatResponseTime(2800 / 3)).toBe("0.9 sec");
     expect(formatResponseTime(0)).toBe("0.0 sec");
     expect(formatResponseTime(null)).toBe("—");
+  });
+
+  it("uses the matching saved-practice label for focused and varied sessions", () => {
+    expect(getPracticeSessionSavedTitle("focused")).toBe("Focused practice saved!");
+    expect(getPracticeSessionSavedTitle("varied")).toBe("Varied practice saved!");
+    expect(getPracticeSessionSavedTitle("full")).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import type { SprintConfiguration } from "@/domain/sprint";
 
-import { generateQuestion } from "./questionGenerator";
+import { generateQuestion, getQuestionFactKey, getTableFactorMax } from "./questionGenerator";
+import { getPracticeEligibility } from "@/domain/practiceEligibility";
 import type {
   ActiveSprintState,
   CompletedSprintState,
@@ -67,27 +68,52 @@ function completeSprint(
   });
 }
 
+function getCustomFactPoolSize(
+  configuration: SprintConfiguration,
+  difficultyLevel: DifficultyLevel,
+) {
+  if (configuration.mode !== "multiplication" && configuration.mode !== "division") {
+    return getPracticeEligibility(configuration).factCount;
+  }
+
+  const max = configuration.factNumberLimit
+    ?? getTableFactorMax(configuration.levelUpEnabled, difficultyLevel);
+  if (configuration.mode === "division") {
+    return configuration.tables?.length ? configuration.tables.length * max : max * max;
+  }
+
+  if (!configuration.tables?.length) return max * (max + 1) / 2;
+  const facts = new Set<string>();
+  for (const table of configuration.tables) {
+    for (let otherFactor = 1; otherFactor <= max; otherFactor += 1) {
+      facts.add(getQuestionFactKey("multiplication", table, otherFactor));
+    }
+  }
+  return facts.size;
+}
+
 export function createSprint(
   configuration: SprintConfiguration,
   startedAtMs: number,
   random: RandomSource = Math.random,
 ): ActiveSprintState {
   const frozenConfiguration = Object.freeze({ ...configuration });
+  const currentQuestion = generateQuestion({
+    mode: frozenConfiguration.mode,
+    levelUpEnabled: frozenConfiguration.levelUpEnabled,
+    difficultyLevel: 1,
+    questionId: 1,
+    presentedAtMs: startedAtMs,
+    range: frozenConfiguration.range,
+    tables: frozenConfiguration.tables,
+    factNumberLimit: frozenConfiguration.factNumberLimit,
+    random,
+  });
 
   return Object.freeze({
     status: "active",
     configuration: frozenConfiguration,
-    currentQuestion: generateQuestion({
-      mode: frozenConfiguration.mode,
-      levelUpEnabled: frozenConfiguration.levelUpEnabled,
-      difficultyLevel: 1,
-      questionId: 1,
-      presentedAtMs: startedAtMs,
-      range: frozenConfiguration.range,
-      tables: frozenConfiguration.tables,
-      factNumberLimit: frozenConfiguration.factNumberLimit,
-      random,
-    }),
+    currentQuestion,
     answeredQuestions: Object.freeze([]),
     attemptedCount: 0,
     correctCount: 0,
@@ -97,6 +123,9 @@ export function createSprint(
     startedAtMs,
     endsAtMs: startedAtMs + frozenConfiguration.durationSeconds * 1000,
     nextQuestionId: 2,
+    factKeysInCurrentCycle: Object.freeze([
+      getQuestionFactKey(currentQuestion.operation, currentQuestion.leftOperand, currentQuestion.rightOperand),
+    ]),
   });
 }
 
@@ -164,18 +193,32 @@ export function submitAnswer(
     return completeSprint(updatedState, state.endsAtMs);
   }
 
+  const hasCustomFactPool = state.configuration.range !== undefined
+    || state.configuration.tables !== undefined
+    || state.configuration.factNumberLimit !== undefined;
+  // Eligibility deliberately reports 10 facts for legacy custom settings
+  // without a limit. The cycle must instead use the actual generated pool.
+  const poolSize = getCustomFactPoolSize(state.configuration, difficultyLevel);
+  const excludedFactKeys = hasCustomFactPool && state.factKeysInCurrentCycle.length < poolSize
+    ? state.factKeysInCurrentCycle
+    : [];
+  const currentQuestion = generateQuestion({
+    mode: state.configuration.mode,
+    levelUpEnabled: state.configuration.levelUpEnabled,
+    difficultyLevel,
+    questionId: state.nextQuestionId,
+    presentedAtMs: Math.max(answeredAtMs, nextQuestionPresentedAtMs),
+    range: state.configuration.range,
+    tables: state.configuration.tables,
+    factNumberLimit: state.configuration.factNumberLimit,
+    excludedFactKeys,
+    random,
+  });
+  const nextFactKey = getQuestionFactKey(currentQuestion.operation, currentQuestion.leftOperand, currentQuestion.rightOperand);
+
   return Object.freeze({
     ...updatedState,
-    currentQuestion: generateQuestion({
-      mode: state.configuration.mode,
-      levelUpEnabled: state.configuration.levelUpEnabled,
-      difficultyLevel,
-      questionId: state.nextQuestionId,
-      presentedAtMs: Math.max(answeredAtMs, nextQuestionPresentedAtMs),
-      range: state.configuration.range,
-      tables: state.configuration.tables,
-      factNumberLimit: state.configuration.factNumberLimit,
-      random,
-    }),
+    currentQuestion,
+    factKeysInCurrentCycle: Object.freeze([...excludedFactKeys, nextFactKey]),
   });
 }

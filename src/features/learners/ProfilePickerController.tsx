@@ -5,7 +5,7 @@ import { usePreferences } from "@/providers/PreferencesProvider";
 import { ProfilePicker } from "./ProfilePicker";
 
 /** Owns profile-picker interaction state so the root route only composes features. */
-export function ProfilePickerController() {
+export function ProfilePickerController({ presentation = "modal" }: { presentation?: "modal" | "screen" }) {
   const router = useRouter();
   const {
     learners,
@@ -21,6 +21,7 @@ export function ProfilePickerController() {
       activeLearnerId={activeLearner.id}
       learners={learners}
       visible={profilePickerVisible}
+      presentation={presentation}
       error={switchError}
       onChoose={(learnerId) => {
         setSwitchError(null);

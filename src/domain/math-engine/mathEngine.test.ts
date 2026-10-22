@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SprintConfiguration } from "@/domain/sprint";
 
-import { generateQuestion } from "./questionGenerator";
+import { generateQuestion, getQuestionFactKey } from "./questionGenerator";
 import {
   createSprint,
   getSprintMilestone,
@@ -193,6 +193,103 @@ describe("question generation", () => {
 });
 
 describe("sprint state", () => {
+  it("cycles through selected custom facts before repeating an equivalent multiplication fact", () => {
+    const configuration: SprintConfiguration = {
+      ...CONFIGURATION,
+      mode: "multiplication",
+      tables: [12],
+      factNumberLimit: 3,
+    };
+    let state = createSprint(configuration, 0, () => 0);
+    const keys = [getQuestionFactKey(
+      state.currentQuestion.operation,
+      state.currentQuestion.leftOperand,
+      state.currentQuestion.rightOperand,
+    )];
+
+    for (let index = 0; index < 3; index += 1) {
+      const next = submitAnswer(
+        state,
+        state.currentQuestion.correctAnswer,
+        index * 1_000 + 500,
+        () => 0,
+        index * 1_000 + 600,
+      );
+      if (next.status !== "active") throw new Error("Sprint ended early");
+      state = next;
+      keys.push(getQuestionFactKey(
+        state.currentQuestion.operation,
+        state.currentQuestion.leftOperand,
+        state.currentQuestion.rightOperand,
+      ));
+    }
+
+    expect(new Set(keys.slice(0, 3))).toHaveLength(3);
+    expect(keys[3]).toBe(keys[0]);
+  });
+
+  it("cycles through all twelve legacy selected-table facts before repeating", () => {
+    const configuration: SprintConfiguration = {
+      ...CONFIGURATION,
+      mode: "multiplication",
+      levelUpEnabled: false,
+      tables: [12],
+    };
+    let state = createSprint(configuration, 0, () => 0);
+    const keys = [getQuestionFactKey(
+      state.currentQuestion.operation,
+      state.currentQuestion.leftOperand,
+      state.currentQuestion.rightOperand,
+    )];
+
+    for (let index = 0; index < 12; index += 1) {
+      const next = submitAnswer(
+        state,
+        state.currentQuestion.correctAnswer,
+        index * 1_000 + 500,
+        () => 0,
+        index * 1_000 + 600,
+      );
+      if (next.status !== "active") throw new Error("Sprint ended early");
+      state = next;
+      keys.push(getQuestionFactKey(
+        state.currentQuestion.operation,
+        state.currentQuestion.leftOperand,
+        state.currentQuestion.rightOperand,
+      ));
+    }
+
+    expect(new Set(keys.slice(0, 12))).toHaveLength(12);
+    expect(keys[12]).toBe(keys[0]);
+  });
+
+  it("finds an unseen subtraction fact in the selected range after core facts", () => {
+    const configuration: SprintConfiguration = {
+      ...CONFIGURATION,
+      mode: "subtraction",
+      levelUpEnabled: false,
+      range: 20,
+    };
+    const initial = createSprint(configuration, 0, () => 0);
+    const coreFactKeys = [] as string[];
+    for (let left = 0; left <= 12; left += 1) {
+      for (let right = 0; right <= left; right += 1) {
+        coreFactKeys.push(getQuestionFactKey("subtraction", left, right));
+      }
+    }
+    const state = { ...initial, factKeysInCurrentCycle: Object.freeze(coreFactKeys) };
+    const next = submitAnswer(state, state.currentQuestion.correctAnswer, 500, () => 0, 600);
+    if (next.status !== "active") throw new Error("Sprint ended early");
+
+    expect(getQuestionFactKey(
+      next.currentQuestion.operation,
+      next.currentQuestion.leftOperand,
+      next.currentQuestion.rightOperand,
+    )).not.toBe("subtraction:0:0");
+    expect(next.currentQuestion.leftOperand).toBe(13);
+    expect(next.currentQuestion.rightOperand).toBe(0);
+  });
+
   it("excludes feedback from subsequent response times", () => {
     const initial = createSprint(CONFIGURATION, 1000, () => 0.2);
     const second = submitAnswer(initial, initial.currentQuestion.correctAnswer, 2000, () => 0.2, 2650);
